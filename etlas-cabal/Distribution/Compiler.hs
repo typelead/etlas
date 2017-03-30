@@ -57,6 +57,7 @@ import qualified Text.PrettyPrint as Disp
 
 data CompilerFlavor =
   GHC | GHCJS | NHC | YHC | Hugs | HBC | Helium | JHC | LHC | UHC
+  | Eta
   | HaskellSuite String -- string is the id of the actual compiler
   | OtherCompiler String
   deriving (Generic, Show, Read, Eq, Ord, Typeable, Data)
@@ -64,7 +65,7 @@ data CompilerFlavor =
 instance Binary CompilerFlavor
 
 knownCompilerFlavors :: [CompilerFlavor]
-knownCompilerFlavors = [GHC, GHCJS, NHC, YHC, Hugs, HBC, Helium, JHC, LHC, UHC]
+knownCompilerFlavors = [GHC, GHCJS, Eta, NHC, YHC, Hugs, HBC, Helium, JHC, LHC, UHC]
 
 instance Text CompilerFlavor where
   disp (OtherCompiler name) = Disp.text name
@@ -125,9 +126,7 @@ buildCompilerId = CompilerId buildCompilerFlavor buildCompilerVersion
 -- will have to specify which compiler they want.
 --
 defaultCompilerFlavor :: Maybe CompilerFlavor
-defaultCompilerFlavor = case buildCompilerFlavor of
-  OtherCompiler _ -> Nothing
-  _               -> Just buildCompilerFlavor
+defaultCompilerFlavor = Just Eta
 
 -- ------------------------------------------------------------
 -- * Compiler Id

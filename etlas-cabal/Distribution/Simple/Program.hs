@@ -98,6 +98,12 @@ module Distribution.Simple.Program (
     , ghcPkgProgram
     , ghcjsProgram
     , ghcjsPkgProgram
+    , etaProgram
+    , etaPkgProgram
+    , javaProgram
+    , javacProgram
+    , gitProgram
+    , coursierProgram
     , lhcProgram
     , lhcPkgProgram
     , hmakeProgram

@@ -246,6 +246,7 @@ instance Semigroup SavedConfig where
         installStrongFlags           = combine installStrongFlags,
         installAllowBootLibInstalls  = combine installAllowBootLibInstalls,
         installReinstall             = combine installReinstall,
+        installEtaPatchesDirectory   = combine installEtaPatchesDirectory,
         installAvoidReinstalls       = combine installAvoidReinstalls,
         installOverrideReinstall     = combine installOverrideReinstall,
         installUpgradeDeps           = combine installUpgradeDeps,
@@ -453,7 +454,7 @@ initialSavedConfig = do
   return mempty {
     savedGlobalFlags     = mempty {
       globalCacheDir     = toFlag cacheDir,
-      globalRemoteRepos  = toNubList [defaultRemoteRepo],
+      globalRemoteRepos  = toNubList defaultRemoteRepos,
       globalWorldFile    = toFlag worldFile
     },
     savedConfigureFlags  = mempty {
@@ -469,7 +470,7 @@ initialSavedConfig = do
 --TODO: misleading, there's no way to override this default
 --      either make it possible or rename to simply getCabalDir.
 defaultCabalDir :: IO FilePath
-defaultCabalDir = getAppUserDataDirectory "cabal"
+defaultCabalDir = getAppUserDataDirectory "etlas"
 
 defaultConfigFile :: IO FilePath
 defaultConfigFile = do
@@ -486,6 +487,11 @@ defaultLogsDir = do
   dir <- defaultCabalDir
   return $ dir </> "logs"
 
+defaultPatchesDir :: IO FilePath
+defaultPatchesDir = do
+  dir <- defaultCabalDir
+  return $ dir </> "patches"
+
 -- | Default position of the world file
 defaultWorldFile :: IO FilePath
 defaultWorldFile = do
@@ -498,18 +504,23 @@ defaultExtraPath = do
   return [dir </> "bin"]
 
 defaultCompiler :: CompilerFlavor
-defaultCompiler = fromMaybe GHC defaultCompilerFlavor
+defaultCompiler = fromMaybe Eta defaultCompilerFlavor
 
 defaultUserInstall :: Bool
 defaultUserInstall = True
 -- We do per-user installs by default on all platforms. We used to default to
 -- global installs on Windows but that no longer works on Windows Vista or 7.
 
-defaultRemoteRepo :: RemoteRepo
-defaultRemoteRepo = RemoteRepo name uri Nothing [] 0 False
+defaultRemoteRepos :: [RemoteRepo]
+defaultRemoteRepos = [ RemoteRepo hackageName hackageUri Nothing [] 0 False
+                     , RemoteRepo etlasName   etlasUri   Nothing [] 0 False ]
   where
-    name = "hackage.haskell.org"
-    uri  = URI "http:" (Just (URIAuth "" name "")) "/" "" ""
+    hackageName = "hackage.haskell.org"
+    hackageUri  = URI "http:" (Just (URIAuth "" hackageName ""))
+                      "/packages/archive" "" ""
+    etlasName = "git.etlas.eta-lang.org"
+    etlasUri  = URI "http:" (Just (URIAuth "" "github.com" ""))
+                      "/typelead/etlas-index" "" ""
     -- Note that lots of old ~/.cabal/config files will have the old url
     -- http://hackage.haskell.org/packages/archive
     -- but new config files can use the new url (without the /packages/archive)

@@ -43,6 +43,7 @@ library
     ghc-options:    -Wall -fwarn-tabs
 
     exposed-modules:
+        Distribution.Client.Brancher
         Distribution.Client.BuildReports.Anonymous
         Distribution.Client.BuildReports.Storage
         Distribution.Client.BuildReports.Types
@@ -91,6 +92,7 @@ library
         Distribution.Client.PackageHash
         Distribution.Client.PackageUtils
         Distribution.Client.ParseUtils
+        Distribution.Client.Patch
         Distribution.Client.ProjectBuilding
         Distribution.Client.ProjectBuilding.Types
         Distribution.Client.ProjectConfig

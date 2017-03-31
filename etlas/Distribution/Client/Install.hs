@@ -82,7 +82,8 @@ import Distribution.Client.Setup
          , ConfigFlags(..), configureCommand, filterConfigureFlags
          , ConfigExFlags(..), InstallFlags(..) )
 import Distribution.Client.Config
-         ( defaultCabalDir, defaultUserInstall )
+         ( defaultCabalDir, defaultUserInstall, defaultPatchesDir )
+import Distribution.Client.Patch
 import Distribution.Client.Sandbox.Timestamp
          ( withUpdateTimestamps )
 import Distribution.Client.Sandbox.Types
@@ -162,7 +163,7 @@ import Distribution.Simple.Utils as Utils
          ( notice, info, warn, debug, debugNoWrap, die'
          , withTempDirectory )
 import Distribution.Client.Utils
-         ( determineNumJobs, logDirChange, mergeBy, MergeResult(..)
+         ( determineNumJobs', logDirChange, mergeBy, MergeResult(..)
          , tryCanonicalizePath )
 import Distribution.System
          ( Platform, OS(Windows), buildOS )
@@ -1094,7 +1095,7 @@ performInstallations verbosity
     installReadyPackage platform cinfo configFlags
                         rpkg $ \configFlags' src pkg pkgoverride ->
       fetchSourcePackage verbosity repoCtxt fetchLimit src $ \src' ->
-        installLocalPackage verbosity (packageId pkg) src' distPref $ \mpath ->
+        installLocalPackage verbosity (packageId pkg) src' distPref  $ \mpath ->
           installUnpackedPackage verbosity installLock numJobs
                                  (setupScriptOptions installedPkgIndex
                                   cacheLock rpkg)
@@ -1105,7 +1106,7 @@ performInstallations verbosity
   where
     cinfo = compilerInfo comp
 
-    numJobs         = determineNumJobs (installNumJobs installFlags)
+    numJobs         = determineNumJobs' (installNumJobs installFlags)
     numFetchJobs    = 2
     parallelInstall = numJobs >= 2
     keepGoing       = fromFlag (installKeepGoing installFlags)

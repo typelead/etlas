@@ -27,6 +27,15 @@ import Distribution.Client.IndexUtils.Timestamp
 import Distribution.Client.IndexUtils
          ( updateRepoIndexCache, Index(..), writeIndexTimestamp
          , currentIndexTimestamp )
+import Distribution.Client.Config
+         ( defaultPatchesDir )
+import Distribution.Client.Config
+         ( defaultPatchesDir )
+import Distribution.Simple.Configure
+         ( etaHackageUrl )
+import Distribution.Simple.Program
+         ( gitProgram, defaultProgramConfiguration, runProgramInvocation, programInvocation,
+           requireProgramVersion )
 import Distribution.Client.JobControl
          ( newParallelJobControl, spawnJob, collectJob )
 import Distribution.Client.Setup
@@ -37,6 +46,11 @@ import Distribution.Verbosity
 
 import Distribution.Simple.Utils
          ( writeFileAtomic, warn, notice, noticeNoWrap )
+import Distribution.Version
+         ( Version(..), orLaterVersion )
+import Distribution.Client.GZipUtils ( maybeDecompress )
+import System.FilePath               ( dropExtension )
+import System.Directory              ( doesDirectoryExist )
 
 import qualified Data.ByteString.Lazy       as BS
 import Distribution.Client.GZipUtils (maybeDecompress)
@@ -105,3 +119,20 @@ updateRepo verbosity updateFlags repoCtxt repo = do
         noticeNoWrap verbosity $
           "To revert to previous state run:\n" ++
           "    cabal update --index-state='" ++ display current_ts ++ "'\n"
+
+git only supports the -C flag as of 1.8.5
+-- See  http://stackoverflow.com/questions/5083224/git-pull-while-not-in-a-git-directory
+  updatePatchRepo :: Verbosity -> IO ()
+  updatePatchRepo verbosity = do
+    notice verbosity $ "Updating the eta-hackage patch set"
+    (gitProg, _, _) <- requireProgramVersion verbosity
+                       gitProgram
+                       (orLaterVersion (Version [1,8,5] []))
+                       defaultProgramConfiguration
+    let runGit = runProgramInvocation verbosity . programInvocation gitProg
+    patchesDir <- defaultPatchesDir
+    exists <- doesDirectoryExist patchesDir
+    if exists
+    then runGit ["-C", patchesDir, "pull"]
+    else
+       runGit ["clone", "--depth=1", "--config", "core.autocrlf=false", etaHackageUrl, patchesDir]

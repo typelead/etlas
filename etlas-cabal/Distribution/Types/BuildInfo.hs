@@ -55,6 +55,7 @@ data BuildInfo = BuildInfo {
         extraFrameworkDirs:: [String], -- ^ extra locations to find frameworks.
         cSources          :: [FilePath],
         jsSources         :: [FilePath],
+        javaSources       :: [FilePath],
         hsSourceDirs      :: [FilePath], -- ^ where to look for the Haskell module hierarchy
         otherModules      :: [ModuleName], -- ^ non-exposed or non-main modules
         autogenModules    :: [ModuleName], -- ^ not present on sdist, Paths_* or user-generated with a custom Setup.hs
@@ -97,6 +98,7 @@ instance Monoid BuildInfo where
     extraFrameworkDirs  = [],
     cSources            = [],
     jsSources           = [],
+    javaSources         = [],
     hsSourceDirs        = [],
     otherModules        = [],
     autogenModules      = [],
@@ -133,6 +135,7 @@ instance Semigroup BuildInfo where
     extraFrameworkDirs  = combineNub extraFrameworkDirs,
     cSources            = combineNub cSources,
     jsSources           = combineNub jsSources,
+    javaSources         = combineNub javaSources,
     hsSourceDirs        = combineNub hsSourceDirs,
     otherModules        = combineNub otherModules,
     autogenModules      = combineNub autogenModules,

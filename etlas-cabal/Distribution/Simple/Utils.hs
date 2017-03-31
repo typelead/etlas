@@ -768,7 +768,8 @@ rawSystemStdout verbosity path args = withFrozenCallStack $ do
                                                   Nothing False
   when (exitCode /= ExitSuccess) $
     die errors
-  return output
+    -- TODO: This may cause bugs later
+  return $ output ++ errors
 
 -- | Run a command and return its output, errors and exit status. Optionally
 -- also supply some input. Also provides control over whether the binary/text

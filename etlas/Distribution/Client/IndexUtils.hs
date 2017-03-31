@@ -54,6 +54,8 @@ import Distribution.Package
          , Package(..), packageVersion, packageName )
 import Distribution.Types.Dependency
 import Distribution.Simple.PackageIndex (InstalledPackageIndex)
+import Distribution.Client.Patch
+import Distribution.Client.Config
 import Distribution.PackageDescription
          ( GenericPackageDescription )
 import Distribution.Simple.Compiler
@@ -105,12 +107,14 @@ import Distribution.Compat.Exception (catchIO)
 import Distribution.Compat.Time (getFileAge, getModTime)
 import System.Directory (doesFileExist, doesDirectoryExist)
 import System.FilePath
-         ( (</>), (<.>), takeExtension, replaceExtension, splitDirectories, normalise )
+         ( (</>), (<.>), takeExtension, replaceExtension, splitDirectories, normalise,
+         takeDirectory )
 import System.FilePath.Posix as FilePath.Posix
          ( takeFileName )
 import System.IO
 import System.IO.Unsafe (unsafeInterleaveIO)
 import System.IO.Error (isDoesNotExistError)
+import Control.Arrow
 
 import qualified Hackage.Security.Client    as Sec
 import qualified Hackage.Security.Util.Some as Sec

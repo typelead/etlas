@@ -10,6 +10,8 @@
 --
 -- Where possible we try to find their version numbers.
 --
+{-# LANGUAGE RankNTypes, FlexibleContexts #-}
+
 module Distribution.Simple.Program.Builtin (
 
     -- * The collection of unconfigured and configured programs
@@ -21,6 +23,12 @@ module Distribution.Simple.Program.Builtin (
     runghcProgram,
     ghcjsProgram,
     ghcjsPkgProgram,
+    etaProgram,
+    javaProgram,
+    javacProgram,
+    gitProgram,
+    coursierProgram,
+    etaPkgProgram,
     lhcProgram,
     lhcPkgProgram,
     hmakeProgram,
@@ -59,6 +67,8 @@ import Distribution.Verbosity
 import Distribution.Version
 
 import qualified Data.Map as Map
+import System.Environment
+import System.FilePath
 
 -- ------------------------------------------------------------
 -- * Known programs
@@ -75,6 +85,8 @@ builtinPrograms =
     , ghcPkgProgram
     , ghcjsProgram
     , ghcjsPkgProgram
+    , etaProgram
+    , etaPkgProgram
     , haskellSuiteProgram
     , haskellSuitePkgProgram
     , hmakeProgram
@@ -100,6 +112,11 @@ builtinPrograms =
     , tarProgram
     -- configuration tools
     , pkgConfigProgram
+    -- Eta-specific tools
+    , javaProgram
+    , javacProgram
+    , gitProgram
+    , coursierProgram
     ]
 
 ghcProgram :: Program
@@ -153,6 +170,95 @@ ghcjsPkgProgram = (simpleProgram "ghcjs-pkg") {
     programFindVersion = findProgramVersion "--version" $ \str ->
       -- Invoking "ghcjs-pkg --version" gives a string like
       -- "GHCJS package manager version 6.4.1"
+      case words str of
+        (_:_:_:_:ver:_) -> ver
+        _               -> ""
+  }
+
+etaProgram :: Program
+etaProgram = (simpleProgram "eta") {
+    programFindVersion = findProgramVersion "--numeric-version" id
+  }
+
+-- TODO: Clean this up
+underscoreToDot = map (\c -> if c == '_' then '.' else c)
+
+findProgramInJavaHomeOrSearchPath :: String
+                                  -> Verbosity
+                                  -> ProgramSearchPath
+                                  -> IO (Maybe (FilePath, [FilePath]))
+findProgramInJavaHomeOrSearchPath name verbosity searchPath = do
+  mJavaHome <- lookupEnv "JAVA_HOME"
+  case mJavaHome of
+    Just javaHome ->
+      let
+        bin         = javaHome </> "bin"
+        searchPath' = ProgramSearchPathDir bin : searchPath
+      in findProgramOnSearchPath verbosity searchPath' name
+    Nothing ->
+      findProgramOnSearchPath verbosity searchPath name
+
+javaProgram :: Program
+javaProgram = (simpleProgram "java") {
+    programFindLocation = \v p -> findProgramInJavaHomeOrSearchPath "java" v p
+  , programFindVersion = findProgramVersion "-version" $ \str ->
+        -- Invoking "java -version" gives a string like
+        -- "java version \"1.7.0_79\""
+        case filter (isInfixOf "version") (lines str) of
+          (l:_)
+            | (_:_:quotedVersion:_) <- words l ->
+              underscoreToDot $ drop 1 (init quotedVersion)
+          _ -> error $ "Invalid java version"
+  }
+
+javacProgram :: Program
+javacProgram = (simpleProgram "javac") {
+    programFindLocation = \v p -> findProgramInJavaHomeOrSearchPath "javac" v p
+  , programFindVersion = findProgramVersion "-version" $ \str ->
+        -- Invoking "javac -version" gives a string like
+        -- "javac 1.7.0_79"
+        case filter (isInfixOf "javac") (lines str) of
+          (l:_)
+            | (_:version:_) <- words str -> underscoreToDot version
+          _             -> error $ "Invalid javac version"
+  }
+
+coursierProgram :: Program
+coursierProgram = (simpleProgram "coursier") {
+    programFindLocation = \v p -> findProgramInJavaHomeOrSearchPath "coursier" v p
+  , programFindVersion = findProgramVersion "--help" $ \str ->
+        -- Invoking "coursier --help" gives a string like
+        -- "Coursier 1.0.0-M15"
+        -- TODO: We may need to make this more robust.
+        case filter (isInfixOf "Coursier") (lines str) of
+          (l:_)
+            | (_:version:_) <- words str -> removeM version
+          _             -> error $ "Invalid javac version"
+  }
+  where removeM version = start ++ "." ++ drop 2 end
+          where (start, end) = break (== '-') version
+
+gitProgram :: Program
+gitProgram = (simpleProgram "git") {
+    programFindVersion = findProgramVersion "--version" $ \str ->
+        -- Invoking "git --version" gives a string like
+        --- "git version 2.7.4 (Apple Git-66)"
+        let split cs = case break (=='.') cs of
+              (chunk,[])     -> chunk : []
+              (chunk,_:rest) -> chunk : split rest
+            join [s] = s
+            join (s:ss) = s ++ ('.' : join ss)
+        in case words str of
+          (_:_:version:_) -> join . take 3 $ split version
+          _               -> ""
+  }
+
+-- note: version is the version number of the GHC version that eta-pkg was built with
+etaPkgProgram :: Program
+etaPkgProgram = (simpleProgram "eta-pkg") {
+    programFindVersion = findProgramVersion "--version" $ \str ->
+      -- Invoking "eta-pkg --version" gives a string like
+      -- "ETA package manager version 0.0.1"
       case words str of
         (_:_:_:_:ver:_) -> ver
         _               -> ""

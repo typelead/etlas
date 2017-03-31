@@ -318,7 +318,7 @@ findIncludeFile verbosity (d:ds) f = do
   b <- doesFileExist path
   if b then return (f,path) else findIncludeFile verbosity ds f
 
--- | Remove the auto-generated modules (like 'Paths_*') from 'exposed-modules' 
+-- | Remove the auto-generated modules (like 'Paths_*') from 'exposed-modules'
 -- and 'other-modules'.
 filterAutogenModules :: PackageDescription -> PackageDescription
 filterAutogenModules pkg_descr0 = mapLib filterAutogenModuleLib $
@@ -447,7 +447,7 @@ allSourcesBuildInfo verbosity bi pps modules = do
       in findFileWithExtension fileExts (hsSourceDirs bi) file
     | module_ <- modules ++ otherModules bi ]
 
-  return $ sources ++ catMaybes bootFiles ++ cSources bi ++ jsSources bi
+  return $ sources ++ catMaybes bootFiles ++ cSources bi ++ jsSources bi ++ javaSources bi
 
   where
     nonEmpty x _ [] = x

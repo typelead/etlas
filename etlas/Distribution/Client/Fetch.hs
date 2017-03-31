@@ -207,3 +207,7 @@ fetchPackage verbosity repoCtxt pkgsrc = case pkgsrc of
     RepoTarballPackage repo pkgid _ -> do
       _ <- fetchRepoTarball verbosity repoCtxt repo pkgid
       return ()
+
+    ScmPackage (Just repo) sourceRepos pkgid _ -> do
+      _ <- fetchSourceRepo verbosity repo pkgid sourceRepos
+      return ()

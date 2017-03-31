@@ -1013,6 +1013,7 @@ checkPaths pkg =
       ++ concat
          [    [ (path, "c-sources")        | path <- cSources        bi ]
            ++ [ (path, "js-sources")       | path <- jsSources       bi ]
+           ++ [ (path, "java-sources")     | path <- javaSources     bi ]
            ++ [ (path, "install-includes") | path <- installIncludes bi ]
            ++ [ (path, "hs-source-dirs")   | path <- hsSourceDirs    bi ]
          | bi <- allBuildInfo pkg ]

@@ -60,7 +60,7 @@ import Prelude ()
 import Distribution.Client.Compat.Prelude hiding (get)
 
 import Distribution.Client.Types
-         ( Username(..), Password(..), RemoteRepo(..) )
+         ( Username(..), Password(..), RemoteRepo(..), Repo(..), LocalRepo(..), IndexType(..) )
 import Distribution.Client.BuildReports.Types
          ( ReportLevel(..) )
 import Distribution.Client.Dependency.Types
@@ -109,7 +109,7 @@ import Distribution.Text
 import Distribution.ReadE
          ( ReadE(..), readP_to_E, succeedReadE )
 import qualified Distribution.Compat.ReadP as Parse
-         ( ReadP, char, munch1, pfail, sepBy1, (+++) )
+         ( ReadP, char, munch1, pfail, sepBy1, (+++), skipSpaces )
 import Distribution.ParseUtils
          ( readPToMaybe )
 import Distribution.Verbosity
@@ -122,7 +122,7 @@ import Distribution.Client.GlobalFlags
          )
 
 import Data.List
-         ( deleteFirstsBy )
+         ( deleteFirstsBy, stripePrefix, delete, intercalate )
 import System.FilePath
          ( (</>) )
 import Network.URI
@@ -132,9 +132,9 @@ globalCommand :: [Command action] -> CommandUI GlobalFlags
 globalCommand commands = CommandUI {
     commandName         = "",
     commandSynopsis     =
-         "Command line interface to the Haskell Cabal infrastructure.",
+         "Command line interface to Etlas.",
     commandUsage        = \pname ->
-         "See http://www.haskell.org/cabal/ for more information.\n"
+         "See https://github.com/typelead/etlas for more information.\n"
       ++ "\n"
       ++ "Usage: " ++ pname ++ " [GLOBAL FLAGS] [COMMAND [FLAGS]]\n",
     commandDescription  = Just $ \pname ->
@@ -333,7 +333,8 @@ globalCommand commands = CommandUI {
        option [] ["remote-repo"]
          "The name and url for a remote repository"
          globalRemoteRepos (\v flags -> flags { globalRemoteRepos = v })
-         (reqArg' "NAME:URL" (toNubList . maybeToList . readRepo) (map showRepo . fromNubList))
+         (reqArg' "[git.]NAME:URL" (toNubList . fromMaybe [] . readRepos)
+                                   (map showRepo . fromNubList))
 
       ,option [] ["remote-repo-cache"]
          "The location where downloads from all remote repos are cached"
@@ -1443,6 +1444,7 @@ data InstallFlags = InstallFlags {
     installNumJobs          :: Flag (Maybe Int),
     installKeepGoing        :: Flag Bool,
     installRunTests         :: Flag Bool,
+    installEtaPatchesDirectory :: Flag FilePath,
     installOfflineMode      :: Flag Bool,
     -- | The cabal project file name; defaults to @cabal.project@.
     -- Th name itself denotes the cabal project file name, but it also
@@ -1487,6 +1489,7 @@ defaultInstallFlags = InstallFlags {
     installNumJobs         = mempty,
     installKeepGoing       = Flag False,
     installRunTests        = mempty,
+    installEtaPatchesDirectory = mempty,
     installOfflineMode     = Flag False,
     installProjectFileName = mempty
   }
@@ -1675,6 +1678,11 @@ installOptions showOrParseArgs =
           "Add symlinks to installed executables into this directory."
            installSymlinkBinDir (\v flags -> flags { installSymlinkBinDir = v })
            (reqArgFlag "DIR")
+
+      , option [] ["patches-directory"]
+          "Specify explicit Eta patches directory"
+          installEtaPatchesDirectory (\v flags -> flags { installEtaPatchesDirectory = v })
+          (reqArgFlag "DIR")
 
       , option [] ["build-summary"]
           "Save build summaries to file (name template can use $pkgid, $compiler, $os, $arch)"
@@ -2492,8 +2500,15 @@ showRepo :: RemoteRepo -> String
 showRepo repo = remoteRepoName repo ++ ":"
              ++ uriToString id (remoteRepoURI repo) []
 
-readRepo :: String -> Maybe RemoteRepo
-readRepo = readPToMaybe parseRepo
+readRepos :: String -> Maybe [RemoteRepo]
+readRepos = readPToMaybe parseRepos
+
+parseRepos :: Parse.ReadP r [RemoteRepo]
+parseRepos = Parse.sepBy1 (do Parse.skipSpaces
+                             repo <- parseRepo
+                             Parse.skipSpaces
+                             return repo)
+                         (Parse.char ',')
 
 parseRepo :: Parse.ReadP r RemoteRepo
 parseRepo = do

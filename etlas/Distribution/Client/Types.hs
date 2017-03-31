@@ -26,7 +26,7 @@ import Distribution.Package
 import Distribution.InstalledPackageInfo
          ( InstalledPackageInfo, installedComponentId, sourceComponentName )
 import Distribution.PackageDescription
-         ( FlagAssignment )
+         ( FlagAssignment, SourceRepo, TestSuite(..), BenchMark(..), GenericPackageDescription(..) )
 import Distribution.Version
          ( VersionRange )
 import Distribution.Types.ComponentId
@@ -58,6 +58,8 @@ import Data.Map (Map)
 import Network.URI (URI(..), URIAuth(..), nullURI)
 import Control.Exception
          ( Exception, SomeException )
+import Data.List ( isSuffixOf )
+import System.FilePath ((</>))
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Distribution.Compat.Binary (Binary(..))
@@ -233,9 +235,8 @@ data PackageLocation local =
     -- locally cached copy. ie a package available from hackage
   | RepoTarballPackage Repo PackageId local
 
---TODO:
---  * add support for darcs and other SCM style remote repos with a local cache
---  | ScmPackage
+-- | A package available as a source control mangement (SCM) repository.
+  | ScmPackage (Maybe Repo) [SourceRepo] PackageId local
   deriving (Show, Functor, Eq, Ord, Generic, Typeable)
 
 instance Binary local => Binary (PackageLocation local)

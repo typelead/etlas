@@ -219,8 +219,8 @@ globalCommand commands = CommandUI
   { commandName         = ""
   , commandSynopsis     = ""
   , commandUsage        = \pname ->
-         "This Setup program uses the Haskell Cabal Infrastructure.\n"
-      ++ "See http://www.haskell.org/cabal/ for more information.\n"
+         "This Setup program uses Etlas.\n"
+      ++ "See http://www.github.com/typelead/etlas for more information.\n"
       ++ "\n"
       ++ "Usage: " ++ pname ++ " [GLOBAL FLAGS] [COMMAND [FLAGS]]\n"
   , commandDescription = Just $ \pname ->
@@ -514,12 +514,12 @@ defaultConfigFlags progDb = emptyConfigFlags {
     configVanillaLib   = Flag True,
     configProfLib      = NoFlag,
     configSharedLib    = NoFlag,
-    configDynExe       = Flag False,
+    configDynExe       = Flag True,
     configProfExe      = NoFlag,
     configProf         = NoFlag,
     configProfDetail   = NoFlag,
     configProfLibDetail= NoFlag,
-    configOptimization = Flag NormalOptimisation,
+    configOptimization = Flag MaximumOptimisation,
     configProgPrefix   = Flag (toPathTemplate ""),
     configProgSuffix   = Flag (toPathTemplate ""),
     configDistPref     = NoFlag,
@@ -594,6 +594,7 @@ configureOptions showOrParseArgs =
          configHcFlavor (\v flags -> flags { configHcFlavor = v })
          (choiceOpt [ (Flag GHC,   ("g", ["ghc"]),   "compile with GHC")
                     , (Flag GHCJS, ([] , ["ghcjs"]), "compile with GHCJS")
+                    , (Flag Eta,   ([] , ["eta"]),   "compile with Eta")
                     , (Flag JHC,   ([] , ["jhc"]),   "compile with JHC")
                     , (Flag LHC,   ([] , ["lhc"]),   "compile with LHC")
                     , (Flag UHC,   ([] , ["uhc"]),   "compile with UHC")
@@ -647,6 +648,11 @@ configureOptions showOrParseArgs =
       ,option "" ["executable-dynamic"]
          "Executable dynamic linking"
          configDynExe (\v flags -> flags { configDynExe = v })
+         (boolOpt [] [])
+
+     ,option "" ["uberjar-mode"]
+         "Build an standalone jar (uberjar)."
+         (fmap not . configDynExe) (\v flags -> flags { configDynExe = fmap not v })
          (boolOpt [] [])
 
       ,option "" ["profiling"]

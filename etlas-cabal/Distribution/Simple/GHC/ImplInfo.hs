@@ -11,7 +11,7 @@
 
 module Distribution.Simple.GHC.ImplInfo (
         GhcImplInfo(..), getImplInfo,
-        ghcVersionImplInfo, ghcjsVersionImplInfo, lhcVersionImplInfo
+        ghcVersionImplInfo, ghcjsVersionImplInfo, etaVersionImplInfo, lhcVersionImplInfo
         ) where
 
 import Prelude ()
@@ -51,11 +51,15 @@ getImplInfo comp =
     GHC   -> ghcVersionImplInfo (compilerVersion comp)
     LHC   -> lhcVersionImplInfo (compilerVersion comp)
     GHCJS -> case compilerCompatVersion GHC comp of
-              Just ghcVer -> ghcjsVersionImplInfo (compilerVersion comp) ghcVer
-              _  -> error ("Distribution.Simple.GHC.Props.getImplProps: " ++
+               Just ghcVer -> ghcjsVersionImplInfo (compilerVersion comp) ghcVer
+               _  -> error ("Distribution.Simple.GHC.Props.getImplProps: " ++
                            "could not find GHC version for GHCJS compiler")
+    Eta   -> case compilerCompatVersion GHC comp of
+               Just ghcVer -> etaVersionImplInfo (compilerVersion comp) ghcVer
+               _  -> error ("Distribution.Simple.GHC.Props.getImplProps: " ++
+                           "could not find GHC version for Eta compiler")
     x     -> error ("Distribution.Simple.GHC.Props.getImplProps only works" ++
-                    "for GHC-like compilers (GHC, GHCJS, LHC)" ++
+                    "for GHC-like compilers (GHC, GHCJS, Eta, LHC)" ++
                     ", but found " ++ show x)
 
 ghcVersionImplInfo :: Version -> GhcImplInfo
@@ -89,6 +93,21 @@ ghcjsVersionImplInfo _ghcjsver ghcver = GhcImplInfo
   }
   where
     ghcv = versionNumbers ghcver
+
+etaVersionImplInfo :: Version
+                   -> Version
+                   -> GhcImplInfo
+etaVersionImplInfo _etaVer _ghcVer = GhcImplInfo
+  { supportsHaskell2010        = True
+  , reportsNoExt               = True
+  , alwaysNondecIndent         = False
+  , flagGhciScript             = False -- TODO: Update when Eta REPL is done
+  , flagProfAuto               = True
+  , flagPackageConf            = False
+  , flagDebugInfo              = True
+  , supportsPkgEnvFiles        = False
+  , flagWarnMissingHomeModules = False
+  }
 
 lhcVersionImplInfo :: Version -> GhcImplInfo
 lhcVersionImplInfo = ghcVersionImplInfo

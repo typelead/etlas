@@ -450,12 +450,21 @@ binfoFieldDescrs =
  , listField "extra-framework-dirs"
            showToken          parseFilePathQ
            extraFrameworkDirs (\val binfo -> binfo{extraFrameworkDirs=val})
+ , listFieldWithSep vcat "maven-repos"
+           showToken          parseTokenQ
+           frameworks         (\paths binfo -> binfo{frameworks=paths})
  , listFieldWithSep vcat "c-sources"
            showFilePath       parseFilePathQ
            cSources           (\paths binfo -> binfo{cSources=paths})
  , listFieldWithSep vcat "js-sources"
            showFilePath       parseFilePathQ
            jsSources          (\paths binfo -> binfo{jsSources=paths})
+ , listFieldWithSep vcat "java-sources"
+           showFilePath       parseFilePathQ
+           javaSources        (\paths binfo -> binfo{javaSources=paths})
+ , commaListFieldWithSep vcat "maven-depends"
+           showToken          parseTokenQ
+           extraLibs          (\xs    binfo -> binfo{extraLibs=xs})
  , simpleField "default-language"
            (maybe mempty disp) (option Nothing (fmap Just parseLanguageQ))
            defaultLanguage    (\lang  binfo -> binfo{defaultLanguage=lang})
@@ -507,9 +516,13 @@ binfoFieldDescrs =
            sharedOptions      (\val binfo -> binfo{sharedOptions=val})
  , optsField   "ghcjs-shared-options" GHCJS
            sharedOptions      (\val binfo -> binfo{sharedOptions=val})
+ , optsField   "eta-shared-options" Eta
+            sharedOptions      (\val binfo -> binfo{sharedOptions=val})
  , optsField   "ghc-options"  GHC
            options            (\path  binfo -> binfo{options=path})
  , optsField   "ghcjs-options" GHCJS
+           options            (\path  binfo -> binfo{options=path})
+ , optsField   "eta-options" Eta
            options            (\path  binfo -> binfo{options=path})
  , optsField   "jhc-options"  JHC
            options            (\path  binfo -> binfo{options=path})

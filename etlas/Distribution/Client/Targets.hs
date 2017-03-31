@@ -78,6 +78,8 @@ import qualified Codec.Archive.Tar.Entry as Tar
 import qualified Distribution.Client.Tar as Tar
 import Distribution.Client.FetchUtils
 import Distribution.Client.Utils ( tryFindPackageDesc )
+import {-# SOURCE #-} Distribution.Client.Patch ( patchedTarPackageCabalFile )
+import {-# SOURCE #-} Distribution.Client.Config (defaultPatchesDir)
 import Distribution.Client.GlobalFlags
          ( RepoContext(..) )
 
@@ -509,6 +511,8 @@ readPackageTarget verbosity = traverse modifyLocation
       RepoTarballPackage _repo _pkgid _ ->
         error "TODO: readPackageTarget RepoTarballPackage"
         -- For repo tarballs this info should be obtained from the index.
+      ScmPackage _ _ _ _ ->
+          error "TODO: readPackageTarget ScmPackage"
 
     readTarballPackageTarget location tarballFile tarballOriginalLoc = do
       (filename, content) <- extractTarballPackageCabalFile
@@ -526,14 +530,18 @@ readPackageTarget verbosity = traverse modifyLocation
 
     extractTarballPackageCabalFile :: FilePath -> String
                                    -> IO (FilePath, BS.ByteString)
-    extractTarballPackageCabalFile tarballFile tarballOriginalLoc =
-          either (die' verbosity . formatErr) return
+    extractTarballPackageCabalFile tarballFile tarballOriginalLoc = do
+     maybePatchedCabalFile <- patchedTarPackageCabalFile tarballFile defaultPatchesDir
+     maybe
+       ( either (die . formatErr) return
         . check
         . accumEntryMap
         . Tar.filterEntries isCabalFile
         . Tar.read
         . GZipUtils.maybeDecompress
-      =<< BS.readFile tarballFile
+        =<< BS.readFile tarballFile
+        return
+        maybePatchedCabalFile
       where
         formatErr msg = "Error reading " ++ tarballOriginalLoc ++ ": " ++ msg
 
@@ -559,7 +567,7 @@ readPackageTarget verbosity = traverse modifyLocation
 
     parsePackageDescription' :: BS.ByteString -> Maybe GenericPackageDescription
 #ifdef CABAL_PARSEC
-    parsePackageDescription' bs = 
+    parsePackageDescription' bs =
         parseGenericPackageDescriptionMaybe (BS.toStrict bs)
 #else
     parsePackageDescription' content =
@@ -745,7 +753,7 @@ fromUserConstraintScope (UserAnyQualifier pn) = ScopeAnyQualifier pn
 data UserConstraint =
     UserConstraint UserConstraintScope PackageProperty
   deriving (Eq, Show, Generic)
-           
+
 instance Binary UserConstraint
 
 userConstraintPackageName :: UserConstraint -> PackageName
@@ -773,7 +781,7 @@ readUserConstraint str =
 instance Text UserConstraint where
   disp (UserConstraint scope prop) =
     dispPackageConstraint $ PackageConstraint (fromUserConstraintScope scope) prop
-  
+
   parse =
     let parseConstraintScope :: Parse.ReadP a UserConstraintScope
         parseConstraintScope =
@@ -806,7 +814,7 @@ instance Text UserConstraint where
               --    return (UserQualExe pn pn2, pn3)
     in do
       scope <- parseConstraintScope
-                       
+
       -- Package property
       let keyword str x = Parse.skipSpaces1 >> Parse.string str >> return x
       prop <- ((parse >>= return . PackagePropertyVersion)
@@ -824,6 +832,6 @@ instance Text UserConstraint where
               <++
               (Parse.skipSpaces1 >> parseFlagAssignment
                >>= return . PackagePropertyFlags)
-    
+
       -- Result
       return (UserConstraint scope prop)

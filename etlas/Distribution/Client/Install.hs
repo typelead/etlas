@@ -82,13 +82,13 @@ import Distribution.Client.Setup
          , ConfigFlags(..), configureCommand, filterConfigureFlags
          , ConfigExFlags(..), InstallFlags(..) )
 import Distribution.Client.Config
-         ( defaultCabalDir, defaultUserInstall )
+         ( defaultCabalDir, defaultPatchesDir, defaultUserInstall )
+import Distribution.Client.Patch
 import Distribution.Client.Sandbox.Timestamp
          ( withUpdateTimestamps )
 import Distribution.Client.Sandbox.Types
          ( SandboxPackageInfo(..), UseSandbox(..), isUseSandbox
          , whenUsingSandbox )
-import Distribution.Client.Tar (extractTarGzFile)
 import Distribution.Client.Types as Source
 import Distribution.Client.BuildReports.Types
          ( ReportLevel(..) )
@@ -162,7 +162,7 @@ import Distribution.Simple.Utils as Utils
          ( notice, info, warn, debug, debugNoWrap, die'
          , withTempDirectory )
 import Distribution.Client.Utils
-         ( determineNumJobs', logDirChange, mergeBy, MergeResult(..)
+         ( determineNumJobs, logDirChange, mergeBy, MergeResult(..)
          , tryCanonicalizePath )
 import Distribution.System
          ( Platform, OS(Windows), buildOS )
@@ -1094,7 +1094,7 @@ performInstallations verbosity
     installReadyPackage platform cinfo configFlags
                         rpkg $ \configFlags' src pkg pkgoverride ->
       fetchSourcePackage verbosity repoCtxt fetchLimit src $ \src' ->
-        installLocalPackage verbosity (packageId pkg) src' distPref  $ \mpath ->
+        installLocalPackage verbosity (packageId pkg) src' distPref patchesDir $ \mpath ->
           installUnpackedPackage verbosity installLock numJobs
                                  (setupScriptOptions installedPkgIndex
                                   cacheLock rpkg)
@@ -1105,7 +1105,7 @@ performInstallations verbosity
   where
     cinfo = compilerInfo comp
 
-    numJobs         = determineNumJobs' (installNumJobs installFlags)
+    numJobs         = determineNumJobs (installNumJobs installFlags)
     numFetchJobs    = 2
     parallelInstall = numJobs >= 2
     keepGoing       = fromFlag (installKeepGoing installFlags)
@@ -1127,6 +1127,9 @@ performInstallations verbosity
 
     reportingLevel = fromFlag (installBuildReports installFlags)
     logsDir        = fromFlag (globalLogsDir globalFlags)
+    patchesDir     = case installPatchesDirectory installFlags of
+                       Cabal.NoFlag     -> defaultPatchesDir
+                       Cabal.Flag path  -> return path
 
     -- Should the build output be written to a log file instead of stdout?
     useLogFile :: UseLogFile
@@ -1278,9 +1281,10 @@ fetchSourcePackage verbosity repoCtxt fetchLimit src installPkg = do
 installLocalPackage
   :: Verbosity
   -> PackageIdentifier -> ResolvedPkgLoc -> FilePath
+  -> IO FilePath -- ^ Patched directory option
   -> (Maybe FilePath -> IO BuildOutcome)
   -> IO BuildOutcome
-installLocalPackage verbosity pkgid location distPref installPkg =
+installLocalPackage verbosity pkgid location distPref patchesDir installPkg =
 
   case location of
 
@@ -1289,24 +1293,30 @@ installLocalPackage verbosity pkgid location distPref installPkg =
 
     LocalTarballPackage tarballPath ->
       installLocalTarballPackage verbosity
-        pkgid tarballPath distPref installPkg
+      pkgid tarballPath distPref installPkg patchesDir False
 
     RemoteTarballPackage _ tarballPath ->
       installLocalTarballPackage verbosity
-        pkgid tarballPath distPref installPkg
+        pkgid tarballPath distPref installPkg patchesDir False
 
     RepoTarballPackage _ _ tarballPath ->
       installLocalTarballPackage verbosity
-        pkgid tarballPath distPref installPkg
+        pkgid tarballPath distPref installPkg patchesDir False
+
+    ScmPackage _ _ _ localPkgPath ->
+      installLocalTarballPackage verbosity
+        pkgid localPkgPath distPref installPkg patchesDir True
 
 
 installLocalTarballPackage
   :: Verbosity
   -> PackageIdentifier -> FilePath -> FilePath
   -> (Maybe FilePath -> IO BuildOutcome)
+  -> IO FilePath
+  -> Bool
   -> IO BuildOutcome
 installLocalTarballPackage verbosity pkgid
-                           tarballPath distPref installPkg = do
+                           tarballPath distPref installPkg patchesDir isGit = do
   tmp <- getTemporaryDirectory
   withTempDirectory verbosity tmp "etlas-tmp" $ \tmpDirPath ->
     onFailure UnpackFailed $ do
@@ -1314,9 +1324,10 @@ installLocalTarballPackage verbosity pkgid
           absUnpackedPath = tmpDirPath </> relUnpackedPath
           descFilePath = absUnpackedPath
                      </> display (packageName pkgid) <.> "cabal"
-      info verbosity $ "Extracting " ++ tarballPath
+      info verbosity $ (if isGit then "Copying " else "Extracting ")
+                    ++ tarballPath
                     ++ " to " ++ tmpDirPath ++ "..."
-      extractTarGzFile tmpDirPath relUnpackedPath tarballPath
+      patchedExtractTarGzFile verbosity False tmpDirPath relUnpackedPath tarballPath patchesDir isGit
       exists <- doesFileExist descFilePath
       when (not exists) $
         die' verbosity $ "Package .cabal file not found: " ++ show descFilePath

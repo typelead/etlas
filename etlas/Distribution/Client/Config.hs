@@ -248,7 +248,7 @@ instance Semigroup SavedConfig where
         installStrongFlags           = combine installStrongFlags,
         installAllowBootLibInstalls  = combine installAllowBootLibInstalls,
         installReinstall             = combine installReinstall,
-        installEtaPatchesDirectory   = combine installEtaPatchesDirectory,
+        installPatchesDirectory      = combine installPatchesDirectory,
         installAvoidReinstalls       = combine installAvoidReinstalls,
         installOverrideReinstall     = combine installOverrideReinstall,
         installUpgradeDeps           = combine installUpgradeDeps,

@@ -10,7 +10,7 @@
 -- Portability :  portable
 --
 -- This module provides an library interface to the @hc-pkg@ program.
--- Currently only GHC, GHCJS and LHC have hc-pkg programs.
+-- Currently only GHC, GHCJS, Eta, and LHC have hc-pkg programs.
 
 module Distribution.Simple.Program.HcPkg (
     HcPkgInfo(..),

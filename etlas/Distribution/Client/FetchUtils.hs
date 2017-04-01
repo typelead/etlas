@@ -88,6 +88,8 @@ isFetched loc = case loc of
     RepoTarballPackage repo pkgid _  -> doesFileExist (packageFile repo pkgid)
     ScmPackage (Just repo) _ pkgid _ ->
       doesDirectoryExist (packageDir repo pkgid)
+    ScmPackage Nothing _ _pkgid _ ->
+      error "isFetched: ScmPackage Nothing"
 
 -- | Checks if the package has already been fetched (or does not need
 -- fetching) and if so returns evidence in the form of a 'PackageLocation'
@@ -118,6 +120,9 @@ checkFetched loc = case loc of
       if exists
         then return (Just $ ScmPackage (Just repo) srcRepos pkgid dir)
         else return Nothing
+
+    ScmPackage Nothing _ _ Nothing ->
+      error "checkFetched: ScmPackage Nothing"
 
 -- | Like 'checkFetched' but for the specific case of a 'RepoTarballPackage'.
 --
@@ -157,6 +162,9 @@ fetchPackage verbosity repoCtxt loc = case loc of
     ScmPackage (Just repo) sourceRepos pkgid Nothing -> do
       local <- fetchSourceRepo verbosity repo pkgid sourceRepos
       return (ScmPackage (Just repo) sourceRepos pkgid local)
+
+    ScmPackage Nothing _ _ Nothing -> do
+      error "fetchPackage: ScmPackage Nothing"
   where
     downloadTarballPackage uri = do
       transport <- repoContextGetTransport repoCtxt

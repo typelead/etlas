@@ -6,7 +6,7 @@ module Distribution.Client.Utils ( MergeResult(..)
                                  , inDir, withEnv, logDirChange
                                  , withExtraPathEnv
                                  , determineNumJobs, numberOfProcessors
-                                 , removeExistingFile, determineNumJobs'
+                                 , removeExistingFile
                                  , withTempFileName
                                  , makeAbsoluteToCwd
                                  , makeRelativeToCwd, makeRelativeToDir
@@ -171,15 +171,6 @@ determineNumJobs numJobsFlag =
   case numJobsFlag of
     NoFlag        -> 1
     Flag Nothing  -> numberOfProcessors
-    Flag (Just n) -> n
-
--- | Till Eta supports parallelism even when no Flag is passed, we
--- define the number of jobs as 1.
-determineNumJobs' :: Flag (Maybe Int) -> Int
-determineNumJobs' numJobsFlag =
-  case numJobsFlag of
-    NoFlag        -> 1
-    Flag Nothing  -> 1
     Flag (Just n) -> n
 
 -- | Given a relative path, make it absolute relative to the current

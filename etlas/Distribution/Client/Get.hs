@@ -25,7 +25,7 @@ import Distribution.Package
 import Distribution.Simple.Setup
          ( Flag(..), fromFlag, fromFlagOrDefault, flagToMaybe )
 import Distribution.Simple.Utils
-         ( notice, die', info, rawSystemExitCode, writeFileAtomic )
+         ( notice, die', info, writeFileAtomic )
 import Distribution.Verbosity
          ( Verbosity )
 import Distribution.Text(display)
@@ -42,26 +42,13 @@ import Distribution.Client.FetchUtils
 import Distribution.Client.Patch
 import Distribution.Client.IndexUtils as IndexUtils
         ( getSourcePackagesAtIndexState )
-import Distribution.Client.Compat.Process
-        ( readProcessWithExitCode )
-import Distribution.Compat.Exception
-        ( catchIO )
 
 import Distribution.Solver.Types.SourcePackage
 
-import Control.Exception
-         ( finally )
 import Control.Monad
          ( forM_, mapM_ )
-import qualified Data.Map
-import Data.Ord
-         ( comparing )
 import System.Directory
-         ( createDirectoryIfMissing, doesDirectoryExist, doesFileExist
-         , getCurrentDirectory, setCurrentDirectory
-         )
-import System.Exit
-         ( ExitCode(..) )
+         ( createDirectoryIfMissing, doesDirectoryExist, doesFileExist )
 import System.FilePath
          ( (</>), (<.>), addTrailingPathSeparator )
 

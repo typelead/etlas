@@ -139,7 +139,7 @@ toPackageIndex :: Verbosity
                -> [(PackageDB, [InstalledPackageInfo])]
                -> ProgramDb
                -> IO InstalledPackageIndex
-toPackageIndex verbosity pkgss conf = do
+toPackageIndex _ pkgss _ = do
   let indices = [ PackageIndex.fromList pkgs | (_, pkgs) <- pkgss ]
   return $! (mconcat indices)
 
@@ -173,10 +173,10 @@ getLibDir verbosity lbi =
      getDbProgramOutput verbosity etaProgram
      (withPrograms lbi) ["--print-libdir"]
 
-getLibDir' :: Verbosity -> ConfiguredProgram -> IO FilePath
-getLibDir' verbosity etaProg =
-    (reverse . dropWhile isSpace . reverse) `fmap`
-     getProgramOutput verbosity etaProg ["--print-libdir"]
+-- getLibDir' :: Verbosity -> ConfiguredProgram -> IO FilePath
+-- getLibDir' verbosity etaProg =
+--     (reverse . dropWhile isSpace . reverse) `fmap`
+--      getProgramOutput verbosity etaProg ["--print-libdir"]
 
 -- | Return the 'FilePath' to the global GHC package database.
 getGlobalPackageDB :: Verbosity -> ConfiguredProgram -> IO FilePath
@@ -199,11 +199,10 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       isVanillaLib = not forRepl && withVanillaLib lbi
       isSharedLib = not forRepl && withSharedLib lbi
       comp = compiler lbi
-      implInfo = getImplInfo comp
 
   (etaProg, _) <- requireProgram verbosity etaProgram (withPrograms lbi)
   -- TODO: Find a way to not hardcode this.
-  coursierPath  <- fmap (\x -> x </> "coursier") $ getAppUserDataDirectory "epm"
+  coursierPath  <- fmap (\x -> x </> "coursier") $ getAppUserDataDirectory "etlas"
   (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
   let runEtaProg          = runGHC verbosity etaProg comp (hostPlatform lbi)
       libBi               = libBuildInfo lib
@@ -258,7 +257,7 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
                     }
       target = libTargetDir </> mkJarName libName
 
-  unless (forRepl || (null (libModules lib) && null javaSrcs)) $ do
+  unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
        when isVanillaLib $ runEtaProg vanillaOpts
        when isSharedLib  $ runEtaProg sharedOpts
 
@@ -283,7 +282,7 @@ replExe  = buildOrReplExe True
 buildOrReplExe :: Bool -> Verbosity  -> Cabal.Flag (Maybe Int)
                -> PackageDescription -> LocalBuildInfo
                -> Executable         -> ComponentLocalBuildInfo -> IO ()
-buildOrReplExe forRepl verbosity numJobs pkgDescr lbi
+buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
   exe@Executable { exeName, modulePath = modPath } clbi = do
   let exeName'    = display exeName
       exeNameReal = exeName' <.> (if takeExtension exeName' /= ('.':jarExtension)
@@ -295,7 +294,7 @@ buildOrReplExe forRepl verbosity numJobs pkgDescr lbi
 
   (etaProg, _)  <- requireProgram verbosity etaProgram  (withPrograms lbi)
   (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
-  coursierPath  <- fmap (\x -> x </> "coursier") $ getAppUserDataDirectory "epm"
+  coursierPath  <- fmap (\x -> x </> "coursier") $ getAppUserDataDirectory "etlas"
   let runEtaProg = runGHC verbosity etaProg comp (hostPlatform lbi)
       runCoursier options = getProgramInvocationOutput verbosity
                               (programInvocation javaProg $
@@ -370,7 +369,6 @@ buildOrReplExe forRepl verbosity numJobs pkgDescr lbi
   p <- getPermissions scriptFile
   setPermissions scriptFile (p {executable = True})
   where comp         = compiler lbi
-        implInfo     = getImplInfo comp
         exeBi        = buildInfo exe
         isShared     = withDynExe lbi
         javaSrcs'    = javaSources exeBi
@@ -396,24 +394,24 @@ installLib verbosity lbi targetDir dynlibTargetDir builtDir _pkg lib clbi = do
   when isVanillaLib $ mapM_ (installOrdinary builtDir targetDir) jarLibNames
   when isSharedLib $ mapM_ (installOrdinary builtDir dynlibTargetDir) jarLibNames
   where
-    install isShared srcDir dstDir name = do
+    install _isShared srcDir dstDir name = do
       createDirectoryIfMissingVerbose verbosity True dstDir
       installOrdinaryFile   verbosity src dst
       where src = srcDir </> name
             dst = dstDir </> name
 
     installOrdinary = install False
-    installShared   = install True
+    _installShared   = install True
 
     copyModuleFiles ext =
-      findModuleFiles [builtDir] [ext] (libModules lib)
+      findModuleFiles [builtDir] [ext] (allLibModules lib clbi)
       >>= installOrdinaryFiles verbosity targetDir
 
-    cid = compilerId (compiler lbi)
+    _cid = compilerId (compiler lbi)
     libNames = [componentCompatPackageKey clbi]
     jarLibNames = map mkJarName libNames
 
-    hasLib    = not $ null (libModules lib)
+    hasLib    = not $ null (allLibModules lib clbi)
                    && null (javaSources (libBuildInfo lib))
     isVanillaLib = hasLib && withVanillaLib lbi
     isSharedLib  = hasLib && withSharedLib  lbi
@@ -430,8 +428,7 @@ installExe :: Verbosity
               -> Executable
               -> IO ()
 installExe verbosity lbi installDirs buildPref
-           (progprefix, progsuffix) _pkg exe = do
-  --print ("installExe", targetDir, dynlibTargetDir, builtDir)
+           (_progprefix, _progsuffix) _pkg exe = do
   let binDir = bindir installDirs
       toDir x = binDir </> x
       exeName' = display (exeName exe)
@@ -506,9 +503,6 @@ etaSharedOptions bi =
 isDynamic :: Compiler -> Bool
 isDynamic = const True
 
-supportsDynamicToo :: Compiler -> Bool
-supportsDynamicToo = Internal.ghcLookupProperty "Support dynamic-too"
-
 -- findEtaGhcVersion :: Verbosity -> FilePath -> IO (Maybe Version)
 -- findEtaGhcVersion verbosity pgm =
 --   findProgramVersion "--numeric-ghc-version" id verbosity pgm
@@ -521,19 +515,16 @@ supportsDynamicToo = Internal.ghcLookupProperty "Support dynamic-too"
 -- Registering
 
 hcPkgInfo :: ProgramDb -> HcPkg.HcPkgInfo
-hcPkgInfo conf = HcPkg.HcPkgInfo { HcPkg.hcPkgProgram    = etaPkgProg
-                                 , HcPkg.noPkgDbStack    = False
-                                 , HcPkg.noVerboseFlag   = False
-                                 , HcPkg.flagPackageConf = False
-                                 , HcPkg.supportsDirDbs  = True
-                                 , HcPkg.requiresDirDbs  = True
-                                 , HcPkg.nativeMultiInstance  = True
-                                 , HcPkg.recacheMultiInstance = True
-                                 }
-  where
-    v                 = versionNumbers ver
-    Just etaPkgProg   = lookupProgram etaPkgProgram conf
-    Just ver          = programVersion etaPkgProg
+hcPkgInfo progdb = HcPkg.HcPkgInfo { HcPkg.hcPkgProgram    = etaPkgProg
+                                   , HcPkg.noPkgDbStack    = False
+                                   , HcPkg.noVerboseFlag   = False
+                                   , HcPkg.flagPackageConf = False
+                                   , HcPkg.supportsDirDbs  = True
+                                   , HcPkg.requiresDirDbs  = True
+                                   , HcPkg.nativeMultiInstance  = True
+                                   , HcPkg.recacheMultiInstance = True
+                                   }
+  where Just etaPkgProg = lookupProgram etaPkgProgram progdb
 
 -- NOTE: ETA is frozen after 7.10.3
 etaGhcVersion :: Version
@@ -549,8 +540,8 @@ getDependencyClassPaths
   -> ComponentLocalBuildInfo
   -> IO ([FilePath], [String])
 getDependencyClassPaths packageIndex pkgDescr lbi clbi = do
-  libs <- fmap concat $ mapM hsLibraryPaths packageInfos
-  return (libPaths ++ libs, libMavenDeps ++ mavenDeps)
+  libs' <- fmap concat $ mapM hsLibraryPaths packageInfos
+  return (libPaths ++ libs', libMavenDeps ++ mavenDeps)
   where mavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
         packages' = map fst $ componentPackageDeps clbi
         (libs, packages'') = partition (isInfixOf "-inplace" . show) packages'
@@ -563,8 +554,8 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi = do
         (mbLibName, libDeps) =
           if null libs
           then (Nothing, [])
-          else (\(clbi:_) -> ( Just (componentCompatPackageKey clbi)
-                             , map fst $ componentPackageDeps clbi ))
+          else (\(clbi':_) -> ( Just (componentCompatPackageKey clbi')
+                              , map fst $ componentPackageDeps clbi' ))
              . fromJust
              . Map.lookup CLibName
              $ componentNameMap lbi
@@ -576,8 +567,8 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi = do
           Right errs -> error $ show ("deps error", errs)
 
         packageInfos = PackageIndex.allPackages closurePackageIndex
-        hsLibraryPaths pi = mapM (findFile (libraryDirs pi))
-                                 (map (<.> "jar") $ hsLibraries pi)
+        hsLibraryPaths pinfo = mapM (findFile (libraryDirs pinfo))
+                                    (map (<.> "jar") $ hsLibraries pinfo)
 
 builtInMavenResolvers :: [(String, String)]
 builtInMavenResolvers =

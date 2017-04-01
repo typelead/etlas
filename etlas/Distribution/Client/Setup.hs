@@ -60,7 +60,7 @@ import Prelude ()
 import Distribution.Client.Compat.Prelude hiding (get)
 
 import Distribution.Client.Types
-         ( Username(..), Password(..), RemoteRepo(..), Repo(..) )
+         ( Username(..), Password(..), RemoteRepo(..) )
 import Distribution.Client.BuildReports.Types
          ( ReportLevel(..) )
 import Distribution.Client.Dependency.Types
@@ -122,7 +122,7 @@ import Distribution.Client.GlobalFlags
          )
 
 import Data.List
-         ( deleteFirstsBy, stripPrefix, delete, intercalate )
+         ( deleteFirstsBy )
 import System.FilePath
          ( (</>) )
 import Network.URI
@@ -333,7 +333,7 @@ globalCommand commands = CommandUI {
        option [] ["remote-repo"]
          "The name and url for a remote repository"
          globalRemoteRepos (\v flags -> flags { globalRemoteRepos = v })
-         (reqArg' "[git.]NAME:URL" (toNubList . fromMaybe [] . readRepos)
+         (reqArg' "[git@]NAME:URL" (toNubList . fromMaybe [] . readRepos)
                                    (map showRepo . fromNubList))
 
       ,option [] ["remote-repo-cache"]
@@ -1444,7 +1444,7 @@ data InstallFlags = InstallFlags {
     installNumJobs          :: Flag (Maybe Int),
     installKeepGoing        :: Flag Bool,
     installRunTests         :: Flag Bool,
-    installEtaPatchesDirectory :: Flag FilePath,
+    installPatchesDirectory :: Flag FilePath,
     installOfflineMode      :: Flag Bool,
     -- | The cabal project file name; defaults to @cabal.project@.
     -- Th name itself denotes the cabal project file name, but it also
@@ -1461,37 +1461,37 @@ instance Binary InstallFlags
 
 defaultInstallFlags :: InstallFlags
 defaultInstallFlags = InstallFlags {
-    installDocumentation   = Flag False,
-    installHaddockIndex    = Flag docIndexFile,
-    installDryRun          = Flag False,
-    installMaxBackjumps    = Flag defaultMaxBackjumps,
-    installReorderGoals    = Flag (ReorderGoals False),
-    installCountConflicts  = Flag (CountConflicts True),
-    installIndependentGoals= Flag (IndependentGoals False),
-    installShadowPkgs      = Flag (ShadowPkgs False),
-    installStrongFlags     = Flag (StrongFlags False),
-    installAllowBootLibInstalls = Flag (AllowBootLibInstalls False),
-    installReinstall       = Flag False,
-    installAvoidReinstalls = Flag (AvoidReinstalls False),
-    installOverrideReinstall = Flag False,
-    installUpgradeDeps     = Flag False,
-    installOnly            = Flag False,
-    installOnlyDeps        = Flag False,
-    installIndexState      = mempty,
-    installRootCmd         = mempty,
-    installSummaryFile     = mempty,
-    installLogFile         = mempty,
-    installBuildReports    = Flag NoReports,
+    installDocumentation         = Flag False,
+    installHaddockIndex          = Flag docIndexFile,
+    installDryRun                = Flag False,
+    installMaxBackjumps          = Flag defaultMaxBackjumps,
+    installReorderGoals          = Flag (ReorderGoals False),
+    installCountConflicts        = Flag (CountConflicts True),
+    installIndependentGoals      = Flag (IndependentGoals False),
+    installShadowPkgs            = Flag (ShadowPkgs False),
+    installStrongFlags           = Flag (StrongFlags False),
+    installAllowBootLibInstalls  = Flag (AllowBootLibInstalls False),
+    installReinstall             = Flag False,
+    installAvoidReinstalls       = Flag (AvoidReinstalls False),
+    installOverrideReinstall     = Flag False,
+    installUpgradeDeps           = Flag False,
+    installOnly                  = Flag False,
+    installOnlyDeps              = Flag False,
+    installIndexState            = mempty,
+    installRootCmd               = mempty,
+    installSummaryFile           = mempty,
+    installLogFile               = mempty,
+    installBuildReports          = Flag NoReports,
     installReportPlanningFailure = Flag False,
-    installSymlinkBinDir   = mempty,
-    installPerComponent    = Flag True,
-    installOneShot         = Flag False,
-    installNumJobs         = mempty,
-    installKeepGoing       = Flag False,
-    installRunTests        = mempty,
-    installEtaPatchesDirectory = mempty,
-    installOfflineMode     = Flag False,
-    installProjectFileName = mempty
+    installSymlinkBinDir         = mempty,
+    installPerComponent          = Flag True,
+    installOneShot               = Flag False,
+    installNumJobs               = mempty,
+    installKeepGoing             = Flag False,
+    installRunTests              = mempty,
+    installPatchesDirectory      = mempty,
+    installOfflineMode           = Flag False,
+    installProjectFileName       = mempty
   }
   where
     docIndexFile = toPathTemplate ("$datadir" </> "doc"
@@ -1680,8 +1680,8 @@ installOptions showOrParseArgs =
            (reqArgFlag "DIR")
 
       , option [] ["patches-directory"]
-          "Specify explicit Eta patches directory"
-          installEtaPatchesDirectory (\v flags -> flags { installEtaPatchesDirectory = v })
+          "Specify explicit patches directory."
+          installPatchesDirectory (\v flags -> flags { installPatchesDirectory = v })
           (reqArgFlag "DIR")
 
       , option [] ["build-summary"]

@@ -78,7 +78,7 @@ import qualified Codec.Archive.Tar.Entry as Tar
 import qualified Distribution.Client.Tar as Tar
 import Distribution.Client.FetchUtils
 import Distribution.Client.Utils ( tryFindPackageDesc )
-import {-# SOURCE #-} Distribution.Client.Patch ( patchedTarPackageCabalFile )
+import Distribution.Client.Patch ( patchedTarPackageCabalFile )
 import {-# SOURCE #-} Distribution.Client.Config (defaultPatchesDir)
 import Distribution.Client.GlobalFlags
          ( RepoContext(..) )

@@ -154,9 +154,9 @@ withExtraPathEnv paths m = do
 logDirChange :: (String -> IO ()) -> Maybe FilePath -> IO a -> IO a
 logDirChange _ Nothing m = m
 logDirChange l (Just d) m = do
-  l $ "cabal: Entering directory '" ++ d ++ "'\n"
+  l $ "etlas: Entering directory '" ++ d ++ "'\n"
   m `Exception.finally`
-    (l $ "cabal: Leaving directory '" ++ d ++ "'\n")
+    (l $ "etlas: Leaving directory '" ++ d ++ "'\n")
 
 foreign import ccall "getNumberOfProcessors" c_getNumberOfProcessors :: IO CInt
 

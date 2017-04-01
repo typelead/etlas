@@ -144,7 +144,7 @@ nixShell verb dist globalFlags config go = do
           cabal <- getExecutablePath
 
           -- alreadyInShell == True in child process
-          setEnv "CABAL_IN_NIX_SHELL" "1"
+          setEnv "ETLAS_IN_NIX_SHELL" "1"
 
           -- Run cabal with the same arguments inside nix-shell.
           -- When the child process reaches the top of nixShell, it will
@@ -179,7 +179,7 @@ gcrootPath dist = dist </> "nix" </> "gcroots"
 
 
 inNixShell :: IO Bool
-inNixShell = maybe False (const True) <$> lookupEnv "CABAL_IN_NIX_SHELL"
+inNixShell = maybe False (const True) <$> lookupEnv "ETLAS_IN_NIX_SHELL"
 
 
 removeGCRoots :: Verbosity -> FilePath -> IO ()

@@ -74,7 +74,7 @@ possibleSelfUpgrade verbosity newPaths action = do
   if not doingSelfUpgrade
     then action
     else do
-      info verbosity $ "cabal-install does the replace-own-exe-file dance..."
+      info verbosity $ "etlas does the replace-own-exe-file dance..."
       tmpPath <- moveOurExeOutOfTheWay verbosity
       result <- action
       scheduleOurDemise verbosity dstPath tmpPath
@@ -90,7 +90,7 @@ possibleSelfUpgrade verbosity newPaths action = do
 -- re-used).
 --
 syncEventName :: String
-syncEventName = "Local\\cabal-install-upgrade"
+syncEventName = "Local\\etlas-upgrade"
 
 -- | The first part of allowing our exe file to be replaced is to move the
 -- existing exe file out of the way. Although we cannot delete our exe file

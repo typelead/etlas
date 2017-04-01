@@ -58,7 +58,7 @@ timestampRecordKey compId platform = display platform ++ "-" ++ display compId
 -- | The 'add-source-timestamps' file keeps the timestamps of all add-source
 -- dependencies. It is initially populated by 'sandbox add-source' and kept
 -- current by 'reinstallAddSourceDeps' and 'configure -w'. The user can install
--- add-source deps manually with 'cabal install' after having edited them, so we
+-- add-source deps manually with 'etlas install' after having edited them, so we
 -- can err on the side of caution sometimes.
 -- FIXME: We should keep this info in the index file, together with build tree
 -- refs.
@@ -269,5 +269,5 @@ listModifiedDeps verbosity sandboxDir compId platform installedDepsMap = do
   where
     noTimestampRecord = die' verbosity $ "Сouldn't find a timestamp record for the given "
                         ++ "compiler/platform pair. "
-                        ++ "Please report this on the Cabal bug tracker: "
-                        ++ "https://github.com/haskell/cabal/issues/new ."
+                        ++ "Please report this on the Etlas bug tracker: "
+                        ++ "https://github.com/typelead/etlas/issues/new ."

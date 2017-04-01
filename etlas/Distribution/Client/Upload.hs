@@ -189,7 +189,7 @@ handlePackage transport verbosity uri packageUri auth isCandidate path =
   okMessage IsCandidate =
     "Package successfully uploaded as candidate. "
     ++ "You can now preview the result at '" ++ show packageUri
-    ++ "'. To publish the candidate, use 'cabal upload --publish'."
+    ++ "'. To publish the candidate, use 'etlas upload --publish'."
   okMessage IsPublished =
     "Package successfully published. You can now view it at '"
     ++ show packageUri ++ "'."

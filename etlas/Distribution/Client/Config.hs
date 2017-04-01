@@ -641,7 +641,7 @@ loadRawConfig verbosity configFileFlag = do
 
   where
     sourceMsg CommandlineOption =   "commandline option"
-    sourceMsg EnvironmentVariable = "env var CABAL_CONFIG"
+    sourceMsg EnvironmentVariable = "env var ETLAS_CONFIG"
     sourceMsg Default =             "default config file"
 
 data ConfigFileSource = CommandlineOption
@@ -649,7 +649,7 @@ data ConfigFileSource = CommandlineOption
                       | Default
 
 -- | Returns the config file path, without checking that the file exists.
--- The order of precedence is: input flag, CABAL_CONFIG, default location.
+-- The order of precedence is: input flag, ETLAS_CONFIG, default location.
 getConfigFilePath :: Flag FilePath -> IO FilePath
 getConfigFilePath = fmap snd . getConfigFilePathAndSource
 
@@ -659,7 +659,7 @@ getConfigFilePathAndSource configFileFlag =
   where
     sources =
       [ (CommandlineOption,   return . flagToMaybe $ configFileFlag)
-      , (EnvironmentVariable, lookup "CABAL_CONFIG" `liftM` getEnvironment)
+      , (EnvironmentVariable, lookup "ETLAS_CONFIG" `liftM` getEnvironment)
       , (Default,             Just `liftM` defaultConfigFile) ]
 
     getSource [] = error "no config file path candidate found."
@@ -693,7 +693,7 @@ writeConfigFile file comments vals = do
   renameFile tmpFile file
   where
     explanation = unlines
-      ["-- This is the configuration file for the 'cabal' command line tool."
+      ["-- This is the configuration file for the 'etlas' command line tool."
       ,"--"
       ,"-- The available configuration options are listed below."
       ,"-- Some of them have default values listed."
@@ -703,9 +703,9 @@ writeConfigFile file comments vals = do
       ,"-- used to indicate layout for nested sections."
       ,"--"
       ,"-- This config file was generated using the following versions"
-      ,"-- of Cabal and cabal-install:"
-      ,"-- Cabal library version: " ++ Text.display cabalVersion
-      ,"-- cabal-install version: " ++ showVersion Paths_etlas.version
+      ,"-- of etlas-cabal and etlas:"
+      ,"-- etlas-cabal library version: " ++ Text.display cabalVersion
+      ,"-- etlas version: " ++ showVersion Paths_etlas.version
       ,"",""
       ]
 
@@ -1159,7 +1159,7 @@ withProgramOptionsFields =
   programDbOptions defaultProgramDb ParseArgs id (++)
 
 -- | Get the differences (as a pseudo code diff) between the user's
--- '~/.cabal/config' and the one that cabal would generate if it didn't exist.
+-- '~/.etlas/config' and the one that cabal would generate if it didn't exist.
 userConfigDiff :: GlobalFlags -> IO [String]
 userConfigDiff globalFlags = do
   userConfig <- loadRawConfig normal (globalConfigFile globalFlags)
@@ -1204,7 +1204,7 @@ userConfigDiff globalFlags = do
         in (topAndTail left, topAndTail (drop 1 right))
 
 
--- | Update the user's ~/.cabal/config' keeping the user's customizations.
+-- | Update the user's ~/.etlas/config' keeping the user's customizations.
 userConfigUpdate :: Verbosity -> GlobalFlags -> IO ()
 userConfigUpdate verbosity globalFlags = do
   userConfig  <- loadRawConfig normal (globalConfigFile globalFlags)

@@ -159,7 +159,7 @@ new os' arch' comp pkgid flags deps result =
 
 cabalInstallID :: PackageIdentifier
 cabalInstallID =
-  PackageIdentifier (mkPackageName "cabal-install")
+  PackageIdentifier (mkPackageName "etlas")
                     (mkVersion' Paths_etlas.version)
 
 -- ------------------------------------------------------------

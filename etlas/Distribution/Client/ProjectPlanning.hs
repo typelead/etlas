@@ -1157,7 +1157,7 @@ planPackages verbosity comp platform solver SolverSettings{..}
 -- a nix-style shared store.
 --
 -- In theory should be able to make an elaborated install plan with a policy
--- matching that of the classic @cabal install --user@ or @--global@
+-- matching that of the classic @etlas install --user@ or @--global@
 --
 elaborateInstallPlan
   :: Verbosity -> Platform -> Compiler -> ProgramDb -> PkgConfigDb
@@ -2869,7 +2869,7 @@ packageSetupScriptSpecVersion _ pkg deps =
 
 
 cabalPkgname, basePkgname :: PackageName
-cabalPkgname = mkPackageName "Cabal"
+cabalPkgname = mkPackageName "etlas-cabal"
 basePkgname  = mkPackageName "base"
 
 

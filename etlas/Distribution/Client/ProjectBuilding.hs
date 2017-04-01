@@ -909,7 +909,7 @@ buildAndInstallUnpackedPackage verbosity
       setup Cabal.copyCommand copyFlags
 
       LBS.writeFile
-        (InstallDirs.prefix (elabInstallDirs pkg) </> "cabal-hash.txt") $
+        (InstallDirs.prefix (elabInstallDirs pkg) </> "etlas-hash.txt") $
         (renderPackageHashInputs (packageHashInputs pkgshared pkg))
 
       -- here's where we could keep track of the installed files ourselves if

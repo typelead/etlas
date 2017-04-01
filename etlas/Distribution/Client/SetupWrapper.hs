@@ -139,10 +139,10 @@ data Setup = Setup { setupMethod :: SetupMethod
 
 -- | @SetupMethod@ represents one of the methods used to run Cabal commands.
 data SetupMethod = InternalMethod
-                   -- ^ run Cabal commands through \"cabal\" in the
+                   -- ^ run Cabal commands through \"etlas\" in the
                    -- current process
                  | SelfExecMethod
-                   -- ^ run Cabal commands through \"cabal\" as a
+                   -- ^ run Cabal commands through \"etlas\" as a
                    -- child process
                  | ExternalMethod FilePath
                    -- ^ run Cabal commands through a custom \"Setup\" executable
@@ -161,7 +161,7 @@ data SetupMethod = InternalMethod
 data SetupScriptOptions = SetupScriptOptions {
     -- | The version of the Cabal library to use (if 'useDependenciesExclusive'
     -- is not set). A suitable version of the Cabal library must be installed
-    -- (or for some build-types be the one cabal-install was built with).
+    -- (or for some build-types be the one etlas was built with).
     --
     -- The version found also determines the version of the Cabal specification
     -- that we us for talking to the Setup.hs, unless overridden by
@@ -217,7 +217,7 @@ data SetupScriptOptions = SetupScriptOptions {
     --
     useVersionMacros         :: Bool,
 
-    -- Used only by 'cabal clean' on Windows.
+    -- Used only by 'etlas clean' on Windows.
     --
     -- Note: win32 clean hack
     -------------------------
@@ -236,7 +236,7 @@ data SetupScriptOptions = SetupScriptOptions {
     -- When we are installing in parallel, we always use the external setup
     -- method. Since compiling the setup script each time adds noticeable
     -- overhead, we use a shared setup script cache
-    -- ('~/.cabal/setup-exe-cache'). For each (compiler, platform, Cabal
+    -- ('~/.etlas/setup-exe-cache'). For each (compiler, platform, etlas-cabal
     -- version) combination the cache holds a compiled setup script
     -- executable. This only affects the Simple build type; for the Custom,
     -- Configure and Make build types we always compile the setup script anew.
@@ -404,7 +404,7 @@ setupWrapper :: Verbosity
              -> Maybe PackageDescription
              -> CommandUI flags
              -> (Version -> flags)
-                -- ^ produce command flags given the Cabal library version
+                -- ^ produce command flags given the etlas-cabal library version
              -> [String]
              -> IO ()
 setupWrapper verbosity options mpkg cmd flags extraArgs = do
@@ -420,7 +420,7 @@ internalSetupMethod verbosity options bt args = do
   info verbosity $ "Using internal setup method with build-type " ++ show bt
                 ++ " and args:\n  " ++ show args
   inDir (useWorkingDir options) $ do
-    withEnv "HASKELL_DIST_DIR" (useDistPref options) $
+    withEnv "ETA_DIST_DIR" (useDistPref options) $
       withExtraPathEnv (useExtraPathEnv options) $
         buildTypeAction bt args
 
@@ -484,7 +484,7 @@ selfExecSetupMethod verbosity options bt args0 = do
                 (map ProgramSearchPathDir (useExtraPathEnv options) ++
                  getProgramSearchPath (useProgramDb options))
   env       <- getEffectiveEnvironment [("PATH", Just searchpath)
-                                        ,("HASKELL_DIST_DIR", Just (useDistPref options))]
+                                        ,("ETA_DIST_DIR", Just (useDistPref options))]
   process <- runProcess' path args
              (useWorkingDir options) env Nothing
              (useLoggingHandle options) (useLoggingHandle options)
@@ -517,7 +517,7 @@ externalSetupMethod path verbosity options _ args = do
                     (map ProgramSearchPathDir (useExtraPathEnv options) ++
                       getProgramSearchPath (useProgramDb options))
       env        <- getEffectiveEnvironment [("PATH", Just searchpath)
-                                            ,("HASKELL_DIST_DIR", Just (useDistPref options))]
+                                            ,("ETA_DIST_DIR", Just (useDistPref options))]
 
       process <- runProcess' path' args
                   (useWorkingDir options) env Nothing
@@ -530,7 +530,7 @@ externalSetupMethod path verbosity options _ args = do
     doWin32CleanHack path' = do
       info verbosity $ "Using the Win32 clean hack."
       -- Recursively removes the temp dir on exit.
-      withTempDirectory verbosity (workingDir options) "cabal-tmp" $ \tmpDir ->
+      withTempDirectory verbosity (workingDir options) "etlas-tmp" $ \tmpDir ->
           bracket (moveOutOfTheWay tmpDir path')
                   (maybeRestore path')
                   doInvoke
@@ -557,7 +557,7 @@ getExternalSetupMethod verbosity options pkg bt = do
     ++ show (useDependenciesExclusive options)
   createDirectoryIfMissingVerbose verbosity True setupDir
   (cabalLibVersion, mCabalLibInstalledPkgId, options') <- cabalLibVersionToUse
-  debug verbosity $ "Using Cabal library version " ++ display cabalLibVersion
+  debug verbosity $ "Using etlas-cabal library version " ++ display cabalLibVersion
   path <- if useCachedSetupExecutable
           then getCachedSetupExecutable options'
                cabalLibVersion mCabalLibInstalledPkgId
@@ -710,11 +710,11 @@ getExternalSetupMethod verbosity options pkg bt = do
                               ,SetupScriptOptions)
   installedCabalVersion options' compiler progdb = do
     index <- maybeGetInstalledPackages options' compiler progdb
-    let cabalDep   = Dependency (mkPackageName "Cabal") (useCabalVersion options')
+    let cabalDep   = Dependency (mkPackageName "etlas-cabal") (useCabalVersion options')
         options''  = options' { usePackageIndex = Just index }
     case PackageIndex.lookupDependency index cabalDep of
       []   -> die' verbosity $ "The package '" ++ display (packageName pkg)
-                 ++ "' requires Cabal library version "
+                 ++ "' requires etlas-cabal library version "
                  ++ display (useCabalVersion options)
                  ++ " but no suitable version is installed."
       pkgs -> let ipkginfo = head . snd . bestVersion fst $ pkgs
@@ -783,7 +783,7 @@ getExternalSetupMethod verbosity options pkg bt = do
     return (setupCacheDir, cachedSetupProgFile)
       where
         buildTypeString       = show bt
-        cabalVersionString    = "Cabal-" ++ (display cabalLibVersion)
+        cabalVersionString    = "etlas-cabal-" ++ (display cabalLibVersion)
         compilerVersionString = display $
                                 fromMaybe buildCompilerId
                                 (fmap compilerId . useCompiler $ options')
@@ -837,7 +837,7 @@ getExternalSetupMethod verbosity options pkg bt = do
     when (outOfDate || forceCompile) $ do
       debug verbosity "Setup executable needs to be updated, compiling..."
       (compiler, progdb, options'') <- configureCompiler options'
-      let cabalPkgid = PackageIdentifier (mkPackageName "Cabal") cabalLibVersion
+      let cabalPkgid = PackageIdentifier (mkPackageName "etlas-cabal") cabalLibVersion
           (program, extraOpts)
             = case compilerFlavor compiler of
                       GHCJS -> (ghcjsProgram, ["-build-runner"])
@@ -901,4 +901,4 @@ getExternalSetupMethod verbosity options pkg bt = do
 
 
 isCabalPkgId :: PackageIdentifier -> Bool
-isCabalPkgId (PackageIdentifier pname _) = pname == mkPackageName "Cabal"
+isCabalPkgId (PackageIdentifier pname _) = pname == mkPackageName "etlas-cabal"

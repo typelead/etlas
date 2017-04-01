@@ -115,7 +115,7 @@ updateRepo verbosity updateFlags repoCtxt repo = do
       when (current_ts /= nullTimestamp) $
         noticeNoWrap verbosity $
           "To revert to previous state run:\n" ++
-          "    cabal update --index-state='" ++ display current_ts ++ "'\n"
+          "    etlas update --index-state='" ++ display current_ts ++ "'\n"
 
 -- git only supports the -C flag as of 1.8.5
 -- See  http://stackoverflow.com/questions/5083224/git-pull-while-not-in-a-git-directory

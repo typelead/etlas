@@ -76,7 +76,7 @@ splitRunArgs verbosity lbi args =
       (_    , [])                                  -> Left
         $ "This package contains multiple executables. "
         ++ "You must pass the executable name as the first argument "
-        ++ "to 'cabal run'."
+        ++ "to 'etlas run'."
       (_    , (x:xs))      ->
         case find (\exe -> unUnqualComponentName (exeName exe) == x) enabledExes of
           Nothing  -> Left $ "No executable named '" ++ x ++ "'."

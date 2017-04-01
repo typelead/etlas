@@ -87,7 +87,7 @@ import qualified Data.Map as Map
 
 -- | We already have parsers\/pretty-printers for almost all the fields in the
 -- project config file, but they're in terms of the types used for the command
--- line flags for Setup.hs or cabal commands. We don't want to redefine them
+-- line flags for Setup.hs or etlas commands. We don't want to redefine them
 -- all, at least not yet so for the moment we use the parsers at the old types
 -- and use conversion functions.
 --
@@ -144,7 +144,7 @@ instance Semigroup LegacySharedConfig where
 -- Converting from and to the legacy types
 --
 
--- | Convert configuration from the @cabal configure@ or @cabal build@ command
+-- | Convert configuration from the @etlas configure@ or @etlas build@ command
 -- line into a 'ProjectConfig' value that can combined with configuration from
 -- other sources.
 --
@@ -169,7 +169,7 @@ commandLineFlagsToProjectConfig globalFlags configFlags configExFlags
     }
 
 
--- | Convert from the types currently used for the user-wide @~/.cabal/config@
+-- | Convert from the types currently used for the user-wide @~/.etlas/config@
 -- file into the 'ProjectConfig' type.
 --
 -- Only a subset of the 'ProjectConfig' can be represented in the user-wide

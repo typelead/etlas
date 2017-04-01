@@ -113,7 +113,7 @@ userPackageEnvironmentFile = "cabal.config"
 data PackageEnvironmentType =
   SandboxPackageEnvironment   -- ^ './cabal.sandbox.config'
   | UserPackageEnvironment    -- ^ './cabal.config'
-  | AmbientPackageEnvironment -- ^ '~/.cabal/config'
+  | AmbientPackageEnvironment -- ^ '~/.etlas/config'
 
 -- | Is there a 'cabal.sandbox.config' or 'cabal.config' in this
 -- directory?
@@ -360,7 +360,7 @@ tryLoadSandboxPackageEnvironmentFile verbosity pkgEnvFile configFileFlag = do
   user      <- userPackageEnvironment verbosity pkgEnvDir Nothing --TODO
   inherited <- inheritedPackageEnvironment verbosity user
 
-  -- Layer the package environment settings over settings from ~/.cabal/config.
+  -- Layer the package environment settings over settings from ~/.etlas/config.
   cabalConfig <- fmap unsetSymlinkBinDir $ loadConfig verbosity configFileFlag
   return (sandboxDir,
           updateInstallDirs $
@@ -383,7 +383,7 @@ tryLoadSandboxPackageEnvironmentFile verbosity pkgEnvFile configFileFlag = do
           }
 
       -- We don't want to inherit the value of 'symlink-bindir' from
-      -- '~/.cabal/config'. See #1514.
+      -- '~/.etlas/config'. See #1514.
       unsetSymlinkBinDir config =
         let installFlags = savedInstallFlags config
         in config {
@@ -547,7 +547,7 @@ writePackageEnvironmentFile path pkgEnv = do
   where
     pkgEnvStr = showPackageEnvironment pkgEnv
     explanation = unlines
-      ["-- This is a Cabal package environment file."
+      ["-- This is a Etlas package environment file."
       ,"-- THIS FILE IS AUTO-GENERATED. DO NOT EDIT DIRECTLY."
       ,"-- Please create a 'cabal.config' file in the same directory"
       ,"-- if you want to change the default settings for this sandbox."
@@ -559,7 +559,7 @@ showPackageEnvironment :: PackageEnvironment -> String
 showPackageEnvironment pkgEnv = showPackageEnvironmentWithComments Nothing pkgEnv
 
 -- | Pretty-print the package environment with default values for empty fields
--- commented out (just like the default ~/.cabal/config).
+-- commented out (just like the default ~/.etlas/config).
 showPackageEnvironmentWithComments :: (Maybe PackageEnvironment)
                                       -> PackageEnvironment
                                       -> String

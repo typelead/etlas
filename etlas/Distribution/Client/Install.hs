@@ -214,7 +214,7 @@ install verbosity packageDBs repos comp platform progdb useSandbox mSandboxPkgIn
         warn verbosity $ "--root-cmd is no longer supported, "
         ++ "see https://github.com/haskell/cabal/issues/3353"
         ++ " (if you didn't type --root-cmd, comment out root-cmd"
-        ++ " in your ~/.cabal/config file)"
+        ++ " in your ~/.etlas/config file)"
     let userOrSandbox = fromFlag (configUserInstall configFlags)
                      || isUseSandbox useSandbox
     unless userOrSandbox $
@@ -590,7 +590,7 @@ checkPrintPlan verbosity installed installPlan sourcePkgDb
       die' verbosity $ "Can't download packages in offline mode. "
       ++ "Must download the following packages to proceed:\n"
       ++ intercalate ", " (map display notFetched)
-      ++ "\nTry using 'cabal fetch'."
+      ++ "\nTry using 'etlas fetch'."
 
   where
     nothingToInstall = null (fst (InstallPlan.ready installPlan))
@@ -972,7 +972,7 @@ symlinkBinaries verbosity platform comp configFlags installFlags
       warn verbosity $
            "could not create a symlink in " ++ bindir ++ " for "
         ++ display exe ++ " because the file exists there already but is not "
-        ++ "managed by cabal. You can create a symlink for this executable "
+        ++ "managed by etlas. You can create a symlink for this executable "
         ++ "manually if you wish. The executable file has been installed at "
         ++ path
     exes ->
@@ -980,7 +980,7 @@ symlinkBinaries verbosity platform comp configFlags installFlags
            "could not create symlinks in " ++ bindir ++ " for "
         ++ intercalate ", " [ display exe | (_, exe, _) <- exes ]
         ++ " because the files exist there already and are not "
-        ++ "managed by cabal. You can create symlinks for these executables "
+        ++ "managed by etlas. You can create symlinks for these executables "
         ++ "manually if you wish. The executable files have been installed at "
         ++ intercalate ", " [ path | (_, _, path) <- exes ]
   where
@@ -1308,7 +1308,7 @@ installLocalTarballPackage
 installLocalTarballPackage verbosity pkgid
                            tarballPath distPref installPkg = do
   tmp <- getTemporaryDirectory
-  withTempDirectory verbosity tmp "cabal-tmp" $ \tmpDirPath ->
+  withTempDirectory verbosity tmp "etlas-tmp" $ \tmpDirPath ->
     onFailure UnpackFailed $ do
       let relUnpackedPath = display pkgid
           absUnpackedPath = tmpDirPath </> relUnpackedPath

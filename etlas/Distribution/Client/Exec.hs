@@ -145,8 +145,8 @@ sandboxEnvironment verbosity sandboxDir comp platform programDb iEnv =
 
         -- Build the environment
         return $ [ (packagePathEnvVar, Just compilerPackagePaths)
-                 , ("CABAL_SANDBOX_PACKAGE_PATH", Just compilerPackagePaths)
-                 , ("CABAL_SANDBOX_CONFIG", Just sandboxConfigFilePath)
+                 , ("ETLAS_SANDBOX_PACKAGE_PATH", Just compilerPackagePaths)
+                 , ("ETLAS_SANDBOX_CONFIG", Just sandboxConfigFilePath)
                  ] ++ iEnv'
 
     prependToSearchPath path newValue =

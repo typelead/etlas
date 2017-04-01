@@ -10,7 +10,7 @@
 -- Stability   :  provisional
 -- Portability :  portable
 --
--- Entry point to the default cabal-install front-end.
+-- Entry point to the default etlas front-end.
 -----------------------------------------------------------------------------
 
 module Main (main) where
@@ -239,15 +239,15 @@ mainWorker args = topHandler $
       exists <- doesFileExist configFile
       when (not exists) $
           putStrLn $ "This file will be generated with sensible "
-                  ++ "defaults if you run 'cabal update'."
+                  ++ "defaults if you run 'etlas update'."
     printOptionsList = putStr . unlines
     printErrors errs = dieNoVerbosity $ intercalate "\n" errs
     printNumericVersion = putStrLn $ display Paths_etlas.version
-    printVersion        = putStrLn $ "cabal-install version "
+    printVersion        = putStrLn $ "etlas version "
                                   ++ display Paths_etlas.version
                                   ++ "\ncompiled using version "
                                   ++ display cabalVersion
-                                  ++ " of the Cabal library "
+                                  ++ " of the etlas-cabal library "
 
     commands = map commandFromSpec commandSpecs
     commandSpecs =
@@ -450,7 +450,7 @@ filterBuildFlags version config buildFlags
       buildNumJobs = NoFlag
       }
     buildFlags_latest     = buildFlags {
-      -- Take the 'jobs' setting '~/.cabal/config' into account.
+      -- Take the 'jobs' setting '~/.etlas/config' into account.
       buildNumJobs = Flag . Just . determineNumJobs $
                      (numJobsConfigFlag `mappend` numJobsCmdLineFlag)
       }
@@ -540,14 +540,14 @@ installAction
   nixShellIfSandboxed verb dist globalFlags config useSandbox $ do
     targets <- readUserTargets verb extraArgs
 
-    -- TODO: It'd be nice if 'cabal install' picked up the '-w' flag passed to
+    -- TODO: It'd be nice if 'etlas install' picked up the '-w' flag passed to
     -- 'configure' when run inside a sandbox.  Right now, running
     --
-    -- $ cabal sandbox init && cabal configure -w /path/to/ghc
-    --   && cabal build && cabal install
+    -- $ etlas sandbox init && etlas configure -w /path/to/eta
+    --   && etlas build && etlas install
     --
     -- performs the compilation twice unless you also pass -w to 'install'.
-    -- However, this is the same behaviour that 'cabal install' has in the normal
+    -- However, this is the same behaviour that 'etlas install' has in the normal
     -- mode of operation, so we stick to it for consistency.
 
     let configFlags'    = maybeForceTests installFlags' $
@@ -582,7 +582,7 @@ installAction
         (compilerId comp) platform
 
     -- TODO: Passing 'SandboxPackageInfo' to install unconditionally here means
-    -- that 'cabal install some-package' inside a sandbox will sometimes reinstall
+    -- that 'etlas install some-package' inside a sandbox will sometimes reinstall
     -- modified add-source deps, even if they are not among the dependencies of
     -- 'some-package'. This can also prevent packages that depend on older
     -- versions of add-source'd packages from building (see #1362).
@@ -834,9 +834,9 @@ updateAction updateFlags extraArgs globalFlags = do
 upgradeAction :: (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
               -> [String] -> Action
 upgradeAction (configFlags, _, _, _) _ _ = die' verbosity $
-    "Use the 'cabal install' command instead of 'cabal upgrade'.\n"
- ++ "You can install the latest version of a package using 'cabal install'. "
- ++ "The 'cabal upgrade' command has been removed because people found it "
+    "Use the 'etlas install' command instead of 'etlas upgrade'.\n"
+ ++ "You can install the latest version of a package using 'etlas install'. "
+ ++ "The 'etlas upgrade' command has been removed because people found it "
  ++ "confusing and it often led to broken packages.\n"
  ++ "If you want the old upgrade behaviour then use the install command "
  ++ "with the --upgrade-dependencies flag (but check first with --dry-run "
@@ -1006,11 +1006,11 @@ uninstallAction verbosityFlag extraArgs _globalFlags = do
       package = case extraArgs of
         p:_ -> p
         _   -> "PACKAGE_NAME"
-  die' verbosity $ "This version of 'cabal-install' does not support the 'uninstall' "
+  die' verbosity $ "This version of 'etlas' does not support the 'uninstall' "
     ++ "operation. "
     ++ "It will likely be implemented at some point in the future; "
-    ++ "in the meantime you're advised to use either 'ghc-pkg unregister "
-    ++ package ++ "' or 'cabal sandbox hc-pkg -- unregister " ++ package ++ "'."
+    ++ "in the meantime you're advised to use either 'eta-pkg unregister "
+    ++ package ++ "' or 'etlas sandbox hc-pkg -- unregister " ++ package ++ "'."
 
 
 sdistAction :: (SDistFlags, SDistExFlags) -> [String] -> Action
@@ -1168,7 +1168,7 @@ win32SelfUpgradeAction selfUpgradeFlags (pid:path:_extraArgs) _globalFlags = do
   Win32SelfUpgrade.deleteOldExeFile verbosity (read pid) path -- TODO: eradicateNoParse
 win32SelfUpgradeAction _ _ _ = return ()
 
--- | Used as an entry point when cabal-install needs to invoke itself
+-- | Used as an entry point when etlas needs to invoke itself
 -- as a setup script. This can happen e.g. when doing parallel builds.
 --
 actAsSetupAction :: ActAsSetupFlags -> [String] -> Action

@@ -134,24 +134,24 @@ data UserTarget =
      -- | A partially specified package, identified by name and possibly with
      -- an exact version or a version constraint.
      --
-     -- > cabal install foo
-     -- > cabal install foo-1.0
-     -- > cabal install 'foo < 2'
+     -- > etlas install foo
+     -- > etlas install foo-1.0
+     -- > etlas install 'foo < 2'
      --
      UserTargetNamed Dependency
 
      -- | A special virtual package that refers to the collection of packages
      -- recorded in the world file that the user specifically installed.
      --
-     -- > cabal install world
+     -- > etlas install world
      --
    | UserTargetWorld
 
      -- | A specific package that is unpacked in a local directory, often the
      -- current directory.
      --
-     -- > cabal install .
-     -- > cabal install ../lib/other
+     -- > etlas install .
+     -- > etlas install ../lib/other
      --
      -- * Note: in future, if multiple @.cabal@ files are allowed in a single
      -- directory then this will refer to the collection of packages.
@@ -160,21 +160,21 @@ data UserTarget =
 
      -- | A specific local unpacked package, identified by its @.cabal@ file.
      --
-     -- > cabal install foo.cabal
-     -- > cabal install ../lib/other/bar.cabal
+     -- > etlas install foo.cabal
+     -- > etlas install ../lib/other/bar.cabal
      --
    | UserTargetLocalCabalFile FilePath
 
      -- | A specific package that is available as a local tarball file
      --
-     -- > cabal install dist/foo-1.0.tar.gz
-     -- > cabal install ../build/baz-1.0.tar.gz
+     -- > etlas install dist/foo-1.0.tar.gz
+     -- > etlas install ../build/baz-1.0.tar.gz
      --
    | UserTargetLocalTarball FilePath
 
      -- | A specific package that is available as a remote tarball file
      --
-     -- > cabal install http://code.haskell.org/~user/foo/foo-0.9.tar.gz
+     -- > etlas install http://code.haskell.org/~user/foo/foo-0.9.tar.gz
      --
    | UserTargetRemoteTarball URI
   deriving (Show,Eq)
@@ -631,7 +631,7 @@ reportPackageTargetProblems verbosity problems = do
       pkgs  -> die' verbosity $ unlines
                        [ "There is no package named '" ++ display name ++ "'. "
                        | name <- pkgs ]
-                  ++ "You may need to run 'cabal update' to get the latest "
+                  ++ "You may need to run 'etlas update' to get the latest "
                   ++ "list of available packages."
 
     case [ (pkg, matches) | PackageNameAmbiguous pkg matches _ <- problems ] of

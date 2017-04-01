@@ -186,7 +186,7 @@ updateSandboxConfigFileFlag globalFlags =
   case globalSandboxConfigFile globalFlags of
     Flag _ -> return globalFlags
     NoFlag -> do
-      f' <- fmap (maybe NoFlag Flag) . lookupEnv $ "CABAL_SANDBOX_CONFIG"
+      f' <- fmap (maybe NoFlag Flag) . lookupEnv $ "ETLAS_SANDBOX_CONFIG"
       return globalFlags { globalSandboxConfigFile = f' }
 
 -- | Return the path to the sandbox config file - either the default or the one
@@ -390,7 +390,7 @@ sandboxDelete verbosity _sandboxFlags globalFlags = do
                  ++ " inside the deleted sandbox.")
           liftM (maybe [] splitSearchPath) (lookupEnv var) >>= mapM_ checkPath
 
-      checkPackagePaths "CABAL_SANDBOX_PACKAGE_PATH"
+      checkPackagePaths "ETLAS_SANDBOX_PACKAGE_PATH"
       checkPackagePaths "GHC_PACKAGE_PATH"
       checkPackagePaths "GHCJS_PACKAGE_PATH"
 

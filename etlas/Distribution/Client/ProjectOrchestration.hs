@@ -3,7 +3,7 @@
 {-# LANGUAGE RankNTypes, ScopedTypeVariables #-}
 
 -- | This module deals with building and incrementally rebuilding a collection
--- of packages. It is what backs the @cabal build@ and @configure@ commands,
+-- of packages. It is what backs the @etlas build@ and @configure@ commands,
 -- as well as being a core part of @run@, @test@, @bench@ and others. 
 --
 -- The primary thing is in fact rebuilding (and trying to make that quick by

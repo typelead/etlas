@@ -163,7 +163,7 @@ fetchPackage verbosity repoCtxt loc = case loc of
       transportCheckHttps verbosity transport uri
       notice verbosity ("Downloading " ++ show uri)
       tmpdir <- getTemporaryDirectory
-      (path, hnd) <- openTempFile tmpdir "cabal-.tar.gz"
+      (path, hnd) <- openTempFile tmpdir "etlas-.tar.gz"
       hClose hnd
       _ <- downloadURI transport verbosity uri path
       return path

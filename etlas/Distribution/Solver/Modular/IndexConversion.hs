@@ -111,7 +111,7 @@ convIP idx ipi =
 --        dangling dependency on an "installed" package we know
 --        nothing about. Oops.
 --
--- An expedient hack is to put p-internal into cabal-install's
+-- An expedient hack is to put p-internal into etlas's
 -- index as a MUNGED package name, so that it doesn't conflict
 -- with anyone else (except other instances of itself).  But
 -- yet, we ought NOT to say that PNs in the solver are munged
@@ -138,7 +138,7 @@ convIPId pn' idx ipid =
                 -- NB: something we pick up from the
                 -- InstalledPackageIndex is NEVER an executable
 
--- | Convert a cabal-install source package index to the simpler,
+-- | Convert a etlas source package index to the simpler,
 -- more uniform index format of the solver.
 convSPI' :: OS -> Arch -> CompilerInfo -> StrongFlags -> SolveExecutables ->
             CI.PackageIndex (SourcePackage loc) -> [(PN, I, PInfo)]

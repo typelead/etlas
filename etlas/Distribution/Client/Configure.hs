@@ -444,7 +444,7 @@ readConfigFlagsFrom flags = do
 -- | The path (relative to @--build-dir@) where the arguments to @configure@
 -- should be saved.
 cabalConfigFlagsFile :: FilePath -> FilePath
-cabalConfigFlagsFile dist = dist </> "cabal-config-flags"
+cabalConfigFlagsFile dist = dist </> "etlas-config-flags"
 
 -- | Read saved configure flags and restore the saved environment from the
 -- usual location.

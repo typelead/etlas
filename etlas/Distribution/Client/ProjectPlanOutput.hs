@@ -83,13 +83,13 @@ encodePlanAsJson :: DistDirLayout -> ElaboratedInstallPlan -> ElaboratedSharedCo
 encodePlanAsJson distDirLayout elaboratedInstallPlan elaboratedSharedConfig =
     --TODO: [nice to have] include all of the sharedPackageConfig and all of
     --      the parts of the elaboratedInstallPlan
-    J.object [ "cabal-version"     J..= jdisplay Our.version
-             , "cabal-lib-version" J..= jdisplay cabalVersion
-             , "compiler-id"       J..= (J.String . showCompilerId . pkgConfigCompiler)
+    J.object [ "etlas-version"       J..= jdisplay Our.version
+             , "etlas-cabal-version" J..= jdisplay cabalVersion
+             , "compiler-id"         J..= (J.String . showCompilerId . pkgConfigCompiler)
                                         elaboratedSharedConfig
-             , "os"                J..= jdisplay os
-             , "arch"              J..= jdisplay arch
-             , "install-plan"      J..= installPlanToJ elaboratedInstallPlan
+             , "os"                  J..= jdisplay os
+             , "arch"                J..= jdisplay arch
+             , "install-plan"        J..= installPlanToJ elaboratedInstallPlan
              ]
   where
     Platform arch os = pkgConfigPlatform elaboratedSharedConfig
@@ -698,9 +698,9 @@ renderGhcEnviromentFile projectRootDir elaboratedInstallPlan
   where
     headerComment =
         GhcEnvFileComment
-      $ "This is a GHC environment file written by cabal. This means you can\n"
-     ++ "run ghc or ghci and get the environment of the project as a whole.\n"
-     ++ "But you still need to use cabal repl $target to get the environment\n"
+      $ "This is an Eta environment file written by etlas. This means you can\n"
+     ++ "run eta or eta-repl and get the environment of the project as a whole.\n"
+     ++ "But you still need to use etlas repl $target to get the environment\n"
      ++ "of specific components (libs, exes, tests etc) because each one can\n"
      ++ "have its own source dirs, cpp flags etc.\n\n"
     unitIds    = selectGhcEnviromentFileLibraries postBuildStatus

@@ -27,8 +27,8 @@ data FileInfo = FileInfo String String -- ^ path, description
 -- | A list of files that should be documented in the manual page.
 files :: [FileInfo]
 files =
-  [ (FileInfo "~/.cabal/config" "The defaults that can be overridden with command-line options.")
-  , (FileInfo "~/.cabal/world"  "A list of all packages whose installation has been explicitly requested.")
+  [ (FileInfo "~/.etlas/config" "The defaults that can be overridden with command-line options.")
+  , (FileInfo "~/.etlas/world"  "A list of all packages whose installation has been explicitly requested.")
   ]
 
 -- | Produces a manual page with @troff@ markup.
@@ -36,7 +36,7 @@ manpage :: String -> [CommandSpec a] -> String
 manpage pname commands = unlines $
   [ ".TH " ++ map toUpper pname ++ " 1"
   , ".SH NAME"
-  , pname ++ " \\- a system for building and packaging Haskell libraries and programs"
+  , pname ++ " \\- a system for building and packaging Eta libraries and programs"
   , ".SH SYNOPSIS"
   , ".B " ++ pname
   , ".I command"
@@ -49,14 +49,14 @@ manpage pname commands = unlines $
   ] ++
   concatMap (commandSynopsisLines pname) commands ++
   [ ".SH DESCRIPTION"
-  , "Cabal is the standard package system for Haskell software. It helps people to configure, "
-  , "build and install Haskell software and to distribute it easily to other users and developers."
+  , "Etlas is the standard package system for the Eta programming language, based on the Cabal system from Haskell. It helps people to configure, "
+  , "build and install Eta libraries and to distribute them easily to other users and developers."
   , ""
-  , "The command line " ++ pname ++ " tool (also referred to as cabal-install) helps with "
+  , "The command line " ++ pname ++ " tool (also referred to as etlas) helps with "
   , "installing existing packages and developing new packages. "
   , "It can be used to work with local packages or to install packages from online package archives, "
-  , "including automatically installing dependencies. By default it is configured to use Hackage, "
-  , "which is Haskell's central package archive that contains thousands of libraries and applications "
+  , "including automatically installing dependencies. By default it is configured to use Etlas, "
+  , "which is Eta's central package archive that contains many libraries and applications "
   , "in the Cabal package format."
   , ".SH OPTIONS"
   , "Global options:"
@@ -71,7 +71,7 @@ manpage pname commands = unlines $
   concatMap fileLines files ++
   [ ".SH BUGS"
   , "To browse the list of known issues or report a new one please see "
-  , "https://github.com/haskell/cabal/labels/cabal-install."
+  , "https://github.com/typelead/etlas/issues."
   ]
 
 commandSynopsisLines :: String -> CommandSpec action -> [String]

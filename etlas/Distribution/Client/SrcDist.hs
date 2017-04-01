@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE FlexibleContexts #-}
--- Implements the \"@.\/cabal sdist@\" command, which creates a source
+-- Implements the \"@.\/etlas sdist@\" command, which creates a source
 -- distribution for this package.  That is, packs up the source code
 -- into a tarball, making use of the corresponding Cabal module.
 module Distribution.Client.SrcDist (
@@ -164,8 +164,8 @@ allPackageSourceFiles verbosity setupOpts0 packageDir = do
     desc <- tryFindAddSourcePackageDesc verbosity packageDir err
     flattenPackageDescription `fmap` readGenericPackageDescription verbosity desc
   globalTmp <- getTemporaryDirectory
-  withTempDirectory verbosity globalTmp "cabal-list-sources." $ \tempDir -> do
-  let file      = tempDir </> "cabal-sdist-list-sources"
+  withTempDirectory verbosity globalTmp "etlas-list-sources." $ \tempDir -> do
+  let file      = tempDir </> "etlas-sdist-list-sources"
       flags     = defaultSDistFlags {
         sDistVerbosity   = Flag $ if verbosity == normal
                                   then lessVerbose verbosity else verbosity,

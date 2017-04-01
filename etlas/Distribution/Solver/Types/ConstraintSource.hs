@@ -10,7 +10,7 @@ import Distribution.Compat.Binary (Binary(..))
 -- | Source of a 'PackageConstraint'.
 data ConstraintSource =
 
-  -- | Main config file, which is ~/.cabal/config by default.
+  -- | Main config file, which is ~/.etlas/config by default.
   ConstraintSourceMainConfig FilePath
 
   -- | Local cabal.project file
@@ -25,7 +25,7 @@ data ConstraintSource =
   -- | Flag specified on the command line.
   | ConstraintSourceCommandlineFlag
 
-  -- | Target specified by the user, e.g., @cabal install package-0.1.0.0@
+  -- | Target specified by the user, e.g., @etlas install package-0.1.0.0@
   -- implies @package==0.1.0.0@.
   | ConstraintSourceUserTarget
 
@@ -36,7 +36,7 @@ data ConstraintSource =
   -- version is installed and the source is modified.
   | ConstraintSourceModifiedAddSourceDep
 
-  -- | Internal constraint used by @cabal freeze@.
+  -- | Internal constraint used by @etlas freeze@.
   | ConstraintSourceFreeze
 
   -- | Constraint specified by a config file, a command line flag, or a user
@@ -68,9 +68,9 @@ showConstraintSource ConstraintSourceNonUpgradeablePackage =
     "non-upgradeable package"
 showConstraintSource ConstraintSourceModifiedAddSourceDep =
     "modified add-source dependency"
-showConstraintSource ConstraintSourceFreeze = "cabal freeze"
+showConstraintSource ConstraintSourceFreeze = "etlas freeze"
 showConstraintSource ConstraintSourceConfigFlagOrTarget =
     "config file, command line flag, or user target"
 showConstraintSource ConstraintSourceUnknown = "unknown source"
 showConstraintSource ConstraintSetupCabalMinVersion =
-    "minimum version of Cabal used by Setup.hs"
+    "minimum version of etlas-cabal used by Setup.hs"

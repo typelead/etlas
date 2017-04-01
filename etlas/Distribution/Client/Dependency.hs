@@ -504,7 +504,7 @@ addSetupCabalMinVersionConstraint minVersion =
           ConstraintSetupCabalMinVersion
       ]
   where
-    cabalPkgname = mkPackageName "Cabal"
+    cabalPkgname = mkPackageName "etlas-cabal"
 
 
 upgradeDependencies :: DepResolverParams -> DepResolverParams
@@ -566,7 +566,7 @@ standardInstallPolicy installedPkgIndex sourcePkgDb pkgSpecifiers
       -- Force Cabal >= 1.24 dep when the package is affected by #3199.
       mkDefaultSetupDeps :: UnresolvedSourcePackage -> Maybe [Dependency]
       mkDefaultSetupDeps srcpkg | affected        =
-        Just [Dependency (mkPackageName "Cabal")
+        Just [Dependency (mkPackageName "etlas-cabal")
               (orLaterVersion $ mkVersion [1,24])]
                                 | otherwise       = Nothing
         where

@@ -753,7 +753,7 @@ reportTargetSelectorProblems verbosity problems = do
             "No targets given and there is no package in the current "
          ++ "directory. Use the target 'all' for all packages in the "
          ++ "project or specify packages or components by name or location. "
-         ++ "See 'cabal build --help' for more details on target options."
+         ++ "See 'etlas build --help' for more details on target options."
 
     case [ () | TargetSelectorNoTargetsInProject <- problems ] of
       []  -> return ()
@@ -761,12 +761,12 @@ reportTargetSelectorProblems verbosity problems = do
         die' verbosity $
             "There is no <pkgname>.cabal package file or cabal.project file. "
          ++ "To build packages locally you need at minimum a <pkgname>.cabal "
-         ++ "file. You can use 'cabal init' to create one.\n"
+         ++ "file. You can use 'etlas init' to create one.\n"
          ++ "\n"
          ++ "For non-trivial projects you will also want a cabal.project "
          ++ "file in the root directory of your project. This file lists the "
          ++ "packages in your project and all other build configuration. "
-         ++ "See the Cabal user guide for full details."
+         ++ "See the Etlas user guide for full details."
 
     fail "reportTargetSelectorProblems: internal error"
 
@@ -917,7 +917,7 @@ syntaxForms ppinfo opinfo =
 
 -- | Syntax: "all" to select all packages in the project
 --
--- > cabal build all
+-- > etlas build all
 --
 syntaxForm1All :: Syntax
 syntaxForm1All =
@@ -931,7 +931,7 @@ syntaxForm1All =
 
 -- | Syntax: filter
 --
--- > cabal build tests
+-- > etlas build tests
 --
 syntaxForm1Filter :: Syntax
 syntaxForm1Filter =
@@ -960,8 +960,8 @@ dummyPackageInfo =
 
 -- | Syntax: package (name, dir or file)
 --
--- > cabal build foo
--- > cabal build ../bar ../bar/bar.cabal
+-- > etlas build foo
+-- > etlas build ../bar ../bar/bar.cabal
 --
 syntaxForm1Package :: [PackageInfo] -> Syntax
 syntaxForm1Package pinfo =
@@ -976,7 +976,7 @@ syntaxForm1Package pinfo =
 
 -- | Syntax: component
 --
--- > cabal build foo
+-- > etlas build foo
 --
 syntaxForm1Component :: [ComponentInfo] -> Syntax
 syntaxForm1Component cs =
@@ -991,7 +991,7 @@ syntaxForm1Component cs =
 
 -- | Syntax: module
 --
--- > cabal build Data.Foo
+-- > etlas build Data.Foo
 --
 syntaxForm1Module :: [ComponentInfo] -> Syntax
 syntaxForm1Module cs =
@@ -1007,7 +1007,7 @@ syntaxForm1Module cs =
 
 -- | Syntax: file name
 --
--- > cabal build Data/Foo.hs bar/Main.hsc
+-- > etlas build Data/Foo.hs bar/Main.hsc
 --
 syntaxForm1File :: [PackageInfo] -> Syntax
 syntaxForm1File ps =
@@ -1030,7 +1030,7 @@ syntaxForm1File ps =
 
 -- | Syntax:  :all
 --
--- > cabal build :all
+-- > etlas build :all
 --
 syntaxForm2MetaAll :: Syntax
 syntaxForm2MetaAll =
@@ -1045,7 +1045,7 @@ syntaxForm2MetaAll =
 
 -- | Syntax:  all : filer
 --
--- > cabal build all:tests
+-- > etlas build all:tests
 --
 syntaxForm2AllFilter :: Syntax
 syntaxForm2AllFilter =
@@ -1060,7 +1060,7 @@ syntaxForm2AllFilter =
 
 -- | Syntax:  package : filer
 --
--- > cabal build foo:tests
+-- > etlas build foo:tests
 --
 syntaxForm2PackageFilter :: [PackageInfo] -> Syntax
 syntaxForm2PackageFilter ps =
@@ -1076,7 +1076,7 @@ syntaxForm2PackageFilter ps =
 
 -- | Syntax: pkg : package name
 --
--- > cabal build pkg:foo
+-- > etlas build pkg:foo
 --
 syntaxForm2NamespacePackage :: [PackageInfo] -> Syntax
 syntaxForm2NamespacePackage pinfo =
@@ -1092,9 +1092,9 @@ syntaxForm2NamespacePackage pinfo =
 
 -- | Syntax: package : component
 --
--- > cabal build foo:foo
--- > cabal build ./foo:foo
--- > cabal build ./foo.cabal:foo
+-- > etlas build foo:foo
+-- > etlas build ./foo:foo
+-- > etlas build ./foo.cabal:foo
 --
 syntaxForm2PackageComponent :: [PackageInfo] -> Syntax
 syntaxForm2PackageComponent ps =
@@ -1114,7 +1114,7 @@ syntaxForm2PackageComponent ps =
 
 -- | Syntax: namespace : component
 --
--- > cabal build lib:foo exe:foo
+-- > etlas build lib:foo exe:foo
 --
 syntaxForm2KindComponent :: [ComponentInfo] -> Syntax
 syntaxForm2KindComponent cs =
@@ -1130,9 +1130,9 @@ syntaxForm2KindComponent cs =
 
 -- | Syntax: package : module
 --
--- > cabal build foo:Data.Foo
--- > cabal build ./foo:Data.Foo
--- > cabal build ./foo.cabal:Data.Foo
+-- > etlas build foo:Data.Foo
+-- > etlas build ./foo:Data.Foo
+-- > etlas build ./foo.cabal:Data.Foo
 --
 syntaxForm2PackageModule :: [PackageInfo] -> Syntax
 syntaxForm2PackageModule ps =
@@ -1151,7 +1151,7 @@ syntaxForm2PackageModule ps =
 
 -- | Syntax: component : module
 --
--- > cabal build foo:Data.Foo
+-- > etlas build foo:Data.Foo
 --
 syntaxForm2ComponentModule :: [ComponentInfo] -> Syntax
 syntaxForm2ComponentModule cs =
@@ -1171,9 +1171,9 @@ syntaxForm2ComponentModule cs =
 
 -- | Syntax: package : filename
 --
--- > cabal build foo:Data/Foo.hs
--- > cabal build ./foo:Data/Foo.hs
--- > cabal build ./foo.cabal:Data/Foo.hs
+-- > etlas build foo:Data/Foo.hs
+-- > etlas build ./foo:Data/Foo.hs
+-- > etlas build ./foo.cabal:Data/Foo.hs
 --
 syntaxForm2PackageFile :: [PackageInfo] -> Syntax
 syntaxForm2PackageFile ps =
@@ -1190,7 +1190,7 @@ syntaxForm2PackageFile ps =
 
 -- | Syntax: component : filename
 --
--- > cabal build foo:Data/Foo.hs
+-- > etlas build foo:Data/Foo.hs
 --
 syntaxForm2ComponentFile :: [ComponentInfo] -> Syntax
 syntaxForm2ComponentFile cs =
@@ -1210,7 +1210,7 @@ syntaxForm2ComponentFile cs =
 
 -- | Syntax: :all : filter
 --
--- > cabal build :all:tests
+-- > etlas build :all:tests
 --
 syntaxForm3MetaAllFilter :: Syntax
 syntaxForm3MetaAllFilter =
@@ -1238,7 +1238,7 @@ syntaxForm3MetaCwdFilter =
 
 -- | Syntax: :pkg : package name
 --
--- > cabal build :pkg:foo
+-- > etlas build :pkg:foo
 --
 syntaxForm3MetaNamespacePackage :: [PackageInfo] -> Syntax
 syntaxForm3MetaNamespacePackage pinfo =
@@ -1255,9 +1255,9 @@ syntaxForm3MetaNamespacePackage pinfo =
 
 -- | Syntax: package : namespace : component
 --
--- > cabal build foo:lib:foo
--- > cabal build foo/:lib:foo
--- > cabal build foo.cabal:lib:foo
+-- > etlas build foo:lib:foo
+-- > etlas build foo/:lib:foo
+-- > etlas build foo.cabal:lib:foo
 --
 syntaxForm3PackageKindComponent :: [PackageInfo] -> Syntax
 syntaxForm3PackageKindComponent ps =
@@ -1276,9 +1276,9 @@ syntaxForm3PackageKindComponent ps =
 
 -- | Syntax: package : component : module
 --
--- > cabal build foo:foo:Data.Foo
--- > cabal build foo/:foo:Data.Foo
--- > cabal build foo.cabal:foo:Data.Foo
+-- > etlas build foo:foo:Data.Foo
+-- > etlas build foo/:foo:Data.Foo
+-- > etlas build foo.cabal:foo:Data.Foo
 --
 syntaxForm3PackageComponentModule :: [PackageInfo] -> Syntax
 syntaxForm3PackageComponentModule ps =
@@ -1300,7 +1300,7 @@ syntaxForm3PackageComponentModule ps =
 
 -- | Syntax: namespace : component : module
 --
--- > cabal build lib:foo:Data.Foo
+-- > etlas build lib:foo:Data.Foo
 --
 syntaxForm3KindComponentModule :: [ComponentInfo] -> Syntax
 syntaxForm3KindComponentModule cs =
@@ -1321,9 +1321,9 @@ syntaxForm3KindComponentModule cs =
 
 -- | Syntax: package : component : filename
 --
--- > cabal build foo:foo:Data/Foo.hs
--- > cabal build foo/:foo:Data/Foo.hs
--- > cabal build foo.cabal:foo:Data/Foo.hs
+-- > etlas build foo:foo:Data/Foo.hs
+-- > etlas build foo/:foo:Data/Foo.hs
+-- > etlas build foo.cabal:foo:Data/Foo.hs
 --
 syntaxForm3PackageComponentFile :: [PackageInfo] -> Syntax
 syntaxForm3PackageComponentFile ps =
@@ -1343,7 +1343,7 @@ syntaxForm3PackageComponentFile ps =
 
 -- | Syntax: namespace : component : filename
 --
--- > cabal build lib:foo:Data/Foo.hs
+-- > etlas build lib:foo:Data/Foo.hs
 --
 syntaxForm3KindComponentFile :: [ComponentInfo] -> Syntax
 syntaxForm3KindComponentFile cs =
@@ -1391,7 +1391,7 @@ syntaxForm4MetaNamespacePackageFilter ps =
 
 -- | Syntax: :pkg : package : namespace : component
 --
--- > cabal build :pkg:foo:lib:foo
+-- > etlas build :pkg:foo:lib:foo
 --
 syntaxForm5MetaNamespacePackageKindComponent :: [PackageInfo] -> Syntax
 syntaxForm5MetaNamespacePackageKindComponent ps =
@@ -1412,7 +1412,7 @@ syntaxForm5MetaNamespacePackageKindComponent ps =
 
 -- | Syntax: :pkg : package : namespace : component : module : module
 --
--- > cabal build :pkg:foo:lib:foo:module:Data.Foo
+-- > etlas build :pkg:foo:lib:foo:module:Data.Foo
 --
 syntaxForm7MetaNamespacePackageKindComponentNamespaceModule
   :: [PackageInfo] -> Syntax
@@ -1440,7 +1440,7 @@ syntaxForm7MetaNamespacePackageKindComponentNamespaceModule ps =
 
 -- | Syntax: :pkg : package : namespace : component : file : filename
 --
--- > cabal build :pkg:foo:lib:foo:file:Data/Foo.hs
+-- > etlas build :pkg:foo:lib:foo:file:Data/Foo.hs
 --
 syntaxForm7MetaNamespacePackageKindComponentNamespaceFile
   :: [PackageInfo] -> Syntax

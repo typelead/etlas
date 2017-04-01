@@ -260,7 +260,7 @@ globalCommand commands = CommandUI {
       ++ "   " ++ pname ++ " COMMAND --help\n"
       ++ "or " ++ pname ++ " help COMMAND\n"
       ++ "\n"
-      ++ "To install Cabal packages from hackage use:\n"
+      ++ "To install Eta packages from Etlas use:\n"
       ++ "  " ++ pname ++ " install foo [--dry-run]\n"
       ++ "\n"
       ++ "Occasionally you need to update the list of available packages:\n"
@@ -1171,7 +1171,7 @@ reportCommand = CommandUI {
     commandSynopsis     = "Upload build reports to a remote server.",
     commandDescription  = Nothing,
     commandNotes        = Just $ \_ ->
-         "You can store your Hackage login in the ~/.cabal/config file\n",
+         "You can store your Hackage login in the ~/.etlas/config file\n",
     commandUsage        = usageAlternatives "report" ["[FLAGS]"],
     commandDefaultFlags = defaultReportFlags,
     commandOptions      = \_ ->
@@ -1274,7 +1274,7 @@ getCommand = CommandUI {
        ]
   }
 
--- 'cabal unpack' is a deprecated alias for 'cabal get'.
+-- 'etlas unpack' is a deprecated alias for 'etlas get'.
 unpackCommand :: CommandUI GetFlags
 unpackCommand = getCommand {
   commandName  = "unpack",
@@ -1531,7 +1531,7 @@ installCommand = CommandUI {
      ++ " `configure` for a list of commands being affected.\n"
      ++ "\n"
      ++ "Installed executables will by default (and without a sandbox)"
-     ++ " be put into `~/.cabal/bin/`."
+     ++ " be put into `~/.etlas/bin/`."
      ++ " If you want installed executable to be available globally, make"
      ++ " sure that the PATH environment variable contains that directory.\n"
      ++ "When using a sandbox, executables will be put into"
@@ -1740,7 +1740,7 @@ installOptions showOrParseArgs =
           "Set the name of the cabal.project file to search for in parent directories"
           installProjectFileName (\v flags -> flags {installProjectFileName = v})
           (reqArgFlag "FILE")
-      ] ++ case showOrParseArgs of      -- TODO: remove when "cabal install"
+      ] ++ case showOrParseArgs of      -- TODO: remove when "etlas install"
                                         -- avoids
           ParseArgs ->
             [ option [] ["only"]
@@ -1790,7 +1790,7 @@ uploadCommand = CommandUI {
     commandSynopsis     = "Uploads source packages or documentation to Hackage.",
     commandDescription  = Nothing,
     commandNotes        = Just $ \_ ->
-         "You can store your Hackage login in the ~/.cabal/config file\n"
+         "You can store your Hackage login in the ~/.etlas/config file\n"
       ++ relevantConfigValuesText ["username", "password"],
     commandUsage        = \pname ->
          "Usage: " ++ pname ++ " upload [FLAGS] TARFILES\n",
@@ -2356,22 +2356,22 @@ instance Semigroup UserConfigFlags where
 userConfigCommand :: CommandUI UserConfigFlags
 userConfigCommand = CommandUI {
   commandName         = "user-config",
-  commandSynopsis     = "Display and update the user's global cabal configuration.",
+  commandSynopsis     = "Display and update the user's global etlas configuration.",
   commandDescription  = Just $ \_ -> wrapText $
-       "When upgrading cabal, the set of configuration keys and their default"
+       "When upgrading etlas, the set of configuration keys and their default"
     ++ " values may change. This command provides means to merge the existing"
-    ++ " config in ~/.cabal/config"
+    ++ " config in ~/.etlas/config"
     ++ " (i.e. all bindings that are actually defined and not commented out)"
     ++ " and the default config of the new version.\n"
     ++ "\n"
-    ++ "init: Creates a new config file at either ~/.cabal/config or as"
+    ++ "init: Creates a new config file at either ~/.etlas/config or as"
     ++ " specified by --config-file, if given. An existing file won't be "
     ++ " overwritten unless -f or --force is given.\n"
-    ++ "diff: Shows a pseudo-diff of the user's ~/.cabal/config file and"
-    ++ " the default configuration that would be created by cabal if the"
+    ++ "diff: Shows a pseudo-diff of the user's ~/.etlas/config file and"
+    ++ " the default configuration that would be created by etlas if the"
     ++ " config file did not exist.\n"
     ++ "update: Applies the pseudo-diff to the configuration that would be"
-    ++ " created by default, and write the result back to ~/.cabal/config.",
+    ++ " created by default, and write the result back to ~/.etlas/config.",
 
   commandNotes        = Nothing,
   commandUsage        = usageAlternatives "user-config" ["init", "diff", "update"],
@@ -2452,12 +2452,12 @@ optionSolverFlags showOrParseArgs getmbj setmbj getrg setrg getcc setcc _getig _
       (setsip . fmap ShadowPkgs)
       (yesNoOpt showOrParseArgs)
   , option [] ["strong-flags"]
-      "Do not defer flag choices (this used to be the default in cabal-install <= 1.20)."
+      "Do not defer flag choices."
       (fmap asBool . getstrfl)
       (setstrfl . fmap StrongFlags)
       (yesNoOpt showOrParseArgs)
   , option [] ["allow-boot-library-installs"]
-      "Allow cabal to install base, ghc-prim, integer-simple, integer-gmp, and template-haskell."
+      "Allow etlas to install base, ghc-prim, integer-simple, integer-gmp, and template-haskell."
       (fmap asBool . getib)
       (setib . fmap AllowBootLibInstalls)
       (yesNoOpt showOrParseArgs)

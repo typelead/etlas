@@ -515,7 +515,7 @@ configure (pkg_descr0', pbi) cfg = do
     -- NOT complete: they only ever include the INDEFINITE
     -- dependencies.  After we apply an instantiation, we'll get
     -- definite references which constitute extra dependencies.
-    -- (Why not have cabal-install pass these in explicitly?
+    -- (Why not have etlas pass these in explicitly?
     -- For one it's deterministic; for two, we need to associate
     -- them with renamings which would require a far more complicated
     -- input scheme than what we have today.)

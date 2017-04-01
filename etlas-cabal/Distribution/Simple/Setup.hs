@@ -24,7 +24,7 @@
 -- for an explanation.
 --
 -- The types defined here get used in the front end and especially in
--- @cabal-install@ which has to do quite a bit of manipulating sets of command
+-- @etlas@ which has to do quite a bit of manipulating sets of command
 -- line flags.
 --
 -- This is actually relatively nice, it works quite well. The main change it

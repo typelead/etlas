@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
--- | cabal-install CLI command: run
+-- | etlas CLI command: run
 --
 module Distribution.Client.CmdRun (
     -- * The @run@ CLI and action

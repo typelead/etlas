@@ -163,10 +163,10 @@ import Prelude hiding (lookup)
 -- PackageInstalled returns only library dependencies, but for package that
 -- aren't yet installed we know many more kinds of dependencies (setup
 -- dependencies, exe, test-suite, benchmark, ..). Any functions that operate on
--- dependencies in cabal-install should consider what to do with these
+-- dependencies in etlas should consider what to do with these
 -- dependencies; if we give a 'PackageInstalled' instance it would be too easy
 -- to get this wrong (and, for instance, call graph traversal functions from
--- Cabal rather than from cabal-install). Instead, see 'PackageInstalled'.
+-- Cabal rather than from etlas). Instead, see 'PackageInstalled'.
 data GenericPlanPackage ipkg srcpkg
    = PreExisting ipkg
    | Configured  srcpkg

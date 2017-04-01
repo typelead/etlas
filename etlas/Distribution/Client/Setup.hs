@@ -381,7 +381,7 @@ configureOptions ::  ShowOrParseArgs -> [OptionField ConfigFlags]
 configureOptions = commandOptions configureCommand
 
 -- | Given some 'ConfigFlags' for the version of Cabal that
--- cabal-install was built with, and a target older 'Version' of
+-- etlas was built with, and a target older 'Version' of
 -- Cabal that we want to pass these flags to, convert the
 -- flags into a form that will be accepted by the older
 -- Setup script.  Generally speaking, this just means filtering

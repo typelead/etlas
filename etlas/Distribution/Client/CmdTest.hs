@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
--- | cabal-install CLI command: test
+-- | etlas CLI command: test
 --
 module Distribution.Client.CmdTest (
     -- * The @test@ CLI and action

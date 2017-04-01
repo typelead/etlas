@@ -17,7 +17,7 @@
 --
 -- A large and somewhat miscellaneous collection of utility functions used
 -- throughout the rest of the Cabal lib and in other tools that use the Cabal
--- lib like @cabal-install@. It has a very simple set of logging actions. It
+-- lib like @etlas@. It has a very simple set of logging actions. It
 -- has low level functions for running programs, a bunch of wrappers for
 -- various directory and file functions that do extra logging.
 
@@ -259,7 +259,7 @@ cabalVersion = mkVersion [1,9999]  --used when bootstrapping
 --    previously, and if we change to any other exception type,
 --    exception handlers which match on IOError will no longer work.
 --    One case where it is known we rely on IOError being catchable
---    is 'readPkgConfigDb' in cabal-install; there may be other
+--    is 'readPkgConfigDb' in etlas; there may be other
 --    user code that also assumes this.
 --
 --  * The 'topHandler' does not know what 'Verbosity' is, because

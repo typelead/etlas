@@ -78,7 +78,7 @@ data BuildReport
     -- | The Haskell compiler (and hopefully version) used
     compiler        :: CompilerId,
 
-    -- | The uploading client, ie cabal-install-x.y.z
+    -- | The uploading client, ie etlas-x.y.z
     client          :: PackageIdentifier,
 
     -- | Which configurations flags we used

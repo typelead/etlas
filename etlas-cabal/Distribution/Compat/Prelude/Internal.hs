@@ -1,6 +1,6 @@
 -- | This module re-exports the non-exposed
 -- "Distribution.Compat.Prelude" module for
--- reuse by @cabal-install@'s
+-- reuse by @etlas@'s
 -- "Distribution.Client.Compat.Prelude" module.
 --
 -- It is highly discouraged to rely on this module

@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
--- | Implementation of 'HttpLib' using cabal-install's own 'HttpTransport'
+-- | Implementation of 'HttpLib' using etlas's own 'HttpTransport'
 module Distribution.Client.Security.HTTP (HttpLib, transportAdapter) where
 
 -- stdlibs
@@ -22,7 +22,7 @@ import Network.URI
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Network.HTTP         as HTTP
 
--- Cabal/cabal-install
+-- Cabal/etlas
 import Distribution.Verbosity
          ( Verbosity )
 import Distribution.Client.HttpUtils
@@ -41,7 +41,7 @@ import qualified Hackage.Security.Util.Lens as Lens
   'HttpLib' implementation
 -------------------------------------------------------------------------------}
 
--- | Translate from hackage-security's 'HttpLib' to cabal-install's 'HttpTransport'
+-- | Translate from hackage-security's 'HttpLib' to etlas's 'HttpTransport'
 --
 -- NOTE: The match between these two APIs is currently not perfect:
 --

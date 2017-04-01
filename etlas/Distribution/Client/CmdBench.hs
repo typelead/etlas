@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
--- | cabal-install CLI command: bench
+-- | etlas CLI command: bench
 --
 module Distribution.Client.CmdBench (
     -- * The @bench@ CLI and action

@@ -28,7 +28,7 @@ import Distribution.Text
     ( display, simpleParse )
 
 -- | This method computes a default, "good enough" 'ComponentId'
--- for a package.  The intent is that cabal-install (or the user) will
+-- for a package.  The intent is that etlas (or the user) will
 -- specify a more detailed IPID via the @--ipid@ flag if necessary.
 computeComponentId
     :: Bool -- deterministic mode
@@ -36,7 +36,7 @@ computeComponentId
     -> Flag ComponentId
     -> PackageIdentifier
     -> ComponentName
-    -- This is used by cabal-install's legacy codepath
+    -- This is used by etlas's legacy codepath
     -> Maybe ([ComponentId], FlagAssignment)
     -> ComponentId
 computeComponentId deterministic mb_ipid mb_cid pid cname mb_details =

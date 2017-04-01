@@ -57,7 +57,7 @@ data ComponentLocalBuildInfo
     -- 'ComponentLocalBuildInfo' of this package.  This does NOT
     -- coincide with 'componentPackageDeps' because it ALSO records
     -- 'build-tool' dependencies on executables.  Maybe one day
-    -- @cabal-install@ will also handle these correctly too!
+    -- @etlas@ will also handle these correctly too!
     componentInternalDeps :: [UnitId],
     -- | Compatibility "package key" that we pass to older versions of GHC.
     componentCompatPackageKey :: String,

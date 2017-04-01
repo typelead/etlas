@@ -2755,7 +2755,7 @@ packageSetupScriptStyle pkg
   , Nothing <- PD.setupBuildInfo pkg      -- we get this case pre-solver
   = SetupCustomImplicitDeps
 
-  | PD.specVersion pkg > cabalVersion -- one cabal-install is built against
+  | PD.specVersion pkg > cabalVersion -- one etlas is built against
   = SetupNonCustomExternalLib
 
   | otherwise
@@ -2848,7 +2848,7 @@ packageSetupScriptSpecVersion :: Package pkg
                               -> Version
 
 -- We're going to be using the internal Cabal library, so the spec version of
--- that is simply the version of the Cabal library that cabal-install has been
+-- that is simply the version of the Cabal library that etlas has been
 -- built with.
 packageSetupScriptSpecVersion SetupNonCustomInternalLib _ _ =
     cabalVersion

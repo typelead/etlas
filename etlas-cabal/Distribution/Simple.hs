@@ -566,11 +566,11 @@ simpleUserHooks =
        unregHook = \p l _ f -> unregister p l f
       }
   where
-    finalChecks _args flags pkg_descr lbi = return ()
+    finalChecks _args flags _pkg_descr _lbi = return ()
       -- TODO: Replace with a coursier check
       -- checkForeignDeps pkg_descr lbi (lessVerbose verbosity)
-      where
-        verbosity = fromFlag (configVerbosity flags)
+      -- where
+      --   verbosity = fromFlag (configVerbosity flags)
 
 -- | Basic autoconf 'UserHooks':
 --

@@ -1,4 +1,4 @@
--- | cabal-install CLI command: configure
+-- | etlas CLI command: configure
 --
 module Distribution.Client.CmdConfigure (
     configureCommand,

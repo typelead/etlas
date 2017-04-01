@@ -197,13 +197,13 @@ toConfiguredComponent pkg_descr this_cid dep_map component = do
         -- The error suppression here is important, because in general
         -- we won't know about external dependencies (e.g., 'happy')
         -- which the package is attempting to use (those deps are only
-        -- fed in when cabal-install uses this codepath.)
-        -- TODO: Let cabal-install request errors here
+        -- fed in when etlas uses this codepath.)
+        -- TODO: Let etlas request errors here
         , Just exe <- [Map.lookup (CExeName cn) =<< Map.lookup pn dep_map]
         ]
 
 -- | Also computes the 'ComponentId', and sets cc_public if necessary.
--- This is Cabal-only; cabal-install won't use this.
+-- This is Cabal-only; etlas won't use this.
 toConfiguredComponent'
     :: Bool -- use_external_internal_deps
     -> FlagAssignment

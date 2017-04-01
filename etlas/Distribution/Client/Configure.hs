@@ -249,7 +249,7 @@ configureSetupScript packageDBs
       let gpkg = packageDescription (confPkgSource cpkg)
       PkgDesc.setupBuildInfo (PkgDesc.packageDescription gpkg)
 
-    -- Was a default 'custom-setup' stanza added by 'cabal-install' itself? If
+    -- Was a default 'custom-setup' stanza added by 'etlas' itself? If
     -- so, 'setup-depends' must not be exclusive. See #3199.
     defaultSetupDeps :: Bool
     defaultSetupDeps = maybe False PkgDesc.defaultSetupDepends

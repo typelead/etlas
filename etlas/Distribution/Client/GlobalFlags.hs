@@ -215,7 +215,7 @@ initSecureRepos verbosity httpLib repos callback = go Map.empty repos
 -- | Initialize the given secure repo
 --
 -- The security library has its own concept of a "local" repository, distinct
--- from @cabal-install@'s; these are secure repositories, but live in the local
+-- from @etlas@'s; these are secure repositories, but live in the local
 -- file system. We use the convention that these repositories are identified by
 -- URLs of the form @file:/path/to/local/repo@.
 initSecureRepo :: Verbosity

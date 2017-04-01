@@ -198,7 +198,7 @@ filterCache (IndexStateTime ts0) cache0 = (cache, IndexStateInfo{..})
 -- All the 'SourcePackage's are marked as having come from the appropriate
 -- 'Repo'.
 --
--- This is a higher level wrapper used internally in cabal-install.
+-- This is a higher level wrapper used internally in etlas.
 getSourcePackages :: Verbosity -> RepoContext -> IO SourcePackageDb
 getSourcePackages verbosity repoCtxt =
     getSourcePackagesAtIndexState verbosity repoCtxt Nothing
@@ -308,7 +308,7 @@ readCacheStrict verbosity index mkPkg = do
 --
 -- All the 'SourcePackage's are marked as having come from the given 'Repo'.
 --
--- This is a higher level wrapper used internally in cabal-install.
+-- This is a higher level wrapper used internally in etlas.
 --
 readRepoIndex :: Verbosity -> RepoContext -> Repo -> IndexState
               -> IO (PackageIndex UnresolvedSourcePackage, [Dependency], IndexStateInfo)

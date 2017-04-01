@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveFunctor #-}
--- Note: This module was copied from cabal-install.
+-- Note: This module was copied from etlas.
 
 -- | A progress monad, which we use to report failure and logging from
 -- otherwise pure code.

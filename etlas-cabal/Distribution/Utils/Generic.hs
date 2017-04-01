@@ -17,7 +17,7 @@
 --
 -- A large and somewhat miscellaneous collection of utility functions used
 -- throughout the rest of the Cabal lib and in other tools that use the Cabal
--- lib like @cabal-install@. It has a very simple set of logging actions. It
+-- lib like @etlas@. It has a very simple set of logging actions. It
 -- has low level functions for running programs, a bunch of wrappers for
 -- various directory and file functions that do extra logging.
 

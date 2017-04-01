@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
--- | cabal-install CLI command: haddock
+-- | etlas CLI command: haddock
 --
 module Distribution.Client.CmdHaddock (
     -- * The @haddock@ CLI and action

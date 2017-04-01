@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
--- | cabal-install CLI command: repl
+-- | etlas CLI command: repl
 --
 module Distribution.Client.CmdRepl (
     -- * The @repl@ CLI and action

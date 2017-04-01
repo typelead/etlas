@@ -152,7 +152,7 @@ requiredSignatures ipi = openModuleSubstFreeHoles (Map.fromList (instantiatedWit
 {-# DEPRECATED installedPackageId "Use installedUnitId instead" #-}
 -- | Backwards compatibility with Cabal pre-1.24.
 --
--- This type synonym is slightly awful because in cabal-install
+-- This type synonym is slightly awful because in etlas
 -- we define an 'InstalledPackageId' but it's a ComponentId,
 -- not a UnitId!
 installedPackageId :: InstalledPackageInfo -> UnitId

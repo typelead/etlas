@@ -17,7 +17,7 @@
 -- description, a set of flags. Commands can be associated with actions and
 -- run. It handles some common stuff automatically, like the @--help@ and
 -- command line completion flags. It is designed to allow other tools make
--- derived commands. This feature is used heavily in @cabal-install@.
+-- derived commands. This feature is used heavily in @etlas@.
 
 module Distribution.Simple.Command (
 

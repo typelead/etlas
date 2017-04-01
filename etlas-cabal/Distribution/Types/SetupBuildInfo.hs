@@ -20,7 +20,7 @@ import Distribution.Types.Dependency
 data SetupBuildInfo = SetupBuildInfo {
         setupDepends        :: [Dependency],
         defaultSetupDepends :: Bool
-        -- ^ Is this a default 'custom-setup' section added by the cabal-install
+        -- ^ Is this a default 'custom-setup' section added by the etlas
         -- code (as opposed to user-provided)? This field is only used
         -- internally, and doesn't correspond to anything in the .cabal
         -- file. See #3199.

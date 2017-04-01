@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, NamedFieldPuns, RecordWildCards #-}
 
--- | cabal-install CLI command: freeze
+-- | etlas CLI command: freeze
 --
 module Distribution.Client.CmdFreeze (
     freezeCommand,

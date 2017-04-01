@@ -1,4 +1,4 @@
--- | cabal-install CLI command: build
+-- | etlas CLI command: build
 --
 module Distribution.Client.CmdBuild (
     -- * The @build@ CLI and action

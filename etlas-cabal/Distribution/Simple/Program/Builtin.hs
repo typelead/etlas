@@ -180,7 +180,7 @@ etaProgram = (simpleProgram "eta") {
     programFindVersion = findProgramVersion "--numeric-version" id
   }
 
--- TODO: Clean this up
+underscoreToDot :: String -> String
 underscoreToDot = map (\c -> if c == '_' then '.' else c)
 
 findProgramInJavaHomeOrSearchPath :: String
@@ -219,7 +219,7 @@ javacProgram = (simpleProgram "javac") {
         -- "javac 1.7.0_79"
         case filter (isInfixOf "javac") (lines str) of
           (l:_)
-            | (_:version:_) <- words str -> underscoreToDot version
+            | (_:version:_) <- words l -> underscoreToDot version
           _             -> error $ "Invalid javac version"
   }
 
@@ -232,7 +232,7 @@ coursierProgram = (simpleProgram "coursier") {
         -- TODO: We may need to make this more robust.
         case filter (isInfixOf "Coursier") (lines str) of
           (l:_)
-            | (_:version:_) <- words str -> removeM version
+            | (_:version:_) <- words l -> removeM version
           _             -> error $ "Invalid javac version"
   }
   where removeM version = start ++ "." ++ drop 2 end
@@ -246,6 +246,7 @@ gitProgram = (simpleProgram "git") {
         let split cs = case break (=='.') cs of
               (chunk,[])     -> chunk : []
               (chunk,_:rest) -> chunk : split rest
+            join [] = []
             join [s] = s
             join (s:ss) = s ++ ('.' : join ss)
         in case words str of

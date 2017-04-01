@@ -275,7 +275,10 @@ data RemoteRepo =
       --
       -- This field is not currently stored in the config file, but is filled
       -- in automagically for known repos.
-      remoteRepoShouldTryHttps :: Bool
+      remoteRepoShouldTryHttps :: Bool,
+
+      -- | Backed by a Git Index?
+      remoteRepoGitIndexed :: Bool
     }
 
   deriving (Show, Eq, Ord, Generic)
@@ -284,7 +287,7 @@ instance Binary RemoteRepo
 
 -- | Construct a partial 'RemoteRepo' value to fold the field parser list over.
 emptyRemoteRepo :: String -> RemoteRepo
-emptyRemoteRepo name = RemoteRepo name nullURI Nothing [] 0 False
+emptyRemoteRepo name = RemoteRepo name nullURI Nothing [] 0 False False
 
 -- | Different kinds of repositories
 --

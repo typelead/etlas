@@ -109,7 +109,7 @@ import Distribution.Text
 import Distribution.ReadE
          ( ReadE(..), readP_to_E, succeedReadE )
 import qualified Distribution.Compat.ReadP as Parse
-         ( ReadP, char, munch1, pfail, sepBy1, (+++), skipSpaces )
+         ( ReadP, char, munch1, pfail, sepBy1, (+++), skipSpaces, string )
 import Distribution.ParseUtils
          ( readPToMaybe )
 import Distribution.Verbosity
@@ -2497,7 +2497,8 @@ parseDependencyOrPackageId = parse Parse.+++ liftM pkgidToDependency parse
         | otherwise        -> Dependency (packageName p) (thisVersion v)
 
 showRepo :: RemoteRepo -> String
-showRepo repo = remoteRepoName repo ++ ":"
+showRepo repo = (if remoteRepoGitIndexed repo then "git@" else "")
+             ++ remoteRepoName repo ++ ":"
              ++ uriToString id (remoteRepoURI repo) []
 
 readRepo :: String -> Maybe RemoteRepo
@@ -2515,17 +2516,20 @@ parseRepos = Parse.sepBy1 (do Parse.skipSpaces
 
 parseRepo :: Parse.ReadP r RemoteRepo
 parseRepo = do
-  name   <- Parse.munch1 (\c -> isAlphaNum c || c `elem` "_-.")
-  _      <- Parse.char ':'
-  uriStr <- Parse.munch1 (\c -> isAlphaNum c || c `elem` "+-=._/*()@'$:;&!?~")
-  uri    <- maybe Parse.pfail return (parseAbsoluteURI uriStr)
+  gitIndexed' <- Parse.string "git@" Parse.+++ Parse.string ""
+  let gitIndexed = not (null gitIndexed')
+  name       <- Parse.munch1 (\c -> isAlphaNum c || c `elem` "_-.")
+  _          <- Parse.char ':'
+  uriStr     <- Parse.munch1 (\c -> isAlphaNum c || c `elem` "+-=._/*()@'$:;&!?~")
+  uri        <- maybe Parse.pfail return (parseAbsoluteURI uriStr)
   return RemoteRepo {
     remoteRepoName           = name,
     remoteRepoURI            = uri,
     remoteRepoSecure         = Nothing,
     remoteRepoRootKeys       = [],
     remoteRepoKeyThreshold   = 0,
-    remoteRepoShouldTryHttps = False
+    remoteRepoShouldTryHttps = False,
+    remoteRepoGitIndexed     = gitIndexed
   }
 
 -- ------------------------------------------------------------

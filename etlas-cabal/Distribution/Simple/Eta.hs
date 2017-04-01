@@ -21,7 +21,6 @@ module Distribution.Simple.Eta (
 import Prelude ()
 import Distribution.Compat.Prelude
 
-import Distribution.Types.UnqualComponentName
 import Distribution.Simple.GHC.ImplInfo
 import qualified Distribution.Simple.GHC.Internal as Internal
 import Distribution.PackageDescription as PD
@@ -30,14 +29,9 @@ import qualified Distribution.InstalledPackageInfo as InstalledPackageInfo
 import Distribution.Simple.PackageIndex ( InstalledPackageIndex )
 import qualified Distribution.Simple.PackageIndex as PackageIndex
 import Distribution.Simple.LocalBuildInfo
-import qualified Distribution.Simple.Hpc as Hpc
-import Distribution.Simple.BuildPaths
 import Distribution.Simple.Utils
 import Distribution.Simple.Program
 import qualified Distribution.Simple.Program.HcPkg as HcPkg
-import qualified Distribution.Simple.Program.Ar    as Ar
-import qualified Distribution.Simple.Program.Ld    as Ld
-import qualified Distribution.Simple.Program.Strip as Strip
 import Distribution.Simple.Program.GHC
 import Distribution.Simple.Setup hiding ( Flag )
 import qualified Distribution.Simple.Setup as Cabal
@@ -47,15 +41,11 @@ import Distribution.System
 import Distribution.Verbosity
 import Distribution.Utils.NubList
 import Distribution.Text
-import Distribution.Types.UnitId
-import Distribution.Types.BuildInfo
-import Language.Haskell.Extension
 
 import qualified Data.Map as Map
 import Data.List
 import Data.Maybe
 import Control.Monad
-import Data.Traversable
 import System.Directory hiding (findFile)
 import System.FilePath
 
@@ -81,7 +71,7 @@ configure verbosity hcPath hcPkgPath conf0 = do
   -- Just etaPkgEtaVersion <- findEtaPkgEtaVersion
   --                                 verbosity (programPath etaPkgProg)
 
-  when (etaVersion /= etaPkgVersion) $ die $
+  when (etaVersion /= etaPkgVersion) $ die' verbosity $
        "Version mismatch between eta and eta-pkg: "
     ++ programPath etaProg ++ " is version " ++ display etaVersion ++ " "
     ++ programPath etaPkgProg ++ " is version " ++ display etaPkgVersion
@@ -127,9 +117,6 @@ configure verbosity hcPath hcPkgPath conf0 = do
   (_, conf4) <- requireProgram verbosity javaProgram conf3
   (_, conf5) <- requireProgram verbosity javacProgram conf4
   return (comp, compPlatform, conf5)
-
-etaNativeToo :: Compiler -> Bool
-etaNativeToo = Internal.ghcLookupProperty "Native Too"
 
 -- | Given a single package DB, return all installed packages.
 getPackageDBContents :: Verbosity -> PackageDB -> ProgramDb

@@ -29,6 +29,8 @@ import Distribution.Verbosity
 import Distribution.Simple.Utils
          ( info )
 
+import Data.List
+         ( stripPrefix )
 import Control.Concurrent
          ( MVar, newMVar, modifyMVar )
 import Control.Exception
@@ -165,10 +167,15 @@ withRepoContext' verbosity remoteRepos localRepos
     secureRemoteRepos =
       [ (remote, cacheDir) | RepoSecure remote cacheDir <- allRemoteRepos ]
     allRemoteRepos =
-      [ (if isSecure then RepoSecure else RepoRemote) remote cacheDir
+      [ (if isSecure then RepoSecure else RepoRemote) remote' cacheDir
       | remote <- remoteRepos
-      , let cacheDir = sharedCacheDir </> remoteRepoName remote
+      , let repoName = remoteRepoName remote
+            cacheDir = sharedCacheDir </> repoName
             isSecure = remoteRepoSecure remote == Just True
+            remote'  = case stripPrefix "git." repoName of
+                Just rest -> remote { remoteRepoName = rest
+                                    , remoteRepoGitIndexed = True }
+                Nothing -> remote
       ]
 
     getTransport :: MVar (Maybe HttpTransport) -> IO HttpTransport

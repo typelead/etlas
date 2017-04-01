@@ -225,29 +225,28 @@ fetchRepoTarball verbosity repoCtxt repo pkgid = do
 -- use 'updateRepo' instead.
 --
 downloadIndex :: HttpTransport -> Verbosity -> RemoteRepo -> FilePath -> IO DownloadResult
-downloadIndex transport verbosity remoteRepo cacheDir = do
-  -- TODO: Custom Git Index
-  -- | indexType == GitIndex = do
-  --     exists <- doesDirectoryExist cacheDir
-  --     (gitProg, _, _) <- requireProgramVersion verbosity
-  --                          gitProgram
-  --                          (orLaterVersion (Version [1,8,5] []))
-  --                          defaultProgramDb
-  --     let runGit = runProgramInvocation verbosity . programInvocation gitProg
-  --     if exists
-  --     then runGit ["-C", cacheDir, "pull"]
-  --     else runGit ["clone", "--depth=1", show (remoteRepoURI repo), cacheDir]
-  --     return FileAlreadyInCache
+downloadIndex transport verbosity remoteRepo cacheDir
+  | remoteRepoGitIndexed remoteRepo = do
+    exists <- doesDirectoryExist cacheDir
+    (gitProg, _, _) <- requireProgramVersion verbosity
+                          gitProgram
+                          (orLaterVersion (mkVersion [1,8,5]))
+                          defaultProgramDb
+    let runGit = runProgramInvocation verbosity . programInvocation gitProg
+    if exists
+    then runGit ["-C", cacheDir, "pull"]
+    else runGit ["clone", "--depth=1", show (remoteRepoURI remoteRepo), cacheDir]
+    return FileAlreadyInCache
 
-  -- | otherwise = do
-  remoteRepoCheckHttps verbosity transport remoteRepo
-  let uri = (remoteRepoURI remoteRepo) {
-              uriPath = uriPath (remoteRepoURI remoteRepo)
-                          `FilePath.Posix.combine` "00-index.tar.gz"
-            }
-      path = cacheDir </> "00-index" <.> "tar.gz"
-  createDirectoryIfMissing True cacheDir
-  downloadURI transport verbosity uri path
+  | otherwise = do
+    remoteRepoCheckHttps verbosity transport remoteRepo
+    let uri = (remoteRepoURI remoteRepo) {
+                uriPath = uriPath (remoteRepoURI remoteRepo)
+                            `FilePath.Posix.combine` "00-index.tar.gz"
+              }
+        path = cacheDir </> "00-index" <.> "tar.gz"
+    createDirectoryIfMissing True cacheDir
+    downloadURI transport verbosity uri path
 
 
 -- ------------------------------------------------------------

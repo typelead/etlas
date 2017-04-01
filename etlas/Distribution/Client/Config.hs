@@ -520,13 +520,13 @@ defaultRemoteRepo :: RemoteRepo
 defaultRemoteRepo = head defaultRemoteRepos
 
 defaultRemoteRepos :: [RemoteRepo]
-defaultRemoteRepos = [ RemoteRepo hackageName hackageUri Nothing [] 0 False ]
-                     -- , RemoteRepo etlasName   etlasUri   Nothing [] 0 False ]
+defaultRemoteRepos = [ RemoteRepo hackageName hackageUri Nothing [] 0 False False
+                     , RemoteRepo etlasName   etlasUri   Nothing [] 0 False True ]
   where
     hackageName = "hackage.haskell.org"
     hackageUri  = URI "http:" (Just (URIAuth "" hackageName ""))
                       "/packages/archive" "" ""
-    etlasName = "git.etlas.eta-lang.org"
+    etlasName = "etlas.typelead.com"
     etlasUri  = URI "http:" (Just (URIAuth "" "github.com" ""))
                       "/typelead/etlas-index" "" ""
     -- Note that lots of old ~/.cabal/config files will have the old url

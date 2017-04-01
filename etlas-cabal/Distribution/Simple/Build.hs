@@ -45,6 +45,7 @@ import Distribution.Backpack
 import Distribution.Backpack.DescribeUnitId
 import qualified Distribution.Simple.GHC   as GHC
 import qualified Distribution.Simple.GHCJS as GHCJS
+import qualified Distribution.Simple.Eta   as Eta
 import qualified Distribution.Simple.JHC   as JHC
 import qualified Distribution.Simple.LHC   as LHC
 import qualified Distribution.Simple.UHC   as UHC
@@ -559,6 +560,7 @@ buildLib verbosity numJobs pkg_descr lbi lib clbi =
   case compilerFlavor (compiler lbi) of
     GHC   -> GHC.buildLib   verbosity numJobs pkg_descr lbi lib clbi
     GHCJS -> GHCJS.buildLib verbosity numJobs pkg_descr lbi lib clbi
+    Eta   -> Eta.buildLib   verbosity numJobs pkg_descr lbi lib clbi
     JHC   -> JHC.buildLib   verbosity         pkg_descr lbi lib clbi
     LHC   -> LHC.buildLib   verbosity         pkg_descr lbi lib clbi
     UHC   -> UHC.buildLib   verbosity         pkg_descr lbi lib clbi
@@ -584,6 +586,7 @@ buildExe verbosity numJobs pkg_descr lbi exe clbi =
   case compilerFlavor (compiler lbi) of
     GHC   -> GHC.buildExe   verbosity numJobs pkg_descr lbi exe clbi
     GHCJS -> GHCJS.buildExe verbosity numJobs pkg_descr lbi exe clbi
+    Eta   -> Eta.buildExe   verbosity numJobs pkg_descr lbi exe clbi
     JHC   -> JHC.buildExe   verbosity         pkg_descr lbi exe clbi
     LHC   -> LHC.buildExe   verbosity         pkg_descr lbi exe clbi
     UHC   -> UHC.buildExe   verbosity         pkg_descr lbi exe clbi

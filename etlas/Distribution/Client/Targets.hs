@@ -531,17 +531,17 @@ readPackageTarget verbosity = traverse modifyLocation
     extractTarballPackageCabalFile :: FilePath -> String
                                    -> IO (FilePath, BS.ByteString)
     extractTarballPackageCabalFile tarballFile tarballOriginalLoc = do
-     maybePatchedCabalFile <- patchedTarPackageCabalFile tarballFile defaultPatchesDir
-     maybe
-       ( either (die . formatErr) return
-        . check
-        . accumEntryMap
-        . Tar.filterEntries isCabalFile
-        . Tar.read
-        . GZipUtils.maybeDecompress
-        =<< BS.readFile tarballFile
-        return
-        maybePatchedCabalFile
+      maybePatchedCabalFile <- patchedTarPackageCabalFile tarballFile defaultPatchesDir
+      maybe
+        ( either (die' verbosity . formatErr) return
+          . check
+          . accumEntryMap
+          . Tar.filterEntries isCabalFile
+          . Tar.read
+          . GZipUtils.maybeDecompress
+          =<< BS.readFile tarballFile )
+          return
+          maybePatchedCabalFile
       where
         formatErr msg = "Error reading " ++ tarballOriginalLoc ++ ": " ++ msg
 

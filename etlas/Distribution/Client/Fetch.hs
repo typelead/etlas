@@ -211,3 +211,6 @@ fetchPackage verbosity repoCtxt pkgsrc = case pkgsrc of
     ScmPackage (Just repo) sourceRepos pkgid _ -> do
       _ <- fetchSourceRepo verbosity repo pkgid sourceRepos
       return ()
+
+    ScmPackage _ _ _ _ ->
+      die' verbosity $ "fetchPackge: ScmPackage Nothing"

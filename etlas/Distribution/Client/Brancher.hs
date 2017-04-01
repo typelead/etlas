@@ -20,34 +20,25 @@ module Distribution.Client.Brancher (
   ) where
 
 import Distribution.Verbosity
-         ( Verbosity )
-import System.Exit
-         ( ExitCode(..) )
-import qualified Distribution.PackageDescription as PD
-import qualified Data.Map
 import Distribution.Compat.Exception
         ( catchIO )
 import Distribution.Client.Compat.Process
         ( readProcessWithExitCode )
-import Control.Monad
-         ( filterM, when )
-import Distribution.Package
-         ( PackageId, PackageName )
 import Distribution.Text(display)
-import System.FilePath
-         ( (</>) )
+import Distribution.Package
+         ( PackageId )
+import Distribution.Simple.Utils
+         ( notice, die', rawSystemExitCode )
+import qualified Distribution.PackageDescription as PD
+
+import Data.Maybe
+import Data.List
+import Data.Ord
+import Control.Monad
+import System.Exit
 import System.Directory
          ( doesDirectoryExist, doesFileExist )
-import Distribution.Simple.Utils
-         ( notice, die )
-import System.Process
-         ( rawSystem )
-import Data.Maybe
-         ( listToMaybe, mapMaybe )
-import Data.List
-         ( sortBy )
-import Data.Ord
-         ( comparing )
+import qualified Data.Map
 
 -- ------------------------------------------------------------
 -- * Forking the source repository
@@ -95,8 +86,9 @@ forkPackage :: Verbosity
             -> (Maybe PD.RepoKind)
                -- ^ Which repo to choose.
             -> PackageId
-            -> [PD.SourceRepo]
                -- ^ The package to fork.
+            -> [PD.SourceRepo]
+               -- ^ The set of repos to choose from.
             -> IO ()
 forkPackage verbosity branchers prefix kind pkgid' repos = do
     let pkgid = display pkgid'
@@ -104,23 +96,23 @@ forkPackage verbosity branchers prefix kind pkgid' repos = do
 
     destDirExists <- doesDirectoryExist destdir
     when destDirExists $ do
-        die ("The directory " ++ show destdir ++ " already exists, not forking.")
+        die' verbosity ("The directory " ++ show destdir ++ " already exists, not forking.")
 
     destFileExists  <- doesFileExist destdir
     when destFileExists $ do
-        die ("A file " ++ show destdir ++ " is in the way, not forking.")
+        die' verbosity ("A file " ++ show destdir ++ " is in the way, not forking.")
 
     case findBranchCmd branchers repos kind of
         Just (BranchCmd io) -> do
             exitCode <- io verbosity destdir
             case exitCode of
                 ExitSuccess -> return ()
-                ExitFailure _ -> die ("Couldn't fork package " ++ pkgid)
+                ExitFailure _ -> die' verbosity ("Couldn't fork package " ++ pkgid)
         Nothing -> case repos of
-            [] -> die ("Package " ++ pkgid
-                       ++ " does not have any source repositories.")
-            _ -> die ("Package " ++ pkgid
-                      ++ " does not have any usable source repositories.")
+            [] -> die' verbosity ("Package " ++ pkgid
+                               ++ " does not have any source repositories.")
+            _  -> die' verbosity ("Package " ++ pkgid
+                               ++ " does not have any usable source repositories.")
 
 -- | Given a set of possible branchers, and a set of possible source
 -- repositories, find a repository that is both 1) likely to be specific to
@@ -161,7 +153,7 @@ branchBzr = Brancher "bzr" $ \repo -> do
          Nothing -> ["branch", src, dst]
     return $ BranchCmd $ \verbosity dst -> do
         notice verbosity ("bzr: branch " ++ show src)
-        rawSystem "bzr" (args dst)
+        rawSystemExitCode verbosity "bzr" (args dst)
 
 -- | Branch driver for Darcs.
 branchDarcs :: Brancher
@@ -172,7 +164,7 @@ branchDarcs = Brancher "darcs" $ \repo -> do
          Nothing -> ["get", src, dst]
     return $ BranchCmd $ \verbosity dst -> do
         notice verbosity ("darcs: get " ++ show src)
-        rawSystem "darcs" (args dst)
+        rawSystemExitCode verbosity "darcs" (args dst)
 
 -- | Branch driver for Git.
 branchGit :: Brancher
@@ -185,7 +177,7 @@ branchGit = Brancher "git" $ \repo -> do
            Nothing -> []
     return $ BranchCmd $ \verbosity dst -> do
         notice verbosity ("git: clone " ++ show src)
-        rawSystem "git" (["clone", src, dst] ++ branchArgs)
+        rawSystemExitCode verbosity "git" (["clone", src, dst] ++ branchArgs)
 
 -- | Branch driver for Mercurial.
 branchHg :: Brancher
@@ -200,7 +192,7 @@ branchHg = Brancher "hg" $ \repo -> do
     let args dst = ["clone", src, dst] ++ branchArgs ++ tagArgs
     return $ BranchCmd $ \verbosity dst -> do
         notice verbosity ("hg: clone " ++ show src)
-        rawSystem "hg" (args dst)
+        rawSystemExitCode verbosity "hg" (args dst)
 
 -- | Branch driver for Subversion.
 branchSvn :: Brancher
@@ -209,4 +201,4 @@ branchSvn = Brancher "svn" $ \repo -> do
     let args dst = ["checkout", src, dst]
     return $ BranchCmd $ \verbosity dst -> do
         notice verbosity ("svn: checkout " ++ show src)
-        rawSystem "svn" (args dst)
+        rawSystemExitCode verbosity "svn" (args dst)

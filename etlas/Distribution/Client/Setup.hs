@@ -60,7 +60,7 @@ import Prelude ()
 import Distribution.Client.Compat.Prelude hiding (get)
 
 import Distribution.Client.Types
-         ( Username(..), Password(..), RemoteRepo(..), Repo(..), LocalRepo(..), IndexType(..) )
+         ( Username(..), Password(..), RemoteRepo(..), Repo(..) )
 import Distribution.Client.BuildReports.Types
          ( ReportLevel(..) )
 import Distribution.Client.Dependency.Types
@@ -122,7 +122,7 @@ import Distribution.Client.GlobalFlags
          )
 
 import Data.List
-         ( deleteFirstsBy, stripePrefix, delete, intercalate )
+         ( deleteFirstsBy, stripPrefix, delete, intercalate )
 import System.FilePath
          ( (</>) )
 import Network.URI
@@ -2500,14 +2500,17 @@ showRepo :: RemoteRepo -> String
 showRepo repo = remoteRepoName repo ++ ":"
              ++ uriToString id (remoteRepoURI repo) []
 
+readRepo :: String -> Maybe RemoteRepo
+readRepo = readPToMaybe parseRepo
+
 readRepos :: String -> Maybe [RemoteRepo]
 readRepos = readPToMaybe parseRepos
 
 parseRepos :: Parse.ReadP r [RemoteRepo]
 parseRepos = Parse.sepBy1 (do Parse.skipSpaces
-                             repo <- parseRepo
-                             Parse.skipSpaces
-                             return repo)
+                              repo <- parseRepo
+                              Parse.skipSpaces
+                              return repo)
                          (Parse.char ',')
 
 parseRepo :: Parse.ReadP r RemoteRepo

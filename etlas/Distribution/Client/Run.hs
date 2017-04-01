@@ -119,9 +119,9 @@ run verbosity lbi exe exeArgs = do
     in case compilerFlavor (compiler lbi) of
       Eta -> do
          let exeFileExt  = if isWindows lbi then ".cmd" else ""
-             exeFileName = exeName exe ++ exeFileExt
+             exeFileName = exeName' ++ exeFileExt
          p <- tryCanonicalizePath $
-            buildPref </> exeName exe </> exeFileName
+            buildPref </> exeName' </> exeFileName
          return (p, [])
       GHCJS -> do
         let (script, cmd, cmdArgs) =

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Distribution.Client.Get
@@ -18,46 +17,43 @@ module Distribution.Client.Get (
     get
   ) where
 
+import Prelude ()
+import Distribution.Client.Compat.Prelude hiding (get)
+
 import Distribution.Package
          ( PackageId, packageId, packageName )
 import Distribution.Simple.Setup
-         ( Flag(..), fromFlag, fromFlagOrDefault )
+         ( Flag(..), fromFlag, fromFlagOrDefault, flagToMaybe )
 import Distribution.Simple.Utils
-         ( notice, die, info, writeFileAtomic )
+         ( notice, die', info, rawSystemExitCode, writeFileAtomic )
 import Distribution.Verbosity
          ( Verbosity )
 import Distribution.Text(display)
 import qualified Distribution.PackageDescription as PD
 
 import Distribution.Client.Setup
-         ( GlobalFlags(..), GetFlags(..) )
+         ( GlobalFlags(..), GetFlags(..), RepoContext(..) )
 import Distribution.Client.Types
 import Distribution.Client.Targets
-import Distribution.Client.Dependency
-import Distribution.Client.Patch
 import Distribution.Client.Brancher
+import Distribution.Client.Config
+import Distribution.Client.Dependency
 import Distribution.Client.FetchUtils
-import qualified Distribution.Client.Tar as Tar (extractTarGzFile)
+import Distribution.Client.Patch
 import Distribution.Client.IndexUtils as IndexUtils
-        ( getSourcePackages )
+        ( getSourcePackagesAtIndexState )
 import Distribution.Client.Compat.Process
         ( readProcessWithExitCode )
 import Distribution.Compat.Exception
         ( catchIO )
-import Distribution.Client.Config  ( defaultPatchesDir )
+
+import Distribution.Solver.Types.SourcePackage
+
 import Control.Exception
          ( finally )
 import Control.Monad
-         ( filterM, forM_, unless, when )
-import Data.List
-         ( sortBy )
+         ( forM_, mapM_ )
 import qualified Data.Map
-import Data.Maybe
-         ( listToMaybe, mapMaybe )
-#if !MIN_VERSION_base(4,8,0)
-import Data.Monoid
-         ( mempty )
-#endif
 import Data.Ord
          ( comparing )
 import System.Directory
@@ -68,13 +64,11 @@ import System.Exit
          ( ExitCode(..) )
 import System.FilePath
          ( (</>), (<.>), addTrailingPathSeparator )
-import System.Process
-         ( rawSystem )
 
 
 -- | Entry point for the 'cabal get' command.
 get :: Verbosity
-    -> [Repo]
+    -> RepoContext
     -> GlobalFlags
     -> GetFlags
     -> [UserTarget]
@@ -82,22 +76,24 @@ get :: Verbosity
 get verbosity _ _ _ [] =
     notice verbosity "No packages requested. Nothing to do."
 
-get verbosity repos globalFlags getFlags userTargets = do
+get verbosity repoCtxt globalFlags getFlags userTargets = do
   let useFork = case (getSourceRepository getFlags) of
         NoFlag -> False
         _      -> True
 
   unless useFork $
-    mapM_ checkTarget userTargets
+    mapM_ (checkTarget verbosity) userTargets
 
-  sourcePkgDb <- getSourcePackages verbosity repos
+  let idxState = flagToMaybe $ getIndexState getFlags
 
-  pkgSpecifiers <- resolveUserTargets verbosity
+  sourcePkgDb <- getSourcePackagesAtIndexState verbosity repoCtxt idxState
+
+  pkgSpecifiers <- resolveUserTargets verbosity repoCtxt
                    (fromFlag $ globalWorldFile globalFlags)
                    (packageIndex sourcePkgDb)
                    userTargets
 
-  pkgs <- either (die . unlines . map show) return $
+  pkgs <- either (die' verbosity . unlines . map show) return $
             resolveWithoutDependencies
               (resolverParams sourcePkgDb pkgSpecifiers)
 
@@ -115,7 +111,8 @@ get verbosity repos globalFlags getFlags userTargets = do
 
     prefix = fromFlagOrDefault "" (getDestDir getFlags)
 
-    fork :: [SourcePackage] -> IO ()
+
+    fork :: [UnresolvedSourcePackage] -> IO ()
     fork pkgs = do
       let kind = fromFlag . getSourceRepository $ getFlags
       branchers <- findUsableBranchers
@@ -125,13 +122,14 @@ get verbosity repos globalFlags getFlags userTargets = do
                                              PD.packageDescription $
                                              packageDescription pkg)) pkgs
 
-    unpack :: [SourcePackage] -> IO ()
+    unpack :: [UnresolvedSourcePackage] -> IO ()
     unpack pkgs = do
       forM_ pkgs $ \pkg -> do
-        location <- fetchPackage verbosity (packageSource pkg)
+        location <- fetchPackage verbosity repoCtxt (packageSource pkg)
         let pkgid = packageId pkg
             descOverride | usePristine = Nothing
                          | otherwise   = packageDescrOverride pkg
+
         case location of
           LocalTarballPackage tarballPath ->
             unpackPackage verbosity prefix pkgid descOverride tarballPath False
@@ -150,10 +148,10 @@ get verbosity repos globalFlags getFlags userTargets = do
       where
         usePristine = fromFlagOrDefault False (getPristine getFlags)
 
-checkTarget :: UserTarget -> IO ()
-checkTarget target = case target of
-    UserTargetLocalDir       dir  -> die (notTarball dir)
-    UserTargetLocalCabalFile file -> die (notTarball file)
+checkTarget :: Verbosity -> UserTarget -> IO ()
+checkTarget verbosity target = case target of
+    UserTargetLocalDir       dir  -> die' verbosity (notTarball dir)
+    UserTargetLocalCabalFile file -> die' verbosity (notTarball file)
     _                             -> return ()
   where
     notTarball t =
@@ -172,10 +170,10 @@ unpackPackage verbosity prefix pkgid descOverride pkgPath isGit = do
         pkgdir     = prefix </> pkgdirname
         pkgdir'    = addTrailingPathSeparator pkgdir
     existsDir  <- doesDirectoryExist pkgdir
-    when existsDir $ die $
+    when existsDir $ die' verbosity $
      "The directory \"" ++ pkgdir' ++ "\" already exists, not unpacking."
     existsFile  <- doesFileExist pkgdir
-    when existsFile $ die $
+    when existsFile $ die' verbosity $
      "A file \"" ++ pkgdir ++ "\" is in the way, not unpacking."
     notice verbosity $ "Unpacking to " ++ pkgdir'
     patchedExtractTarGzFile verbosity True prefix pkgdirname pkgPath defaultPatchesDir isGit

@@ -60,7 +60,8 @@ import Control.Exception
 import Control.Concurrent.Async
 import Control.Concurrent.MVar
 import System.Directory
-         ( doesFileExist, createDirectoryIfMissing, getTemporaryDirectory )
+         ( doesFileExist, createDirectoryIfMissing, getTemporaryDirectory,
+           doesDirectoryExist )
 import System.IO
          ( openTempFile, hClose )
 import System.FilePath
@@ -111,12 +112,12 @@ checkFetched loc = case loc of
       fmap (fmap (RepoTarballPackage repo pkgid))
            (checkRepoTarballFetched repo pkgid)
 
-   ScmPackage (Just repo) srcRepos pkgid Nothing -> do
-     let dir = packageDir repo pkgid
-     exists <- doesDirectoryExist dir
-     if exists
-       then return (Just $ ScmPackage (Just repo) srcRepos pkgid dir)
-       else return Nothing
+    ScmPackage (Just repo) srcRepos pkgid Nothing -> do
+      let dir = packageDir repo pkgid
+      exists <- doesDirectoryExist dir
+      if exists
+        then return (Just $ ScmPackage (Just repo) srcRepos pkgid dir)
+        else return Nothing
 
 -- | Like 'checkFetched' but for the specific case of a 'RepoTarballPackage'.
 --
@@ -223,29 +224,30 @@ fetchRepoTarball verbosity repoCtxt repo pkgid = do
 -- hackage-security. You probably don't want to call this directly;
 -- use 'updateRepo' instead.
 --
-downloadIndex :: HttpTransport -> Verbosity -> IndexType -> RemoteRepo -> FilePath -> IO DownloadResult
-downloadIndex transport verbosity indexType remoteRepo cacheDir
-  | indexType == GitIndex = do
-      exists <- doesDirectoryExist cacheDir
-      (gitProg, _, _) <- requireProgramVersion verbosity
-                           gitProgram
-                           (orLaterVersion (Version [1,8,5] []))
-                           defaultProgramConfiguration
-      let runGit = runProgramInvocation verbosity . programInvocation gitProg
-      if exists
-      then runGit ["-C", cacheDir, "pull"]
-      else runGit ["clone", "--depth=1", show (remoteRepoURI repo), cacheDir]
-      return FileAlreadyInCache
+downloadIndex :: HttpTransport -> Verbosity -> RemoteRepo -> FilePath -> IO DownloadResult
+downloadIndex transport verbosity remoteRepo cacheDir = do
+  -- TODO: Custom Git Index
+  -- | indexType == GitIndex = do
+  --     exists <- doesDirectoryExist cacheDir
+  --     (gitProg, _, _) <- requireProgramVersion verbosity
+  --                          gitProgram
+  --                          (orLaterVersion (Version [1,8,5] []))
+  --                          defaultProgramDb
+  --     let runGit = runProgramInvocation verbosity . programInvocation gitProg
+  --     if exists
+  --     then runGit ["-C", cacheDir, "pull"]
+  --     else runGit ["clone", "--depth=1", show (remoteRepoURI repo), cacheDir]
+  --     return FileAlreadyInCache
 
-  | otherwise = do
-      remoteRepoCheckHttps verbosity transport remoteRepo
-      let uri = (remoteRepoURI remoteRepo) {
-                  uriPath = uriPath (remoteRepoURI remoteRepo)
-                              `FilePath.Posix.combine` "00-index.tar.gz"
-                }
-          path = cacheDir </> "00-index" <.> "tar.gz"
-      createDirectoryIfMissing True cacheDir
-      downloadURI transport verbosity uri path
+  -- | otherwise = do
+  remoteRepoCheckHttps verbosity transport remoteRepo
+  let uri = (remoteRepoURI remoteRepo) {
+              uriPath = uriPath (remoteRepoURI remoteRepo)
+                          `FilePath.Posix.combine` "00-index.tar.gz"
+            }
+      path = cacheDir </> "00-index" <.> "tar.gz"
+  createDirectoryIfMissing True cacheDir
+  downloadURI transport verbosity uri path
 
 
 -- ------------------------------------------------------------
@@ -344,13 +346,3 @@ packageURI repo pkgid =
       ,"package"
       ,display pkgid <.> "tar.gz"]
   }
-
-repoCacheDir :: PD.SourceRepo -> FilePath -> FilePath
-repoCacheDir sourceRepo cacheDir
-  | null parts = error "repoCacheDir: Invalid rep url."
-  | otherwise = FilePath.Posix.joinPath (cacheDir : repoType' : parts)
-  where repoType' = PD.repoTypeLowercase $ fromJust $ PD.repoType sourceRepo
-        parts     = drop 2
-                  . FilePath.Posix.splitDirectories
-                  . fromJust
-                  $ PD.repoLocation sourceRepo

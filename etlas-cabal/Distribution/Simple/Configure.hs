@@ -53,7 +53,7 @@ module Distribution.Simple.Configure (configure,
                                       ConfigStateFileError(..),
                                       tryGetConfigStateFile,
                                       platformDefines,
-                                      relaxPackageDeps,
+                                      relaxPackageDeps
                                      )
     where
 
@@ -107,6 +107,7 @@ import Distribution.Utils.LogProgress
 
 import qualified Distribution.Simple.GHC   as GHC
 import qualified Distribution.Simple.GHCJS as GHCJS
+import qualified Distribution.Simple.Eta   as Eta
 import qualified Distribution.Simple.JHC   as JHC
 import qualified Distribution.Simple.LHC   as LHC
 import qualified Distribution.Simple.UHC   as UHC
@@ -1276,11 +1277,12 @@ getInstalledPackages verbosity comp packageDBs progdb = do
 
   info verbosity "Reading installed packages..."
   case compilerFlavor comp of
-    GHC   -> GHC.getInstalledPackages verbosity comp packageDBs progdb
+    GHC   -> GHC.getInstalledPackages   verbosity comp packageDBs progdb
     GHCJS -> GHCJS.getInstalledPackages verbosity packageDBs progdb
-    JHC   -> JHC.getInstalledPackages verbosity packageDBs progdb
-    LHC   -> LHC.getInstalledPackages verbosity packageDBs progdb
-    UHC   -> UHC.getInstalledPackages verbosity comp packageDBs progdb
+    Eta   -> Eta.getInstalledPackages   verbosity packageDBs progdb
+    JHC   -> JHC.getInstalledPackages   verbosity packageDBs progdb
+    LHC   -> LHC.getInstalledPackages   verbosity packageDBs progdb
+    UHC   -> UHC.getInstalledPackages   verbosity comp packageDBs progdb
     HaskellSuite {} ->
       HaskellSuite.getInstalledPackages verbosity packageDBs progdb
     flv -> die' verbosity $ "don't know how to find the installed packages for "
@@ -1298,10 +1300,11 @@ getPackageDBContents :: Verbosity -> Compiler
 getPackageDBContents verbosity comp packageDB progdb = do
   info verbosity "Reading installed packages..."
   case compilerFlavor comp of
-    GHC -> GHC.getPackageDBContents verbosity packageDB progdb
+    GHC   -> GHC.getPackageDBContents   verbosity packageDB progdb
     GHCJS -> GHCJS.getPackageDBContents verbosity packageDB progdb
+    Eta   -> Eta.getPackageDBContents   verbosity packageDB progdb
     -- For other compilers, try to fall back on 'getInstalledPackages'.
-    _   -> getInstalledPackages verbosity comp [packageDB] progdb
+    _     -> getInstalledPackages verbosity comp [packageDB] progdb
 
 
 -- | A set of files (or directories) that can be monitored to detect when
@@ -1589,9 +1592,10 @@ configCompilerEx :: Maybe CompilerFlavor -> Maybe FilePath -> Maybe FilePath
 configCompilerEx Nothing _ _ _ verbosity = die' verbosity "Unknown compiler"
 configCompilerEx (Just hcFlavor) hcPath hcPkg progdb verbosity = do
   (comp, maybePlatform, programDb) <- case hcFlavor of
-    GHC   -> GHC.configure  verbosity hcPath hcPkg progdb
+    GHC   -> GHC.configure   verbosity hcPath hcPkg progdb
     GHCJS -> GHCJS.configure verbosity hcPath hcPkg progdb
-    JHC   -> JHC.configure  verbosity hcPath hcPkg progdb
+    Eta   -> Eta.configure   verbosity hcPath hcPkg progdb
+    JHC   -> JHC.configure   verbosity hcPath hcPkg progdb
     LHC   -> do (_, _, ghcConf) <- GHC.configure  verbosity Nothing hcPkg progdb
                 LHC.configure  verbosity hcPath Nothing ghcConf
     UHC   -> UHC.configure  verbosity hcPath hcPkg progdb

@@ -28,13 +28,9 @@ import Distribution.Client.IndexUtils
          ( updateRepoIndexCache, Index(..), writeIndexTimestamp
          , currentIndexTimestamp )
 import Distribution.Client.Config
-         ( defaultPatchesDir )
-import Distribution.Client.Config
-         ( defaultPatchesDir )
-import Distribution.Simple.Configure
-         ( etaHackageUrl )
+         ( defaultPatchesDir, etaHackageUrl )
 import Distribution.Simple.Program
-         ( gitProgram, defaultProgramConfiguration, runProgramInvocation, programInvocation,
+         ( gitProgram, defaultProgramDb, runProgramInvocation, programInvocation,
            requireProgramVersion )
 import Distribution.Client.JobControl
          ( newParallelJobControl, spawnJob, collectJob )
@@ -47,14 +43,12 @@ import Distribution.Verbosity
 import Distribution.Simple.Utils
          ( writeFileAtomic, warn, notice, noticeNoWrap )
 import Distribution.Version
-         ( Version(..), orLaterVersion )
+         ( orLaterVersion, mkVersion )
 import Distribution.Client.GZipUtils ( maybeDecompress )
 import System.FilePath               ( dropExtension )
 import System.Directory              ( doesDirectoryExist )
 
 import qualified Data.ByteString.Lazy       as BS
-import Distribution.Client.GZipUtils (maybeDecompress)
-import System.FilePath (dropExtension)
 import Data.Maybe (catMaybes)
 import Data.Time (getCurrentTime)
 import Control.Monad
@@ -80,6 +74,9 @@ update verbosity updateFlags repoCtxt = do
   jobCtrl <- newParallelJobControl (length repos)
   mapM_ (spawnJob jobCtrl . updateRepo verbosity updateFlags repoCtxt) repos
   mapM_ (\_ -> collectJob jobCtrl) repos
+
+  -- Update the Eta Hackage patches repository
+  updatePatchRepo verbosity
 
 updateRepo :: Verbosity -> UpdateFlags -> RepoContext -> Repo -> IO ()
 updateRepo verbosity updateFlags repoCtxt repo = do
@@ -120,19 +117,19 @@ updateRepo verbosity updateFlags repoCtxt repo = do
           "To revert to previous state run:\n" ++
           "    cabal update --index-state='" ++ display current_ts ++ "'\n"
 
-git only supports the -C flag as of 1.8.5
+-- git only supports the -C flag as of 1.8.5
 -- See  http://stackoverflow.com/questions/5083224/git-pull-while-not-in-a-git-directory
-  updatePatchRepo :: Verbosity -> IO ()
-  updatePatchRepo verbosity = do
-    notice verbosity $ "Updating the eta-hackage patch set"
-    (gitProg, _, _) <- requireProgramVersion verbosity
-                       gitProgram
-                       (orLaterVersion (Version [1,8,5] []))
-                       defaultProgramConfiguration
-    let runGit = runProgramInvocation verbosity . programInvocation gitProg
-    patchesDir <- defaultPatchesDir
-    exists <- doesDirectoryExist patchesDir
-    if exists
-    then runGit ["-C", patchesDir, "pull"]
-    else
-       runGit ["clone", "--depth=1", "--config", "core.autocrlf=false", etaHackageUrl, patchesDir]
+updatePatchRepo :: Verbosity -> IO ()
+updatePatchRepo verbosity = do
+  notice verbosity $ "Updating the eta-hackage patch set"
+  (gitProg, _, _) <- requireProgramVersion verbosity
+                      gitProgram
+                      (orLaterVersion (mkVersion [1,8,5]))
+                      defaultProgramDb
+  let runGit = runProgramInvocation verbosity . programInvocation gitProg
+  patchesDir <- defaultPatchesDir
+  exists <- doesDirectoryExist patchesDir
+  if exists
+  then runGit ["-C", patchesDir, "pull"]
+  else runGit [ "clone", "--depth=1", "--config", "core.autocrlf=false"
+              , etaHackageUrl, patchesDir ]

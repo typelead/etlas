@@ -99,6 +99,7 @@ library
     Distribution.Simple.Command
     Distribution.Simple.Compiler
     Distribution.Simple.Configure
+    Distribution.Simple.Eta
     Distribution.Simple.GHC
     Distribution.Simple.GHCJS
     Distribution.Simple.Haddock

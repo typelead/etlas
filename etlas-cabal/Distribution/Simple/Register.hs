@@ -59,6 +59,7 @@ import Distribution.Simple.BuildTarget
 
 import qualified Distribution.Simple.GHC   as GHC
 import qualified Distribution.Simple.GHCJS as GHCJS
+import qualified Distribution.Simple.Eta   as Eta
 import qualified Distribution.Simple.LHC   as LHC
 import qualified Distribution.Simple.UHC   as UHC
 import qualified Distribution.Simple.HaskellSuite as HaskellSuite
@@ -254,10 +255,10 @@ abiHash :: Verbosity
         -> IO AbiHash
 abiHash verbosity pkg distPref lbi lib clbi =
     case compilerFlavor comp of
-     GHC | compilerVersion comp >= mkVersion [6,11] -> do
-            fmap mkAbiHash $ GHC.libAbiHash verbosity pkg lbi' lib clbi
-     GHCJS -> do
-            fmap mkAbiHash $ GHCJS.libAbiHash verbosity pkg lbi' lib clbi
+     GHC | compilerVersion comp >= mkVersion [6,11] ->
+              fmap mkAbiHash $ GHC.libAbiHash   verbosity pkg lbi' lib clbi
+     GHCJS -> fmap mkAbiHash $ GHCJS.libAbiHash verbosity pkg lbi' lib clbi
+     Eta   -> fmap mkAbiHash $ Eta.libAbiHash   verbosity pkg lbi' lib clbi
      _ -> return (mkAbiHash "")
   where
     comp = compiler lbi
@@ -294,6 +295,7 @@ createPackageDB verbosity comp progdb preferCompat dbPath =
     case compilerFlavor comp of
       GHC   -> HcPkg.init (GHC.hcPkgInfo   progdb) verbosity preferCompat dbPath
       GHCJS -> HcPkg.init (GHCJS.hcPkgInfo progdb) verbosity False dbPath
+      Eta   -> HcPkg.init (Eta.hcPkgInfo   progdb) verbosity False dbPath
       LHC   -> HcPkg.init (LHC.hcPkgInfo   progdb) verbosity False dbPath
       UHC   -> return ()
       HaskellSuite _ -> HaskellSuite.initPackageDB verbosity progdb dbPath
@@ -330,9 +332,10 @@ withHcPkg :: Verbosity -> String -> Compiler -> ProgramDb
           -> (HcPkg.HcPkgInfo -> IO a) -> IO a
 withHcPkg verbosity name comp progdb f =
   case compilerFlavor comp of
-    GHC   -> f (GHC.hcPkgInfo progdb)
+    GHC   -> f (GHC.hcPkgInfo   progdb)
     GHCJS -> f (GHCJS.hcPkgInfo progdb)
-    LHC   -> f (LHC.hcPkgInfo progdb)
+    Eta   -> f (Eta.hcPkgInfo   progdb)
+    LHC   -> f (LHC.hcPkgInfo   progdb)
     _     -> die' verbosity ("Distribution.Simple.Register." ++ name ++ ":\
                   \not implemented for this compiler")
 
@@ -347,6 +350,7 @@ registerPackage verbosity comp progdb multiInstance packageDbs installedPkgInfo 
   case compilerFlavor comp of
     GHC   -> GHC.registerPackage   verbosity progdb multiInstance packageDbs installedPkgInfo
     GHCJS -> GHCJS.registerPackage verbosity progdb multiInstance packageDbs installedPkgInfo
+    Eta   -> Eta.registerPackage   verbosity progdb multiInstance packageDbs installedPkgInfo
     _ | HcPkg.MultiInstance == multiInstance
           -> die' verbosity "Registering multiple package instances is not yet supported for this compiler"
     LHC   -> LHC.registerPackage   verbosity      progdb packageDbs installedPkgInfo
@@ -460,7 +464,9 @@ generalInstalledPackageInfo adjustRelIncDirs pkg abi_hash lib lbi clbi installDi
     comp = compiler lbi
     hasLibrary = (hasModules || not (null (cSources bi))
                              || (not (null (jsSources bi)) &&
-                                compilerFlavor comp == GHCJS))
+                                 compilerFlavor comp == GHCJS)
+                             || (not (null (javaSources bi)) &&
+                                 compilerFlavor (compiler lbi) == Eta))
                && not (componentIsIndefinite clbi)
     (libdirs, dynlibdirs)
       | not hasLibrary

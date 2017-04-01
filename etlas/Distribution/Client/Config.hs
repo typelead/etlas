@@ -22,12 +22,14 @@ module Distribution.Client.Config (
     showConfigWithComments,
     parseConfig,
 
+    etaHackageUrl,
     defaultCabalDir,
     defaultConfigFile,
     defaultCacheDir,
     defaultCompiler,
     defaultLogsDir,
     defaultUserInstall,
+    defaultPatchesDir,
 
     baseSavedConfig,
     commentSavedConfig,
@@ -467,6 +469,9 @@ initialSavedConfig = do
     }
   }
 
+etaHackageUrl :: String
+etaHackageUrl = "https://github.com/typelead/eta-hackage"
+
 --TODO: misleading, there's no way to override this default
 --      either make it possible or rename to simply getCabalDir.
 defaultCabalDir :: IO FilePath
@@ -511,9 +516,12 @@ defaultUserInstall = True
 -- We do per-user installs by default on all platforms. We used to default to
 -- global installs on Windows but that no longer works on Windows Vista or 7.
 
+defaultRemoteRepo :: RemoteRepo
+defaultRemoteRepo = head defaultRemoteRepos
+
 defaultRemoteRepos :: [RemoteRepo]
-defaultRemoteRepos = [ RemoteRepo hackageName hackageUri Nothing [] 0 False
-                     , RemoteRepo etlasName   etlasUri   Nothing [] 0 False ]
+defaultRemoteRepos = [ RemoteRepo hackageName hackageUri Nothing [] 0 False ]
+                     -- , RemoteRepo etlasName   etlasUri   Nothing [] 0 False ]
   where
     hackageName = "hackage.haskell.org"
     hackageUri  = URI "http:" (Just (URIAuth "" hackageName ""))
@@ -712,7 +720,7 @@ commentSavedConfig = do
   globalInstallDirs <- defaultInstallDirs defaultCompiler False True
   let conf0 = mempty {
         savedGlobalFlags       = defaultGlobalFlags {
-            globalRemoteRepos = toNubList [defaultRemoteRepo]
+            globalRemoteRepos = toNubList defaultRemoteRepos
             },
         savedInstallFlags      = defaultInstallFlags,
         savedConfigureExFlags  = defaultConfigExFlags,

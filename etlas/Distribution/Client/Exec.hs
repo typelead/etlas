@@ -16,13 +16,14 @@ import Distribution.Client.Compat.Prelude
 
 import qualified Distribution.Simple.GHC   as GHC
 import qualified Distribution.Simple.GHCJS as GHCJS
+import qualified Distribution.Simple.Eta   as Eta
 
 import Distribution.Client.Sandbox (getSandboxConfigFilePath)
 import Distribution.Client.Sandbox.PackageEnvironment (sandboxPackageDBPath)
 import Distribution.Client.Sandbox.Types              (UseSandbox (..))
 
 import Distribution.Simple.Compiler    (Compiler, CompilerFlavor(..), compilerFlavor)
-import Distribution.Simple.Program     (ghcProgram, ghcjsProgram, lookupProgram)
+import Distribution.Simple.Program     (ghcProgram, ghcjsProgram, etaProgram, lookupProgram)
 import Distribution.Simple.Program.Db  (ProgramDb, requireProgram, modifyProgramSearchPath)
 import Distribution.Simple.Program.Find (ProgramSearchPathEntry(..))
 import Distribution.Simple.Program.Run (programInvocation, runProgramInvocation)
@@ -81,7 +82,8 @@ sandboxEnvironment verbosity sandboxDir comp platform programDb iEnv =
     case compilerFlavor comp of
       GHC   -> env GHC.getGlobalPackageDB   ghcProgram   "GHC_PACKAGE_PATH"
       GHCJS -> env GHCJS.getGlobalPackageDB ghcjsProgram "GHCJS_PACKAGE_PATH"
-      _     -> die' verbosity "exec only works with GHC and GHCJS"
+      Eta   -> env Eta.getGlobalPackageDB   etaProgram   "ETA_PACKAGE_PATH"
+      _     -> die' verbosity "exec only works with GHC, GHCJS, and Eta"
   where
     (Platform _ os) = platform
     ldPath = case os of

@@ -82,8 +82,7 @@ import Distribution.Client.Setup
          , ConfigFlags(..), configureCommand, filterConfigureFlags
          , ConfigExFlags(..), InstallFlags(..) )
 import Distribution.Client.Config
-         ( defaultCabalDir, defaultUserInstall, defaultPatchesDir )
-import Distribution.Client.Patch
+         ( defaultCabalDir, defaultUserInstall )
 import Distribution.Client.Sandbox.Timestamp
          ( withUpdateTimestamps )
 import Distribution.Client.Sandbox.Types

@@ -26,7 +26,7 @@ import Distribution.Package
 import Distribution.InstalledPackageInfo
          ( InstalledPackageInfo, installedComponentId, sourceComponentName )
 import Distribution.PackageDescription
-         ( FlagAssignment, SourceRepo, TestSuite(..), BenchMark(..), GenericPackageDescription(..) )
+         ( FlagAssignment, SourceRepo )
 import Distribution.Version
          ( VersionRange )
 import Distribution.Types.ComponentId
@@ -58,8 +58,6 @@ import Data.Map (Map)
 import Network.URI (URI(..), URIAuth(..), nullURI)
 import Control.Exception
          ( Exception, SomeException )
-import Data.List ( isSuffixOf )
-import System.FilePath ((</>))
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Distribution.Compat.Binary (Binary(..))

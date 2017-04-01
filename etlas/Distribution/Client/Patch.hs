@@ -5,21 +5,17 @@ module Distribution.Client.Patch
   )
 where
 
-import Distribution.Package        ( PackageIdentifier(..), PackageName(..))
-import Distribution.Simple.Program ( gitProgram, defaultProgramConfiguration
-                                   , programInvocation
-                                   , getProgramInvocationOutput
-                                   , requireProgramVersion )
-import Distribution.Simple.Utils   ( notice, copyDirectoryRecursive )
-import Distribution.Version        ( Version(..), orLaterVersion )
-import Distribution.Verbosity      ( Verbosity )
+import Distribution.Package
+import Distribution.Simple.Program
+import Distribution.Simple.Utils
+import Distribution.Version
+import Distribution.Verbosity
 
-import Distribution.Client.Tar     ( extractTarGzFile )
+import Distribution.Client.Tar
 
-import Data.List                   ( intercalate )
-import Control.Monad               ( when )
-import System.FilePath             ( dropExtension, (</>), (<.>), takeFileName )
-import System.Directory            ( doesFileExist )
+import Control.Monad
+import System.FilePath
+import System.Directory
 
 import qualified Data.ByteString.Lazy as BS
 
@@ -29,10 +25,10 @@ patchedPackageCabalFile :: PackageIdentifier
 patchedPackageCabalFile
   (PackageIdentifier
     { pkgName = name
-    , pkgVersion = Version { versionBranch = versions } }) patchesDir
+    , pkgVersion = version }) patchesDir
   = findCabalFilePatch (unPackageName name
                       ++ "-"
-                      ++ (intercalate "." $ map show versions)
+                      ++ (intercalate "." $ map show (versionNumbers version))
                       <.> "cabal") patchesDir
 
 patchedTarPackageCabalFile :: FilePath
@@ -74,8 +70,8 @@ patchedExtractTarGzFile verbosity setupForPatch dir expected tar patchesDir' isG
   when exists $ do
     (gitProg, _, _) <- requireProgramVersion verbosity
                       gitProgram
-                      (orLaterVersion (Version [1,8,5] []))
-                      defaultProgramConfiguration
+                      (orLaterVersion (mkVersion [1,8,5]))
+                      defaultProgramDb
     let runGit :: [String] -> IO String
         runGit = getProgramInvocationOutput verbosity . programInvocation gitProg
     let gitDir = dir </> expected

@@ -496,14 +496,12 @@ ghcOsString other   = display other
 -- For example @x86_64-linux-7.10.4@
 --
 ghcPlatformAndVersionString :: Platform -> Version -> String
-ghcPlatformAndVersionString (Platform arch os) version =
-    intercalate "-" [ ghcArchString arch, ghcOsString os, display version ]
-
+ghcPlatformAndVersionString _ _ = ""
 
 -- -----------------------------------------------------------------------------
 -- Constructing GHC environment files
 
--- | The kinds of entries we can stick in a @.ghc.environment@ file.
+-- | The kinds of entries we can stick in a @.eta.environment@ file.
 --
 data GhcEnvironmentFileEntry =
        GhcEnvFileComment   String     -- ^ @-- a comment@
@@ -527,7 +525,7 @@ simpleGhcEnvironmentFile packageDBs pkgids =
   : map GhcEnvFilePackageDb packageDBs
  ++ map GhcEnvFilePackageId pkgids
 
--- | Write a @.ghc.environment-$arch-$os-$ver@ file in the given directory.
+-- | Write a @.eta.environment@ file in the given directory.
 --
 -- The 'Platform' and GHC 'Version' are needed as part of the file name.
 --
@@ -541,11 +539,10 @@ writeGhcEnvironmentFile directory platform ghcversion =
   where
     envfile = directory </> ghcEnvironmentFileName platform ghcversion
 
--- | The @.ghc.environment-$arch-$os-$ver@ file name
+-- | The @.eta.environment@ file name
 --
 ghcEnvironmentFileName :: Platform -> Version -> FilePath
-ghcEnvironmentFileName platform ghcversion =
-    ".ghc.environment." ++ ghcPlatformAndVersionString platform ghcversion
+ghcEnvironmentFileName _ _ = ".eta.environment"
 
 -- | Render a bunch of GHC environment file entries
 --

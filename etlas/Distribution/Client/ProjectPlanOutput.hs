@@ -655,7 +655,7 @@ writePackagesUpToDateCacheFile DistDirLayout{distProjectCacheFile} upToDate =
     writeFileAtomic (distProjectCacheFile "up-to-date") $
       Binary.encode upToDate
 
--- Writing .ghc.environment files
+-- Writing .eta.environment files
 --
 
 writePlanGhcEnvironment :: DistDirLayout

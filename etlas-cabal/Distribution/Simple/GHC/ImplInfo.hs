@@ -41,7 +41,7 @@ data GhcImplInfo = GhcImplInfo
   , flagProfAuto         :: Bool -- ^ new style -fprof-auto* flags
   , flagPackageConf      :: Bool -- ^ use package-conf instead of package-db
   , flagDebugInfo        :: Bool -- ^ -g flag supported
-  , supportsPkgEnvFiles  :: Bool -- ^ picks up @.ghc.environment@ files
+  , supportsPkgEnvFiles  :: Bool -- ^ picks up @.eta.environment@ files
   , flagWarnMissingHomeModules :: Bool -- ^ -Wmissing-home-modules is supported
   }
 
@@ -105,7 +105,7 @@ etaVersionImplInfo _etaVer _ghcVer = GhcImplInfo
   , flagProfAuto               = True
   , flagPackageConf            = False
   , flagDebugInfo              = True
-  , supportsPkgEnvFiles        = False
+  , supportsPkgEnvFiles        = True
   , flagWarnMissingHomeModules = False
   }
 

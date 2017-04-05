@@ -1117,6 +1117,9 @@ remoteRepoFields =
     , simpleField "key-threshold"
         showThreshold            Text.parse
         remoteRepoKeyThreshold   (\x repo -> repo { remoteRepoKeyThreshold = x })
+    , simpleField "git-indexed"
+        (text . show)            Text.parse
+        remoteRepoGitIndexed     (\x repo -> repo { remoteRepoGitIndexed = x })
     ]
   where
     parseURI' uriString =

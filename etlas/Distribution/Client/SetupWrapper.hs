@@ -327,10 +327,11 @@ getSetupMethod
   :: Verbosity -> SetupScriptOptions -> PackageDescription -> BuildType
   -> IO (Version, SetupMethod, SetupScriptOptions)
 getSetupMethod verbosity options pkg buildType'
-  | buildType' == Custom
-    || maybe False (cabalVersion /=) (useCabalSpecVersion options)
-    || not (cabalVersion `withinRange` useCabalVersion options)    =
-         getExternalSetupMethod verbosity options pkg buildType'
+  -- TODO: Temporarily disable external setup method
+  -- | buildType' == Custom
+  --   || maybe False (cabalVersion /=) (useCabalSpecVersion options)
+  --   || not (cabalVersion `withinRange` useCabalVersion options)    =
+  --        getExternalSetupMethod verbosity options pkg buildType'
   | isJust (useLoggingHandle options)
     -- Forcing is done to use an external process e.g. due to parallel
     -- build concerns.

@@ -846,8 +846,9 @@ parseGenericPackageDescription file = do
     maybeWarnCabalVersion _ _ = return ()
 
 
-    handleFutureVersionParseFailure cabalVersionNeeded parseBody =
-      (unless versionOk (warning message) >> parseBody)
+    -- In Eta, we don't really care about the version of the cabal-version field
+    -- as we are not concerned with Cabal's backward compatibility.
+    handleFutureVersionParseFailure cabalVersionNeeded parseBody = parseBody
         `catchParseError` \parseError -> case parseError of
         TabsError _   -> parseFail parseError
         _ | versionOk -> parseFail parseError

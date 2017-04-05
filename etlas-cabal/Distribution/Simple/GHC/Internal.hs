@@ -438,14 +438,14 @@ substTopDir topDir ipo
 --
 -- An exception to this is when running cabal from within a `cabal exec`
 -- environment. In this case, `cabal exec` will set the
--- CABAL_SANDBOX_PACKAGE_PATH to the same value that it set
+-- ETLAS_SANDBOX_PACKAGE_PATH to the same value that it set
 -- GHC{,JS}_PACKAGE_PATH to. If that is the case it is OK to allow
 -- GHC{,JS}_PACKAGE_PATH.
 checkPackageDbEnvVar :: Verbosity -> String -> String -> IO ()
 checkPackageDbEnvVar verbosity compilerName packagePathEnvVar = do
     mPP <- lookupEnv packagePathEnvVar
     when (isJust mPP) $ do
-        mcsPP <- lookupEnv "CABAL_SANDBOX_PACKAGE_PATH"
+        mcsPP <- lookupEnv "ETLAS_SANDBOX_PACKAGE_PATH"
         unless (mPP == mcsPP) abort
     where
         lookupEnv :: String -> NoCallStackIO (Maybe String)

@@ -70,7 +70,7 @@ exec verbosity useSandbox comp platform programDb extraArgs =
 
 -- | Return the package's sandbox environment.
 --
--- The environment sets GHC_PACKAGE_PATH so that GHC will use the sandbox.
+-- The environment sets ETA_PACKAGE_PATH so that Eta will use the sandbox.
 sandboxEnvironment :: Verbosity
                    -> FilePath
                    -> Compiler

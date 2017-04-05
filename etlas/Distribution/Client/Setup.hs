@@ -2285,10 +2285,9 @@ execCommand = CommandUI {
   commandName         = "exec",
   commandSynopsis     = "Give a command access to the sandbox package repository.",
   commandDescription  = Just $ \pname -> wrapText $
-       -- TODO: this is too GHC-focused for my liking..
-       "A directly invoked GHC will not automatically be aware of any"
-    ++ " sandboxes: the GHC_PACKAGE_PATH environment variable controls what"
-    ++ " GHC uses. `" ++ pname ++ " exec` can be used to modify this variable:"
+       "A directly invoked Eta will not automatically be aware of any"
+    ++ " sandboxes: the ETA_PACKAGE_PATH environment variable controls what"
+    ++ " Eta uses. `" ++ pname ++ " exec` can be used to modify this variable:"
     ++ " COMMAND will be executed in a modified environment and thereby uses"
     ++ " the sandbox package database.\n"
     ++ "\n"

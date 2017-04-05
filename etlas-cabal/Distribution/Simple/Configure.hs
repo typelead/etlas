@@ -305,12 +305,12 @@ localBuildInfoFile distPref = distPref </> "setup-config"
 
 -- | Return the \"dist/\" prefix, or the default prefix. The prefix is taken
 -- from (in order of highest to lowest preference) the override prefix, the
--- \"CABAL_BUILDDIR\" environment variable, or the default prefix.
+-- \"ETLAS_BUILDDIR\" environment variable, or the default prefix.
 findDistPref :: FilePath  -- ^ default \"dist\" prefix
              -> Setup.Flag FilePath  -- ^ override \"dist\" prefix
              -> NoCallStackIO FilePath
 findDistPref defDistPref overrideDistPref = do
-    envDistPref <- liftM parseEnvDistPref (lookupEnv "CABAL_BUILDDIR")
+    envDistPref <- liftM parseEnvDistPref (lookupEnv "ETLAS_BUILDDIR")
     return $ fromFlagOrDefault defDistPref (mappend envDistPref overrideDistPref)
   where
     parseEnvDistPref env =

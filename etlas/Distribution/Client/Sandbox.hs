@@ -179,7 +179,7 @@ sandboxBuildDir sandboxDir = "dist/dist-sandbox-" ++ showHex sandboxDirHash ""
 --
 
 -- | If @--sandbox-config-file@ wasn't given on the command-line, set it to the
--- value of the @CABAL_SANDBOX_CONFIG@ environment variable, or else to
+-- value of the @ETLAS_SANDBOX_CONFIG@ environment variable, or else to
 -- 'NoFlag'.
 updateSandboxConfigFileFlag :: GlobalFlags -> IO GlobalFlags
 updateSandboxConfigFileFlag globalFlags =
@@ -391,8 +391,7 @@ sandboxDelete verbosity _sandboxFlags globalFlags = do
           liftM (maybe [] splitSearchPath) (lookupEnv var) >>= mapM_ checkPath
 
       checkPackagePaths "ETLAS_SANDBOX_PACKAGE_PATH"
-      checkPackagePaths "GHC_PACKAGE_PATH"
-      checkPackagePaths "GHCJS_PACKAGE_PATH"
+      checkPackagePaths "ETA_PACKAGE_PATH"
 
 -- Common implementation of 'sandboxAddSource' and 'sandboxAddSourceSnapshot'.
 doAddSource :: Verbosity -> [FilePath] -> FilePath -> PackageEnvironment

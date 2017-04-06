@@ -450,12 +450,21 @@ binfoFieldDescrs =
  , listField "extra-framework-dirs"
            showToken          parsecFilePath
            extraFrameworkDirs (\val binfo -> binfo{extraFrameworkDirs=val})
+ , listFieldWithSep vcat "maven-repos"
+           showToken          parsecToken
+           frameworks         (\paths binfo -> binfo{frameworks=paths})
  , listFieldWithSep vcat "c-sources"
            showFilePath       parsecFilePath
            cSources           (\paths binfo -> binfo{cSources=paths})
  , listFieldWithSep vcat "js-sources"
            showFilePath       parsecFilePath
            jsSources          (\paths binfo -> binfo{jsSources=paths})
+ , listFieldWithSep vcat "java-sources"
+           showFilePath       parsecFilePath
+           javaSources          (\paths binfo -> binfo{javaSources=paths})
+ , commaListFieldWithSep vcat "maven-depends"
+           showToken          parsecToken
+           extraLibs          (\xs    binfo -> binfo{extraLibs=xs})
    , simpleField "default-language"
        (maybe mempty disp) (Parsec.optionMaybe $ parsecMaybeQuoted parsec)
         defaultLanguage    (\lang  binfo -> binfo{defaultLanguage=lang})

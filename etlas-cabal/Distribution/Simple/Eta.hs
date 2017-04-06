@@ -236,9 +236,9 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       baseOpts    = componentGhcOptions verbosity lbi libBi clbi libTargetDir
       linkJavaLibOpts = mempty {
                           ghcOptInputFiles = toNubListR javaSrcs,
-                          ghcOptExtra        = toNubListR $ ["-cp",
-                                                             intercalate ":"
-                                                             fullClassPath]
+                          ghcOptExtra      = toNubListR $ ["-cp",
+                                                           intercalate (classPathSeparator lbi)
+                                                           fullClassPath]
                       }
       vanillaOptsNoJavaLib = baseOpts `mappend` mempty {
                       ghcOptMode         = toFlag GhcModeMake,
@@ -340,8 +340,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
                    ghcOptOutputFile   = toFlag exeJar,
                    ghcOptShared       = toFlag isShared,
                    ghcOptExtra        = toNubListR $ ["-cp",
-                                                      -- TODO: Account for Windows
-                                                      intercalate ":"
+                                                      intercalate (classPathSeparator lbi)
                                                       fullClassPath]
                  }
 
@@ -373,7 +372,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
         isShared     = withDynExe lbi
         javaSrcs'    = javaSources exeBi
         isWindows'   = isWindows lbi
-        classPathSep = if isWindows' then ';' else ':'
+        classPathSep = head (classPathSeparator lbi)
 
 isWindows :: LocalBuildInfo -> Bool
 isWindows lbi | Platform _ Windows <- hostPlatform lbi = True
@@ -589,3 +588,8 @@ resolveOrId repo
         repos = drop 1 repos'
     in "https://dl.bintray.com/" ++ owner ++ "/" ++ repos ++ "/"
   | otherwise = repo
+
+
+classPathSeparator :: LocalBuildInfo -> String
+classPathSeparator lbi | Platform _ Windows <- hostPlatform lbi = ";"
+                       | otherwise = ":"

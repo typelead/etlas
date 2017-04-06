@@ -217,11 +217,12 @@ checkSanity pkg =
 
   ++ catMaybes [
 
-    check (specVersion pkg > cabalVersion) $
-      PackageBuildImpossible $
-           "This package description follows version "
-        ++ display (specVersion pkg) ++ " of the Cabal specification. This "
-        ++ "tool only supports up to version " ++ display cabalVersion ++ "."
+    -- N.B. We ignore the cabal-version field -RM
+    -- check (specVersion pkg > cabalVersion) $
+    --   PackageBuildImpossible $
+    --        "This package description follows version "
+    --     ++ display (specVersion pkg) ++ " of the Cabal specification. This "
+    --     ++ "tool only supports up to version " ++ display cabalVersion ++ "."
   ]
   where
     -- The public 'library' gets special dispensation, because it

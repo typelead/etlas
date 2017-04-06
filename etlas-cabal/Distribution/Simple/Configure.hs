@@ -785,12 +785,13 @@ mkProgramDb cfg initialProgramDb = programDb
 -- | Check if the user used any deprecated flags.
 checkDeprecatedFlags :: Verbosity -> ConfigFlags -> IO ()
 checkDeprecatedFlags verbosity cfg = do
-    unless (configProfExe cfg == NoFlag) $ do
-      let enable | fromFlag (configProfExe cfg) = "enable"
-                 | otherwise = "disable"
-      warn verbosity
-        ("The flag --" ++ enable ++ "-executable-profiling is deprecated. "
-         ++ "Please use --" ++ enable ++ "-profiling instead.")
+    -- TODO: Should re-enable later? -RM
+    -- unless (configProfExe cfg == NoFlag) $ do
+    --   let enable | fromFlag (configProfExe cfg) = "enable"
+    --              | otherwise = "disable"
+    --   warn verbosity
+    --     ("The flag --" ++ enable ++ "-executable-profiling is deprecated. "
+    --      ++ "Please use --" ++ enable ++ "-profiling instead.")
 
     unless (configLibCoverage cfg == NoFlag) $ do
       let enable | fromFlag (configLibCoverage cfg) = "enable"

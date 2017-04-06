@@ -362,6 +362,7 @@ ghcSupported key comp =
   case compilerFlavor comp of
     GHC   -> checkProp
     GHCJS -> checkProp
+    Eta   -> checkProp
     _     -> False
   where checkProp =
           case Map.lookup key (compilerProperties comp) of

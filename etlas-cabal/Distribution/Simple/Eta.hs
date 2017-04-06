@@ -41,6 +41,7 @@ import Distribution.System
 import Distribution.Verbosity
 import Distribution.Utils.NubList
 import Distribution.Text
+import Distribution.Types.UnitId
 
 import qualified Data.Map as Map
 import Data.List
@@ -101,7 +102,6 @@ configure verbosity hcPath hcPkgPath conf0 = do
   extensions <- Internal.getExtensions verbosity implInfo etaProg
 
   etaInfo <- Internal.getGhcInfo verbosity implInfo etaProg
-  let etaInfoMap = Map.fromList etaInfo
 
   let comp = Compiler {
         compilerId         = CompilerId Eta etaVersion,
@@ -111,7 +111,7 @@ configure verbosity hcPath hcPkgPath conf0 = do
         compilerCompat     = [CompilerId GHC etaGhcVersion],
         compilerLanguages  = languages,
         compilerExtensions = extensions,
-        compilerProperties = etaInfoMap
+        compilerProperties = Map.fromList etaInfo
       }
       compPlatform = Nothing -- Internal.targetPlatform ghcInfo
   (_, conf4) <- requireProgram verbosity javaProgram conf3
@@ -194,7 +194,7 @@ buildOrReplLib :: Bool -> Verbosity  -> Cabal.Flag (Maybe Int)
                -> PackageDescription -> LocalBuildInfo
                -> Library            -> ComponentLocalBuildInfo -> IO ()
 buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
-  let libName = componentCompatPackageKey clbi
+  let uid = componentUnitId clbi
       libTargetDir = buildDir lbi
       isVanillaLib = not forRepl && withVanillaLib lbi
       isSharedLib = not forRepl && withSharedLib lbi
@@ -255,7 +255,7 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       vanillaOpts = vanillaOpts' {
                         ghcOptExtraDefault = toNubListR ["-staticlib"]
                     }
-      target = libTargetDir </> mkJarName libName
+      target = libTargetDir </> mkJarName uid
 
   unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
        when isVanillaLib $ runEtaProg vanillaOpts
@@ -407,16 +407,16 @@ installLib verbosity lbi targetDir dynlibTargetDir builtDir _pkg lib clbi = do
       >>= installOrdinaryFiles verbosity targetDir
 
     _cid = compilerId (compiler lbi)
-    libNames = [componentCompatPackageKey clbi]
-    jarLibNames = map mkJarName libNames
+    libUids = [componentUnitId clbi]
+    jarLibNames = map mkJarName libUids
 
     hasLib    = not $ null (allLibModules lib clbi)
                    && null (javaSources (libBuildInfo lib))
     isVanillaLib = hasLib && withVanillaLib lbi
     isSharedLib  = hasLib && withSharedLib  lbi
 
-mkJarName :: String -> String
-mkJarName lib = lib <.> "jar"
+mkJarName :: UnitId -> String
+mkJarName uid = getHSLibraryName uid <.> "jar"
 
 installExe :: Verbosity
               -> LocalBuildInfo
@@ -546,16 +546,18 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi = do
         (libs, packages'') = partition (isInfixOf "-inplace" . show) packages'
         dirEnvVarRef = if isWindows lbi then "%DIR%" else "$DIR"
         libPaths = if null libs then [] else [dirEnvVarRef ++ "/../"
-                                              ++ mkJarName (fromJust mbLibName)]
+                                              ++ mkJarName (fromJust mbLibUid)]
         libMavenDeps = if null libs
                        then []
                        else extraLibs . libBuildInfo . fromJust $ library pkgDescr
-        (mbLibName, libDeps) =
+        (mbLibUid, libDeps) =
           if null libs
           then (Nothing, [])
-          else (\(clbi':_) -> ( Just (componentCompatPackageKey clbi')
+          else (\(clbi':_) -> ( Just (componentUnitId clbi')
                               , map fst $ componentPackageDeps clbi' ))
              . fromJust
+             -- TODO: When there are multiple component dependencies (Backpack-support)
+             --       this might break. -RM
              . Map.lookup CLibName
              $ componentNameMap lbi
 

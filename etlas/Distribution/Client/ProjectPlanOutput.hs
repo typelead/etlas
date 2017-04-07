@@ -44,6 +44,7 @@ import qualified Distribution.Compat.Binary as Binary
 import           Distribution.Simple.Utils
 import           Distribution.Verbosity
 import qualified Paths_etlas as Our (version)
+import qualified Paths_etlas_cabal as OurCabal (version)
 
 import           Data.Maybe (maybeToList, fromMaybe)
 import           Data.Monoid
@@ -84,7 +85,7 @@ encodePlanAsJson distDirLayout elaboratedInstallPlan elaboratedSharedConfig =
     --TODO: [nice to have] include all of the sharedPackageConfig and all of
     --      the parts of the elaboratedInstallPlan
     J.object [ "etlas-version"       J..= jdisplay Our.version
-             , "etlas-cabal-version" J..= jdisplay cabalVersion
+             , "etlas-cabal-version" J..= jdisplay OurCabal.version
              , "compiler-id"         J..= (J.String . showCompilerId . pkgConfigCompiler)
                                         elaboratedSharedConfig
              , "os"                  J..= jdisplay os

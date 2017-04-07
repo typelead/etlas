@@ -130,6 +130,8 @@ import Distribution.Compat.Exception
          ( catchIO )
 import qualified Paths_etlas
          ( version )
+import qualified Paths_etlas_cabal
+         ( version )
 import Data.Version
          ( showVersion )
 import Data.Char
@@ -704,7 +706,7 @@ writeConfigFile file comments vals = do
       ,"--"
       ,"-- This config file was generated using the following versions"
       ,"-- of etlas-cabal and etlas:"
-      ,"-- etlas-cabal library version: " ++ Text.display cabalVersion
+      ,"-- etlas-cabal library version: " ++ showVersion Paths_etlas_cabal.version
       ,"-- etlas version: " ++ showVersion Paths_etlas.version
       ,"",""
       ]

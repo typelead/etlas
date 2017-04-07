@@ -557,6 +557,7 @@ getExternalSetupMethod verbosity options pkg bt = do
   debug verbosity $ "Using explicit dependencies: "
     ++ show (useDependenciesExclusive options)
   createDirectoryIfMissingVerbose verbosity True setupDir
+  -- TODO: Update these cabal versions -RM
   (cabalLibVersion, mCabalLibInstalledPkgId, options') <- cabalLibVersionToUse
   debug verbosity $ "Using etlas-cabal library version " ++ display cabalLibVersion
   path <- if useCachedSetupExecutable

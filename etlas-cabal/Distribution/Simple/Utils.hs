@@ -235,13 +235,14 @@ import qualified Text.PrettyPrint as Disp
 
 -- We only get our own version number when we're building with ourselves
 cabalVersion :: Version
-#if defined(BOOTSTRAPPED_CABAL)
-cabalVersion = mkVersion' Paths_etlas_cabal.version
-#elif defined(CABAL_VERSION)
-cabalVersion = mkVersion [CABAL_VERSION]
-#else
-cabalVersion = mkVersion [1,9999]  --used when bootstrapping
-#endif
+cabalVersion = mkVersion [2,1,0,0]
+-- #if defined(BOOTSTRAPPED_CABAL)
+-- cabalVersion = mkVersion' Paths_etlas_cabal.version
+-- #elif defined(CABAL_VERSION)
+-- cabalVersion = mkVersion [CABAL_VERSION]
+-- #else
+-- cabalVersion = mkVersion [1,9999]  --used when bootstrapping
+-- #endif
 
 -- ----------------------------------------------------------------------------
 -- Exception and logging utils

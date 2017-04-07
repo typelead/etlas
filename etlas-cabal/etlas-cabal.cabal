@@ -195,6 +195,7 @@ library
     Distribution.Version
     Language.Haskell.Extension
     Distribution.Compat.Binary
+    Paths_etlas_cabal
 
   if flag(parsec)
     cpp-options: -DCABAL_PARSEC
@@ -238,7 +239,6 @@ library
     Distribution.Simple.GHC.IPI642
     Distribution.Simple.GHC.IPIConvert
     Distribution.Simple.GHC.ImplInfo
-    Paths_etlas_cabal
 
   default-language: Haskell2010
   other-extensions:

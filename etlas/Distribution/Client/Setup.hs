@@ -1472,7 +1472,8 @@ defaultInstallFlags = InstallFlags {
     installStrongFlags           = Flag (StrongFlags False),
     installAllowBootLibInstalls  = Flag (AllowBootLibInstalls False),
     installReinstall             = Flag False,
-    installAvoidReinstalls       = Flag (AvoidReinstalls False),
+    -- Eta-specific
+    installAvoidReinstalls       = Flag (AvoidReinstalls True),
     installOverrideReinstall     = Flag False,
     installUpgradeDeps           = Flag False,
     installOnly                  = Flag False,

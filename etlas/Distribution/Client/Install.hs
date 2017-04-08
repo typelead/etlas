@@ -368,14 +368,20 @@ planPackages verbosity comp platform mSandboxPkgInfo solver
              configFlags configExFlags installFlags
              installedPkgIndex sourcePkgDb pkgConfigDb pkgSpecifiers =
 
-        resolveDependencies
-          platform (compilerInfo comp) pkgConfigDb
-          solver
-          resolverParams
+    (  resolveDeps resolverParams
+       -- If it fails, try again with --allow-newer -RM
+   <|> (Step "Normal dependency resolution failed. Attempting to try --allow-newer..."
+        $ resolveDeps (removeUpperBounds (AllowNewer RelaxDepsAll) resolverParams)))
 
     >>= if onlyDeps then pruneInstallPlan pkgSpecifiers else return
 
   where
+    resolveDeps params =
+      resolveDependencies
+          platform (compilerInfo comp) pkgConfigDb
+          solver
+          params
+
     resolverParams =
 
         setMaxBackjumps (if maxBackjumps < 0 then Nothing

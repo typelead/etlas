@@ -390,8 +390,7 @@ installLib    :: Verbosity
               -> IO ()
 installLib verbosity lbi targetDir dynlibTargetDir builtDir _pkg lib clbi = do
   copyModuleFiles "hi"
-  when isVanillaLib $ mapM_ (installOrdinary builtDir targetDir) jarLibNames
-  when isSharedLib $ mapM_ (installOrdinary builtDir dynlibTargetDir) jarLibNames
+  when hasLib $ mapM_ (installOrdinary builtDir targetDir) jarLibNames
   where
     install _isShared srcDir dstDir name = do
       createDirectoryIfMissingVerbose verbosity True dstDir

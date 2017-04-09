@@ -335,6 +335,7 @@ libraryDynDirSupported comp = case compilerFlavor comp of
       -- are many GHC 8.1 nightlies which don't support this.
     ((v >= mkVersion [8,0,1,20161022] && v < mkVersion [8,1]) ||
       v >= mkVersion [8,1,20161021])
+  Eta -> v >= mkVersion [0,0,6] -- v0.0.6 is when we did the merge with GHC 8 -RM
   _   -> False
  where
   v = compilerVersion comp

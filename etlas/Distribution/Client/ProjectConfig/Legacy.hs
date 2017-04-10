@@ -592,7 +592,8 @@ convertToLegacyAllPackageConfig
       configRelocatable         = mempty,
       configDebugInfo           = mempty,
       configAllowOlder          = mempty,
-      configAllowNewer          = mempty
+      configAllowNewer          = mempty,
+      configVerifyMode          = mempty
     }
 
     haddockFlags = mempty {
@@ -659,7 +660,8 @@ convertToLegacyPerPackageConfig PackageConfig {..} =
       configRelocatable         = packageConfigRelocatable,
       configDebugInfo           = packageConfigDebugInfo,
       configAllowOlder          = mempty,
-      configAllowNewer          = mempty
+      configAllowNewer          = mempty,
+      configVerifyMode          = mempty
     }
 
     installFlags = mempty {

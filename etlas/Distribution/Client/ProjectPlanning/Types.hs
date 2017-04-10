@@ -241,6 +241,7 @@ data ElaboratedConfiguredPackage
        elabStripLibs            :: Bool,
        elabStripExes            :: Bool,
        elabDebugInfo            :: DebugInfoLevel,
+       elabVerifyMode           :: Bool,
 
        elabProgramPaths          :: Map String FilePath,
        elabProgramArgs           :: Map String [String],

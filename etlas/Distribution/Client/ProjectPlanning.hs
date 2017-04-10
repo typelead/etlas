@@ -1696,6 +1696,7 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
 
         elabProfExe       = perPkgOptionFlag pkgid False packageConfigProf
         elabProfLib       = pkgid `Set.member` pkgsUseProfilingLibrary
+        elabVerifyMode    = False -- TODO: Should this be grabbed from somewhere? -RM
 
         (elabProfExeDetail,
          elabProfLibDetail) = perPkgOptionLibExeFlag pkgid ProfDetailDefault
@@ -3014,6 +3015,7 @@ setupHsConfigureFlags (ReadyPackage elab@ElaboratedConfiguredPackage{..})
     configProfExe             = mempty
     configProfLib             = toFlag elabProfLib
     configProf                = toFlag elabProfExe
+    configVerifyMode          = toFlag elabVerifyMode
 
     -- configProfDetail is for exe+lib, but overridden by configProfLibDetail
     -- so we specify both so we can specify independently

@@ -438,7 +438,8 @@ data ConfigFlags = ConfigFlags {
     configRelocatable :: Flag Bool, -- ^ Enable relocatable package built
     configDebugInfo :: Flag DebugInfoLevel,  -- ^ Emit debug info.
     configAllowOlder :: Maybe AllowOlder, -- ^ dual to 'configAllowNewer'
-    configAllowNewer :: Maybe AllowNewer
+    configAllowNewer :: Maybe AllowNewer,
+    configVerifyMode :: Flag Bool -- ^ Verify the jar files
     -- ^ Ignore upper bounds on all or some dependencies. Wrapped in 'Maybe' to
     -- distinguish between "default" and "explicitly disabled".
   }
@@ -497,6 +498,7 @@ instance Eq ConfigFlags where
     && equal configFlagError
     && equal configRelocatable
     && equal configDebugInfo
+    && equal configVerifyMode
     where
       equal f = on (==) f a b
 
@@ -543,7 +545,8 @@ defaultConfigFlags progDb = emptyConfigFlags {
     configFlagError    = NoFlag,
     configRelocatable  = Flag False,
     configDebugInfo    = Flag NoDebugInfo,
-    configAllowNewer   = Nothing
+    configAllowNewer   = Nothing,
+    configVerifyMode   = Flag False
   }
 
 configureCommand :: ProgramDb -> CommandUI ConfigFlags
@@ -857,6 +860,12 @@ configureOptions showOrParseArgs =
          "building a package that is relocatable. (GHC only)"
          configRelocatable (\v flags -> flags { configRelocatable = v})
          (boolOpt [] [])
+
+      ,option "" ["verify"]
+         "Verify the generated jar files."
+         configVerifyMode (\v flags -> flags { configVerifyMode = v })
+         (boolOpt [] [])
+
       ]
   where
     readFlagList :: String -> FlagAssignment

@@ -341,7 +341,8 @@ instance Semigroup SavedConfig where
         configAllowOlder          = combineMonoid savedConfigureFlags
                                     configAllowOlder,
         configAllowNewer          = combineMonoid savedConfigureFlags
-                                    configAllowNewer
+                                    configAllowNewer,
+        configVerifyMode          = combine configVerifyMode
         }
         where
           combine        = combine'        savedConfigureFlags

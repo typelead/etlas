@@ -201,14 +201,14 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       comp = compiler lbi
 
   (etaProg, _) <- requireProgram verbosity etaProgram (withPrograms lbi)
-  -- TODO: Find a way to not hardcode this.
-  coursierPath  <- fmap (\x -> x </> "coursier") $ getAppUserDataDirectory "etlas"
+  etlasDir <- defaultCabalDir
   (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
   let runEtaProg          = runGHC verbosity etaProg comp (hostPlatform lbi)
       libBi               = libBuildInfo lib
+      coursierPath        = etlasDir </> "coursier"
       runCoursier options = getProgramInvocationOutput verbosity
                               (programInvocation javaProg $
-                               (["-jar", "-noverify", coursierPath] ++ options))
+                                (["-jar", "-noverify", coursierPath] ++ options))
 
   (depJars, mavenDeps') <- getDependencyClassPaths (installedPkgs lbi)
                             pkgDescr lbi clbi
@@ -236,9 +236,8 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       baseOpts    = componentGhcOptions verbosity lbi libBi clbi libTargetDir
       linkJavaLibOpts = mempty {
                           ghcOptInputFiles = toNubListR javaSrcs,
-                          ghcOptExtra      = toNubListR $ ["-cp",
-                                                           intercalate (classPathSeparator lbi)
-                                                           fullClassPath]
+                          ghcOptExtra      = toNubListR $
+                            ["-cp", mkMergedClassPath lbi fullClassPath]
                       }
       vanillaOptsNoJavaLib = baseOpts `mappend` mempty {
                       ghcOptMode         = toFlag GhcModeMake,
@@ -257,9 +256,21 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
                     }
       target = libTargetDir </> mkJarName uid
 
+      runVerify = runProgramInvocation verbosity
+                    (programInvocation javaProg $
+                     ["-cp", mkMergedClassPath lbi (etlasDir : fullClassPath)
+                     , "Verify", target])
+
   unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
-       when isVanillaLib $ runEtaProg vanillaOpts
-       when isSharedLib  $ runEtaProg sharedOpts
+       let withVerify act = do
+             act
+             when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
+               runVerify
+       if isVanillaLib
+       then withVerify $ runEtaProg vanillaOpts
+       else if isSharedLib
+       then withVerify $ runEtaProg sharedOpts
+       else return ()
 
 -- | Start a REPL without loading any source files.
 startInterpreter :: Verbosity -> ProgramDb -> Compiler -> Platform
@@ -294,11 +305,12 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
 
   (etaProg, _)  <- requireProgram verbosity etaProgram  (withPrograms lbi)
   (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
-  coursierPath  <- fmap (\x -> x </> "coursier") $ getAppUserDataDirectory "etlas"
-  let runEtaProg = runGHC verbosity etaProg comp (hostPlatform lbi)
+  etlasDir <- defaultCabalDir
+  let runEtaProg          = runGHC verbosity etaProg comp (hostPlatform lbi)
+      coursierPath        = etlasDir </> "coursier"
       runCoursier options = getProgramInvocationOutput verbosity
                               (programInvocation javaProg $
-                               (["-jar", "-noverify", coursierPath] ++ options))
+                                (["-jar", "-noverify", coursierPath] ++ options))
 
   createDirectoryIfMissingVerbose verbosity True exeDir
 
@@ -323,7 +335,9 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
       javaSrcs = (if isShared
                   then []
                   else mavenPaths) ++ javaSrcs'
+
       fullClassPath = depJars ++ mavenPaths
+
       classPaths' = if isShared then fullClassPath else []
       dirEnvVar = "DIR"
       dirEnvVarRef = if isWindows' then "%" ++ dirEnvVar ++ "%" else "$" ++ dirEnvVar
@@ -339,18 +353,28 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
                    ghcOptNumJobs      = numJobs,
                    ghcOptOutputFile   = toFlag exeJar,
                    ghcOptShared       = toFlag isShared,
-                   ghcOptExtra        = toNubListR $ ["-cp",
-                                                      intercalate (classPathSeparator lbi)
-                                                      fullClassPath]
+                   ghcOptExtra        = toNubListR $
+                     ["-cp", mkMergedClassPath lbi fullClassPath]
                  }
 
-  runEtaProg baseOpts
+      verifyClassPath = mkMergedClassPath lbi (etlasDir : exeJar : classPaths)
+
+      runVerify = runProgramInvocation verbosity
+                    (programInvocation javaProg $
+                     ["-cp", verifyClassPath, "Verify", exeJar])
+
+      withVerify act = do
+        act
+        when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
+          runVerify
+
+  withVerify $ runEtaProg baseOpts
+
   -- Generate command line executable file
   let classPaths''= if null classPaths then ""
-                     else classPathSep : intercalate [classPathSep]
-                          classPaths
+                     else classPathSep : mkMergedClassPath lbi classPaths
       generateExeScript =
-        if (isWindows') then
+        if isWindows' then
              "@echo off\r\n"
           ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"
           ++ "java -classpath \"" ++ dirEnvVarRef ++ "/" ++ exeNameReal
@@ -594,3 +618,10 @@ resolveOrId repo
 classPathSeparator :: LocalBuildInfo -> String
 classPathSeparator lbi | Platform _ Windows <- hostPlatform lbi = ";"
                        | otherwise = ":"
+
+mkMergedClassPath :: LocalBuildInfo -> [FilePath] -> FilePath
+mkMergedClassPath lbi = intercalate (classPathSeparator lbi)
+
+-- TODO: Duplicate definition warning -RM
+defaultCabalDir :: IO FilePath
+defaultCabalDir = getAppUserDataDirectory "etlas"

@@ -299,9 +299,12 @@ readCacheStrict :: Verbosity -> Index -> (PackageEntry -> pkg) -> IO ([pkg], [De
 readCacheStrict verbosity index mkPkg = do
     updateRepoIndexCache verbosity index
     cache <- readIndexCache verbosity index
+    -- This is used for build tree refs (which are presumably local files), so
+    -- no need for custom patches -RM
+    patchesDir <- defaultPatchesDir
     withFile (indexFile index) ReadMode $ \indexHnd ->
       packageListFromCache verbosity mkPkg (indexFile index)
-        indexHnd cache ReadPackageIndexStrict
+        indexHnd cache ReadPackageIndexStrict patchesDir
 
 -- | Read a repository index from disk, from the local file specified by
 -- the 'Repo'.
@@ -318,7 +321,7 @@ readRepoIndex verbosity repoCtxt repo idxState =
     updateRepoIndexCache verbosity (RepoIndex repoCtxt repo)
     readPackageIndexCacheFile verbosity mkAvailablePackage
                               (RepoIndex repoCtxt repo)
-                              idxState
+                              idxState (repoContextPatchesDir repoCtxt)
 
   where
     mkAvailablePackage pkgEntry =
@@ -678,13 +681,14 @@ readPackageIndexCacheFile :: Package pkg
                           -> (PackageEntry -> pkg)
                           -> Index
                           -> IndexState
+                          -> FilePath
                           -> IO (PackageIndex pkg, [Dependency], IndexStateInfo)
-readPackageIndexCacheFile verbosity mkPkg index idxState = do
+readPackageIndexCacheFile verbosity mkPkg index idxState patchesDir = do
     cache0    <- readIndexCache verbosity index
     indexHnd <- openFile (indexFile index) ReadMode
     let (cache,isi) = filterCache idxState cache0
     (pkgs,deps) <- packageIndexFromCache verbosity mkPkg (indexFile index)
-                     indexHnd cache ReadPackageIndexLazyIO
+                     indexHnd cache ReadPackageIndexLazyIO patchesDir
     pure (pkgs,deps,isi)
 
 
@@ -695,9 +699,10 @@ packageIndexFromCache :: Package pkg
                       -> Handle
                       -> Cache
                       -> ReadPackageIndexMode
+                      -> FilePath
                       -> IO (PackageIndex pkg, [Dependency])
-packageIndexFromCache verbosity mkPkg idxFile hnd cache mode = do
-     (pkgs, prefs) <- packageListFromCache verbosity mkPkg idxFile hnd cache mode
+packageIndexFromCache verbosity mkPkg idxFile hnd cache mode patchesDir = do
+     (pkgs, prefs) <- packageListFromCache verbosity mkPkg idxFile hnd cache mode patchesDir
      pkgIndex <- evaluate $ PackageIndex.fromList pkgs
      return (pkgIndex, prefs)
 
@@ -716,8 +721,9 @@ packageListFromCache :: Verbosity
                      -> Handle
                      -> Cache
                      -> ReadPackageIndexMode
+                     -> FilePath
                      -> IO ([pkg], [Dependency])
-packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode
+packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
   = accum mempty [] mempty cacheEntries
   where
     accum !srcpkgs btrs !prefs [] = return (Map.elems srcpkgs ++ btrs, Map.elems prefs)
@@ -728,7 +734,7 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode
       -- from the index tarball if it turns out that we need it.
       -- Most of the time we only need the package id.
       ~(pkg, pkgtxt) <- unsafeInterleaveIO $ do
-        mPatch <- patchedPackageCabalFile pkgid defaultPatchesDir
+        mPatch <- patchedPackageCabalFile pkgid patchesDir
         pkgtxt <- maybe (getPackageDesc descLoc) return mPatch
         pkg    <- readPackageDescription pkgtxt
         return (pkg, pkgtxt)

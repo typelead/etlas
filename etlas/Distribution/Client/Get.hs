@@ -36,7 +36,6 @@ import Distribution.Client.Setup
 import Distribution.Client.Types
 import Distribution.Client.Targets
 import Distribution.Client.Brancher
-import Distribution.Client.Config
 import Distribution.Client.Dependency
 import Distribution.Client.FetchUtils
 import Distribution.Client.Patch
@@ -119,21 +118,22 @@ get verbosity repoCtxt globalFlags getFlags userTargets = do
 
         case location of
           LocalTarballPackage tarballPath ->
-            unpackPackage verbosity prefix pkgid descOverride tarballPath False
+            unpackPackage verbosity prefix pkgid descOverride tarballPath False patchesDir
 
           RemoteTarballPackage _tarballURL tarballPath ->
-            unpackPackage verbosity prefix pkgid descOverride tarballPath False
+            unpackPackage verbosity prefix pkgid descOverride tarballPath False patchesDir
 
           RepoTarballPackage _repo _pkgid tarballPath ->
-            unpackPackage verbosity prefix pkgid descOverride tarballPath False
+            unpackPackage verbosity prefix pkgid descOverride tarballPath False patchesDir
 
           ScmPackage _ _ _ localDirPath ->
-            unpackPackage verbosity prefix pkgid descOverride localDirPath True
+            unpackPackage verbosity prefix pkgid descOverride localDirPath True patchesDir
 
           LocalUnpackedPackage _ ->
             error "Distribution.Client.Get.unpack: the impossible happened."
       where
         usePristine = fromFlagOrDefault False (getPristine getFlags)
+        patchesDir  = fromFlag (globalPatchesDir globalFlags)
 
 checkTarget :: Verbosity -> UserTarget -> IO ()
 checkTarget verbosity target = case target of
@@ -151,8 +151,8 @@ checkTarget verbosity target = case target of
 
 unpackPackage :: Verbosity -> FilePath -> PackageId
               -> PackageDescriptionOverride
-              -> FilePath -> Bool -> IO ()
-unpackPackage verbosity prefix pkgid descOverride pkgPath isGit = do
+              -> FilePath -> Bool -> FilePath -> IO ()
+unpackPackage verbosity prefix pkgid descOverride pkgPath isGit patchesDir = do
     let pkgdirname = display pkgid
         pkgdir     = prefix </> pkgdirname
         pkgdir'    = addTrailingPathSeparator pkgdir
@@ -163,7 +163,7 @@ unpackPackage verbosity prefix pkgid descOverride pkgPath isGit = do
     when existsFile $ die' verbosity $
      "A file \"" ++ pkgdir ++ "\" is in the way, not unpacking."
     notice verbosity $ "Unpacking to " ++ pkgdir'
-    patchedExtractTarGzFile verbosity True prefix pkgdirname pkgPath defaultPatchesDir isGit
+    patchedExtractTarGzFile verbosity True prefix pkgdirname pkgPath patchesDir isGit
 
     case descOverride of
       Nothing     -> return ()

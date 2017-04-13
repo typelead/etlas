@@ -82,7 +82,7 @@ import Distribution.Client.Setup
          , ConfigFlags(..), configureCommand, filterConfigureFlags
          , ConfigExFlags(..), InstallFlags(..) )
 import Distribution.Client.Config
-         ( defaultCabalDir, defaultPatchesDir, defaultUserInstall )
+         ( defaultCabalDir, defaultUserInstall )
 import Distribution.Client.Patch
 import Distribution.Client.Sandbox.Timestamp
          ( withUpdateTimestamps )
@@ -1133,9 +1133,7 @@ performInstallations verbosity
 
     reportingLevel = fromFlag (installBuildReports installFlags)
     logsDir        = fromFlag (globalLogsDir globalFlags)
-    patchesDir     = case installPatchesDirectory installFlags of
-                       Cabal.NoFlag     -> defaultPatchesDir
-                       Cabal.Flag path  -> return path
+    patchesDir     = fromFlag (globalPatchesDir globalFlags)
 
     -- Should the build output be written to a log file instead of stdout?
     useLogFile :: UseLogFile
@@ -1287,7 +1285,7 @@ fetchSourcePackage verbosity repoCtxt fetchLimit src installPkg = do
 installLocalPackage
   :: Verbosity
   -> PackageIdentifier -> ResolvedPkgLoc -> FilePath
-  -> IO FilePath -- ^ Patched directory option
+  -> FilePath -- ^ Patched directory option
   -> (Maybe FilePath -> IO BuildOutcome)
   -> IO BuildOutcome
 installLocalPackage verbosity pkgid location distPref patchesDir installPkg =
@@ -1318,7 +1316,7 @@ installLocalTarballPackage
   :: Verbosity
   -> PackageIdentifier -> FilePath -> FilePath
   -> (Maybe FilePath -> IO BuildOutcome)
-  -> IO FilePath
+  -> FilePath
   -> Bool
   -> IO BuildOutcome
 installLocalTarballPackage verbosity pkgid

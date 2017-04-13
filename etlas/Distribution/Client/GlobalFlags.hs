@@ -70,7 +70,8 @@ data GlobalFlags = GlobalFlags {
     globalIgnoreSandbox     :: Flag Bool,
     globalIgnoreExpiry      :: Flag Bool,    -- ^ Ignore security expiry dates
     globalHttpTransport     :: Flag String,
-    globalNix               :: Flag Bool  -- ^ Integrate with Nix
+    globalNix               :: Flag Bool,  -- ^ Integrate with Nix
+    globalPatchesDir        :: Flag FilePath -- ^ Patches directory
   } deriving Generic
 
 defaultGlobalFlags :: GlobalFlags
@@ -89,7 +90,8 @@ defaultGlobalFlags  = GlobalFlags {
     globalIgnoreSandbox     = Flag False,
     globalIgnoreExpiry      = Flag False,
     globalHttpTransport     = mempty,
-    globalNix               = Flag False
+    globalNix               = Flag False,
+    globalPatchesDir        = mempty
   }
 
 instance Monoid GlobalFlags where
@@ -130,6 +132,7 @@ data RepoContext = RepoContext {
 
     -- | Should we ignore expiry times (when checking security)?
   , repoContextIgnoreExpiry :: Bool
+  , repoContextPatchesDir :: FilePath
   }
 
 -- | Wrapper around 'Repository', hiding the type argument
@@ -144,13 +147,15 @@ withRepoContext verbosity globalFlags =
       (fromFlag    (globalCacheDir      globalFlags))
       (flagToMaybe (globalHttpTransport globalFlags))
       (flagToMaybe (globalIgnoreExpiry  globalFlags))
+      (fromFlag    (globalPatchesDir    globalFlags))
 
 withRepoContext' :: Verbosity -> [RemoteRepo] -> [FilePath]
                  -> FilePath  -> Maybe String -> Maybe Bool
+                 -> FilePath
                  -> (RepoContext -> IO a)
                  -> IO a
 withRepoContext' verbosity remoteRepos localRepos
-                 sharedCacheDir httpTransport ignoreExpiry = \callback -> do
+                 sharedCacheDir httpTransport ignoreExpiry patchesDir = \callback -> do
     transportRef <- newMVar Nothing
     let httpLib = Sec.HTTP.transportAdapter
                     verbosity
@@ -162,6 +167,7 @@ withRepoContext' verbosity remoteRepos localRepos
         , repoContextGetTransport   = getTransport transportRef
         , repoContextWithSecureRepo = withSecureRepo secureRepos'
         , repoContextIgnoreExpiry   = fromMaybe False ignoreExpiry
+        , repoContextPatchesDir     = patchesDir
         }
   where
     secureRemoteRepos =

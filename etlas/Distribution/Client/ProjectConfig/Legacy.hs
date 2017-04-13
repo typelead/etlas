@@ -476,7 +476,8 @@ convertToLegacySharedConfig
       globalIgnoreSandbox     = mempty,
       globalIgnoreExpiry      = projectConfigIgnoreExpiry,
       globalHttpTransport     = projectConfigHttpTransport,
-      globalNix               = mempty
+      globalNix               = mempty,
+      globalPatchesDir        = mempty
     }
 
     configFlags = mempty {
@@ -522,7 +523,6 @@ convertToLegacySharedConfig
       installNumJobs               = projectConfigNumJobs,
       installKeepGoing             = projectConfigKeepGoing,
       installRunTests              = mempty,
-      installPatchesDirectory      = mempty,
       installOfflineMode           = projectConfigOfflineMode,
       installProjectFileName       = projectConfigProjectFile
     }

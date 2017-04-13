@@ -28,7 +28,7 @@ import Distribution.Client.IndexUtils
          ( updateRepoIndexCache, Index(..), writeIndexTimestamp
          , currentIndexTimestamp )
 import Distribution.Client.Config
-         ( defaultPatchesDir, etaHackageUrl )
+         ( etaHackageUrl )
 import Distribution.Simple.Program
          ( gitProgram, defaultProgramDb, runProgramInvocation, programInvocation,
            requireProgramVersion )
@@ -76,7 +76,7 @@ update verbosity updateFlags repoCtxt = do
   mapM_ (\_ -> collectJob jobCtrl) repos
 
   -- Update the Eta Hackage patches repository
-  updatePatchRepo verbosity
+  updatePatchRepo verbosity (repoContextPatchesDir repoCtxt)
 
 updateRepo :: Verbosity -> UpdateFlags -> RepoContext -> Repo -> IO ()
 updateRepo verbosity updateFlags repoCtxt repo = do
@@ -119,15 +119,14 @@ updateRepo verbosity updateFlags repoCtxt repo = do
 
 -- git only supports the -C flag as of 1.8.5
 -- See  http://stackoverflow.com/questions/5083224/git-pull-while-not-in-a-git-directory
-updatePatchRepo :: Verbosity -> IO ()
-updatePatchRepo verbosity = do
+updatePatchRepo :: Verbosity -> FilePath -> IO ()
+updatePatchRepo verbosity patchesDir = do
   notice verbosity $ "Updating the eta-hackage patch set"
   (gitProg, _, _) <- requireProgramVersion verbosity
                       gitProgram
                       (orLaterVersion (mkVersion [1,8,5]))
                       defaultProgramDb
   let runGit = runProgramInvocation verbosity . programInvocation gitProg
-  patchesDir <- defaultPatchesDir
   exists <- doesDirectoryExist patchesDir
   if exists
   then runGit ["-C", patchesDir, "pull"]

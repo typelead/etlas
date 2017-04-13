@@ -65,7 +65,7 @@ import Distribution.Client.GlobalFlags
 import Distribution.Client.BuildReports.Types
          ( ReportLevel(..) )
 import Distribution.Client.Config
-         ( loadConfig, defaultConfigFile )
+         ( loadConfig, defaultConfigFile, defaultPatchesDir )
 
 import Distribution.Solver.Types.SourcePackage
 import Distribution.Solver.Types.Settings
@@ -147,7 +147,9 @@ lookupLocalPackageConfig field ProjectConfig {
 projectConfigWithBuilderRepoContext :: Verbosity
                                     -> BuildTimeSettings
                                     -> (RepoContext -> IO a) -> IO a
-projectConfigWithBuilderRepoContext verbosity BuildTimeSettings{..} =
+projectConfigWithBuilderRepoContext verbosity BuildTimeSettings{..} f = do
+    -- TODO: Should we customize patches dir here? -RM
+    patchesDir <- defaultPatchesDir
     withRepoContext'
       verbosity
       buildSettingRemoteRepos
@@ -155,6 +157,8 @@ projectConfigWithBuilderRepoContext verbosity BuildTimeSettings{..} =
       buildSettingCacheDir
       buildSettingHttpTransport
       (Just buildSettingIgnoreExpiry)
+      patchesDir
+      f
 
 
 -- | Use a 'RepoContext', but only for the solver. The solver does not use the
@@ -168,7 +172,9 @@ projectConfigWithSolverRepoContext :: Verbosity
                                    -> (RepoContext -> IO a) -> IO a
 projectConfigWithSolverRepoContext verbosity
                                    ProjectConfigShared{..}
-                                   ProjectConfigBuildOnly{..} =
+                                   ProjectConfigBuildOnly{..} f = do
+    -- TODO: Should we customize patches dir here? -RM
+    patchesDir <- defaultPatchesDir
     withRepoContext'
       verbosity
       (fromNubList projectConfigRemoteRepos)
@@ -177,6 +183,8 @@ projectConfigWithSolverRepoContext verbosity
                          projectConfigCacheDir)
       (flagToMaybe projectConfigHttpTransport)
       (flagToMaybe projectConfigIgnoreExpiry)
+      patchesDir
+      f
 
 
 -- | Resolve the project configuration, with all its optional fields, into

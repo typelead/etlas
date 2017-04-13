@@ -20,7 +20,7 @@ import System.Directory
 import qualified Data.ByteString.Lazy as BS
 
 patchedPackageCabalFile :: PackageIdentifier
-                        -> IO FilePath
+                        -> FilePath
                         -> IO (Maybe BS.ByteString)
 patchedPackageCabalFile
   (PackageIdentifier
@@ -32,18 +32,17 @@ patchedPackageCabalFile
                       <.> "cabal") patchesDir
 
 patchedTarPackageCabalFile :: FilePath
-                           -> IO FilePath
+                           -> FilePath
                            -> IO (Maybe (FilePath, BS.ByteString))
-patchedTarPackageCabalFile tarFilePath patchesDir' =
-  fmap (fmap (\bs -> (cabalFile, bs))) $ findCabalFilePatch cabalFile patchesDir'
+patchedTarPackageCabalFile tarFilePath patchesDir =
+  fmap (fmap (\bs -> (cabalFile, bs))) $ findCabalFilePatch cabalFile patchesDir
   where packageAndVersion = dropExtension . dropExtension $ tarFilePath
         cabalFile = packageAndVersion <.> "cabal"
 
 findCabalFilePatch :: FilePath
-                   -> IO FilePath -- ^ Filepath of the patches directory
+                   -> FilePath -- ^ Filepath of the patches directory
                    -> IO (Maybe BS.ByteString)
-findCabalFilePatch cabalFile patchesDir' = do
-  patchesDir <- patchesDir'
+findCabalFilePatch cabalFile patchesDir = do
   -- TODO: Speed this up with a cache?
   let cabalPatchLocation = patchesDir </> "patches" </> cabalFile
   exists <- doesFileExist cabalPatchLocation
@@ -56,13 +55,14 @@ patchedExtractTarGzFile :: Verbosity
                         -> FilePath -- ^ Destination directory of tar.gz file
                         -> FilePath -- ^ Expected subdir (to check for tarbombs)
                         -> FilePath -- ^ Tarball
-                        -> IO FilePath -- ^ Filepath of the patches directory
+                        -> FilePath -- ^ Filepath of the patches directory
                         -> Bool        -- ^ Is git repo
                         -> IO ()
-patchedExtractTarGzFile verbosity setupForPatch dir expected tar patchesDir' isGit = do
-  patchesDir <- patchesDir'
+patchedExtractTarGzFile verbosity setupForPatch dir expected tar patchesDir isGit = do
   -- TODO: Speed this up with a cache?
-  let patchFileLocation = patchesDir </> "patches" </> patchFile
+  let patchFileLocation' = patchesDir </> "patches" </> patchFile
+  patchFileLocation <- makeAbsolute patchFileLocation'
+
   exists <- doesFileExist patchFileLocation
   if isGit
   then copyDirectoryRecursive verbosity tar dir

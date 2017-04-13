@@ -531,7 +531,10 @@ readPackageTarget verbosity = traverse modifyLocation
     extractTarballPackageCabalFile :: FilePath -> String
                                    -> IO (FilePath, BS.ByteString)
     extractTarballPackageCabalFile tarballFile tarballOriginalLoc = do
-      maybePatchedCabalFile <- patchedTarPackageCabalFile tarballFile defaultPatchesDir
+      -- Patches don't apply to local or remote tarballs since patches are
+      -- primarily for those packages located in repos (Hackage or Etlas) -RM
+      patchesDir <- defaultPatchesDir
+      maybePatchedCabalFile <- patchedTarPackageCabalFile tarballFile patchesDir
       maybe
         ( either (die' verbosity . formatErr) return
           . check

@@ -5,8 +5,8 @@ import System.FilePath      ( FilePath )
 import qualified Data.ByteString.Lazy as BS
 
 patchedTarPackageCabalFile :: FilePath
-                           -> IO FilePath
+                           -> FilePath
                            -> IO (Maybe (FilePath, BS.ByteString))
 patchedPackageCabalFile :: PackageIdentifier
-                        -> IO FilePath
+                        -> FilePath
                         -> IO (Maybe BS.ByteString)

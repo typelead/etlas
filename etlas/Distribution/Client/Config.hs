@@ -86,14 +86,14 @@ import Distribution.Client.HttpUtils
 import qualified Distribution.ParseUtils as ParseUtils
          ( Field(..) )
 import qualified Distribution.Text as Text
-         ( Text(..), display )
+         ( Text(..) )
 import Distribution.Simple.Command
          ( CommandUI(commandOptions), commandDefaultFlags, ShowOrParseArgs(..)
          , viewAsFieldDescr )
 import Distribution.Simple.Program
          ( defaultProgramDb )
 import Distribution.Simple.Utils
-         ( die', notice, warn, lowercase, cabalVersion )
+         ( die', notice, warn, lowercase )
 import Distribution.Compiler
          ( CompilerFlavor(..), defaultCompilerFlavor )
 import Distribution.Verbosity
@@ -232,7 +232,8 @@ instance Semigroup SavedConfig where
         globalIgnoreSandbox     = combine globalIgnoreSandbox,
         globalIgnoreExpiry      = combine globalIgnoreExpiry,
         globalHttpTransport     = combine globalHttpTransport,
-        globalNix               = combine globalNix
+        globalNix               = combine globalNix,
+        globalPatchesDir        = combine globalPatchesDir
         }
         where
           combine        = combine'        savedGlobalFlags
@@ -250,7 +251,6 @@ instance Semigroup SavedConfig where
         installStrongFlags           = combine installStrongFlags,
         installAllowBootLibInstalls  = combine installAllowBootLibInstalls,
         installReinstall             = combine installReinstall,
-        installPatchesDirectory      = combine installPatchesDirectory,
         installAvoidReinstalls       = combine installAvoidReinstalls,
         installOverrideReinstall     = combine installOverrideReinstall,
         installUpgradeDeps           = combine installUpgradeDeps,
@@ -429,6 +429,7 @@ baseSavedConfig = do
   userPrefix <- defaultCabalDir
   logsDir    <- defaultLogsDir
   worldFile  <- defaultWorldFile
+  patchesDir <- defaultPatchesDir
   return mempty {
     savedConfigureFlags  = mempty {
       configHcFlavor     = toFlag defaultCompiler,
@@ -440,7 +441,8 @@ baseSavedConfig = do
     },
     savedGlobalFlags = mempty {
       globalLogsDir      = toFlag logsDir,
-      globalWorldFile    = toFlag worldFile
+      globalWorldFile    = toFlag worldFile,
+      globalPatchesDir   = toFlag patchesDir
     }
   }
 
@@ -456,11 +458,13 @@ initialSavedConfig = do
   logsDir    <- defaultLogsDir
   worldFile  <- defaultWorldFile
   extraPath  <- defaultExtraPath
+  patchesDir <- defaultPatchesDir
   return mempty {
     savedGlobalFlags     = mempty {
       globalCacheDir     = toFlag cacheDir,
       globalRemoteRepos  = toNubList defaultRemoteRepos,
-      globalWorldFile    = toFlag worldFile
+      globalWorldFile    = toFlag worldFile,
+      globalPatchesDir   = toFlag patchesDir
     },
     savedConfigureFlags  = mempty {
       configProgramPathExtra = toNubList extraPath

@@ -325,6 +325,11 @@ globalCommand commands = CommandUI {
          "Nix integration: run commands through nix-shell if a 'shell.nix' file exists"
          globalNix (\v flags -> flags { globalNix = v })
          (boolOpt [] [])
+      ,option [] ["patches-dir"]
+         "Specify explicit patches directory."
+         globalPatchesDir (\v flags -> flags { globalPatchesDir = v })
+         (reqArgFlag "DIR")
+
       ]
 
     -- arguments we don't want shown in the help
@@ -1444,7 +1449,6 @@ data InstallFlags = InstallFlags {
     installNumJobs          :: Flag (Maybe Int),
     installKeepGoing        :: Flag Bool,
     installRunTests         :: Flag Bool,
-    installPatchesDirectory :: Flag FilePath,
     installOfflineMode      :: Flag Bool,
     -- | The cabal project file name; defaults to @cabal.project@.
     -- Th name itself denotes the cabal project file name, but it also
@@ -1490,7 +1494,6 @@ defaultInstallFlags = InstallFlags {
     installNumJobs               = mempty,
     installKeepGoing             = Flag False,
     installRunTests              = mempty,
-    installPatchesDirectory      = mempty,
     installOfflineMode           = Flag False,
     installProjectFileName       = mempty
   }
@@ -1679,11 +1682,6 @@ installOptions showOrParseArgs =
           "Add symlinks to installed executables into this directory."
            installSymlinkBinDir (\v flags -> flags { installSymlinkBinDir = v })
            (reqArgFlag "DIR")
-
-      , option [] ["patches-directory"]
-          "Specify explicit patches directory."
-          installPatchesDirectory (\v flags -> flags { installPatchesDirectory = v })
-          (reqArgFlag "DIR")
 
       , option [] ["build-summary"]
           "Save build summaries to file (name template can use $pkgid, $compiler, $os, $arch)"

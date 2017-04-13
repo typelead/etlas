@@ -270,11 +270,11 @@ defaultSetupScriptOptions = SetupScriptOptions {
     isInteractive            = False
   }
 
-workingDir :: SetupScriptOptions -> FilePath
-workingDir options =
-  case fromMaybe "" (useWorkingDir options) of
-    []  -> "."
-    dir -> dir
+-- workingDir :: SetupScriptOptions -> FilePath
+-- workingDir options =
+--   case fromMaybe "" (useWorkingDir options) of
+--     []  -> "."
+--     dir -> dir
 
 -- | A @SetupRunner@ implements a 'SetupMethod'.
 type SetupRunner = Verbosity
@@ -326,7 +326,7 @@ getSetup verbosity options mpkg = do
 getSetupMethod
   :: Verbosity -> SetupScriptOptions -> PackageDescription -> BuildType
   -> IO (Version, SetupMethod, SetupScriptOptions)
-getSetupMethod verbosity options pkg buildType'
+getSetupMethod _verbosity options _pkg _buildType'
   -- TODO: Temporarily disable external setup method
   -- | buildType' == Custom
   --   || maybe False (cabalVersion /=) (useCabalSpecVersion options)
@@ -549,358 +549,358 @@ externalSetupMethod path verbosity options _ args = do
         Win32.moveFile path' oldPath
 #endif
 
-getExternalSetupMethod
-  :: Verbosity -> SetupScriptOptions -> PackageDescription -> BuildType
-  -> IO (Version, SetupMethod, SetupScriptOptions)
-getExternalSetupMethod verbosity options pkg bt = do
-  debug verbosity $ "Using external setup method with build-type " ++ show bt
-  debug verbosity $ "Using explicit dependencies: "
-    ++ show (useDependenciesExclusive options)
-  createDirectoryIfMissingVerbose verbosity True setupDir
-  -- TODO: Update these cabal versions -RM
-  (cabalLibVersion, mCabalLibInstalledPkgId, options') <- cabalLibVersionToUse
-  debug verbosity $ "Using etlas-cabal library version " ++ display cabalLibVersion
-  path <- if useCachedSetupExecutable
-          then getCachedSetupExecutable options'
-               cabalLibVersion mCabalLibInstalledPkgId
-          else compileSetupExecutable   options'
-               cabalLibVersion mCabalLibInstalledPkgId False
+-- getExternalSetupMethod
+--   :: Verbosity -> SetupScriptOptions -> PackageDescription -> BuildType
+--   -> IO (Version, SetupMethod, SetupScriptOptions)
+-- getExternalSetupMethod verbosity options pkg bt = do
+--   debug verbosity $ "Using external setup method with build-type " ++ show bt
+--   debug verbosity $ "Using explicit dependencies: "
+--     ++ show (useDependenciesExclusive options)
+--   createDirectoryIfMissingVerbose verbosity True setupDir
+--   -- TODO: Update these cabal versions -RM
+--   (cabalLibVersion, mCabalLibInstalledPkgId, options') <- cabalLibVersionToUse
+--   debug verbosity $ "Using etlas-cabal library version " ++ display cabalLibVersion
+--   path <- if useCachedSetupExecutable
+--           then getCachedSetupExecutable options'
+--                cabalLibVersion mCabalLibInstalledPkgId
+--           else compileSetupExecutable   options'
+--                cabalLibVersion mCabalLibInstalledPkgId False
 
-  -- Since useWorkingDir can change the relative path, the path argument must
-  -- be turned into an absolute path. On some systems, runProcess' will take
-  -- path as relative to the new working directory instead of the current
-  -- working directory.
-  path' <- tryCanonicalizePath path
+--   -- Since useWorkingDir can change the relative path, the path argument must
+--   -- be turned into an absolute path. On some systems, runProcess' will take
+--   -- path as relative to the new working directory instead of the current
+--   -- working directory.
+--   path' <- tryCanonicalizePath path
 
-  -- See 'Note: win32 clean hack' above.
-#ifdef mingw32_HOST_OS
-  -- setupProgFile may not exist if we're using a cached program
-  setupProgFile' <- canonicalizePathNoThrow setupProgFile
-  let win32CleanHackNeeded = (useWin32CleanHack options)
-                              -- Skip when a cached setup script is used.
-                              && setupProgFile' `equalFilePath` path'
-#else
-  let win32CleanHackNeeded = False
-#endif
-  let options'' = options' { useWin32CleanHack = win32CleanHackNeeded }
+--   -- See 'Note: win32 clean hack' above.
+-- #ifdef mingw32_HOST_OS
+--   -- setupProgFile may not exist if we're using a cached program
+--   setupProgFile' <- canonicalizePathNoThrow setupProgFile
+--   let win32CleanHackNeeded = (useWin32CleanHack options)
+--                               -- Skip when a cached setup script is used.
+--                               && setupProgFile' `equalFilePath` path'
+-- #else
+--   let win32CleanHackNeeded = False
+-- #endif
+--   let options'' = options' { useWin32CleanHack = win32CleanHackNeeded }
 
-  return (cabalLibVersion, ExternalMethod path', options'')
+--   return (cabalLibVersion, ExternalMethod path', options'')
 
-  where
-  setupDir         = workingDir options </> useDistPref options </> "setup"
-  setupVersionFile = setupDir   </> "setup" <.> "version"
-  setupHs          = setupDir   </> "setup" <.> "hs"
-  setupProgFile    = setupDir   </> "setup" <.> exeExtension
-  platform         = fromMaybe buildPlatform (usePlatform options)
+--   where
+--   setupDir         = workingDir options </> useDistPref options </> "setup"
+--   setupVersionFile = setupDir   </> "setup" <.> "version"
+--   setupHs          = setupDir   </> "setup" <.> "hs"
+--   setupProgFile    = setupDir   </> "setup" <.> exeExtension
+--   platform         = fromMaybe buildPlatform (usePlatform options)
 
-  useCachedSetupExecutable = (bt == Simple || bt == Configure || bt == Make)
+--   useCachedSetupExecutable = (bt == Simple || bt == Configure || bt == Make)
 
-  maybeGetInstalledPackages :: SetupScriptOptions -> Compiler
-                            -> ProgramDb -> IO InstalledPackageIndex
-  maybeGetInstalledPackages options' comp progdb =
-    case usePackageIndex options' of
-      Just index -> return index
-      Nothing    -> getInstalledPackages verbosity
-                    comp (usePackageDB options') progdb
+--   maybeGetInstalledPackages :: SetupScriptOptions -> Compiler
+--                             -> ProgramDb -> IO InstalledPackageIndex
+--   maybeGetInstalledPackages options' comp progdb =
+--     case usePackageIndex options' of
+--       Just index -> return index
+--       Nothing    -> getInstalledPackages verbosity
+--                     comp (usePackageDB options') progdb
 
-  -- Choose the version of Cabal to use if the setup script has a dependency on
-  -- Cabal, and possibly update the setup script options. The version also
-  -- determines how to filter the flags to Setup.
-  --
-  -- We first check whether the dependency solver has specified a Cabal version.
-  -- If it has, we use the solver's version without looking at the installed
-  -- package index (See issue #3436). Otherwise, we pick the Cabal version by
-  -- checking 'useCabalSpecVersion', then the saved version, and finally the
-  -- versions available in the index.
-  --
-  -- The version chosen here must match the one used in 'compileSetupExecutable'
-  -- (See issue #3433).
-  cabalLibVersionToUse :: IO (Version, Maybe ComponentId
-                             ,SetupScriptOptions)
-  cabalLibVersionToUse =
-    case find (isCabalPkgId . snd) (useDependencies options) of
-      Just (unitId, pkgId) -> do
-        let version = pkgVersion pkgId
-        updateSetupScript version bt
-        writeSetupVersionFile version
-        return (version, Just unitId, options)
-      Nothing ->
-        case useCabalSpecVersion options of
-          Just version -> do
-            updateSetupScript version bt
-            writeSetupVersionFile version
-            return (version, Nothing, options)
-          Nothing  -> do
-            savedVer <- savedVersion
-            case savedVer of
-              Just version | version `withinRange` useCabalVersion options
-                -> do updateSetupScript version bt
-                      -- Does the previously compiled setup executable still exist
-                      -- and is it up-to date?
-                      useExisting <- canUseExistingSetup version
-                      if useExisting
-                        then return (version, Nothing, options)
-                        else installedVersion
-              _ -> installedVersion
-    where
-      -- This check duplicates the checks in 'getCachedSetupExecutable' /
-      -- 'compileSetupExecutable'. Unfortunately, we have to perform it twice
-      -- because the selected Cabal version may change as a result of this
-      -- check.
-      canUseExistingSetup :: Version -> IO Bool
-      canUseExistingSetup version =
-        if useCachedSetupExecutable
-        then do
-          (_, cachedSetupProgFile) <- cachedSetupDirAndProg options version
-          doesFileExist cachedSetupProgFile
-        else
-          (&&) <$> setupProgFile `existsAndIsMoreRecentThan` setupHs
-               <*> setupProgFile `existsAndIsMoreRecentThan` setupVersionFile
+--   -- Choose the version of Cabal to use if the setup script has a dependency on
+--   -- Cabal, and possibly update the setup script options. The version also
+--   -- determines how to filter the flags to Setup.
+--   --
+--   -- We first check whether the dependency solver has specified a Cabal version.
+--   -- If it has, we use the solver's version without looking at the installed
+--   -- package index (See issue #3436). Otherwise, we pick the Cabal version by
+--   -- checking 'useCabalSpecVersion', then the saved version, and finally the
+--   -- versions available in the index.
+--   --
+--   -- The version chosen here must match the one used in 'compileSetupExecutable'
+--   -- (See issue #3433).
+--   cabalLibVersionToUse :: IO (Version, Maybe ComponentId
+--                              ,SetupScriptOptions)
+--   cabalLibVersionToUse =
+--     case find (isCabalPkgId . snd) (useDependencies options) of
+--       Just (unitId, pkgId) -> do
+--         let version = pkgVersion pkgId
+--         updateSetupScript version bt
+--         writeSetupVersionFile version
+--         return (version, Just unitId, options)
+--       Nothing ->
+--         case useCabalSpecVersion options of
+--           Just version -> do
+--             updateSetupScript version bt
+--             writeSetupVersionFile version
+--             return (version, Nothing, options)
+--           Nothing  -> do
+--             savedVer <- savedVersion
+--             case savedVer of
+--               Just version | version `withinRange` useCabalVersion options
+--                 -> do updateSetupScript version bt
+--                       -- Does the previously compiled setup executable still exist
+--                       -- and is it up-to date?
+--                       useExisting <- canUseExistingSetup version
+--                       if useExisting
+--                         then return (version, Nothing, options)
+--                         else installedVersion
+--               _ -> installedVersion
+--     where
+--       -- This check duplicates the checks in 'getCachedSetupExecutable' /
+--       -- 'compileSetupExecutable'. Unfortunately, we have to perform it twice
+--       -- because the selected Cabal version may change as a result of this
+--       -- check.
+--       canUseExistingSetup :: Version -> IO Bool
+--       canUseExistingSetup version =
+--         if useCachedSetupExecutable
+--         then do
+--           (_, cachedSetupProgFile) <- cachedSetupDirAndProg options version
+--           doesFileExist cachedSetupProgFile
+--         else
+--           (&&) <$> setupProgFile `existsAndIsMoreRecentThan` setupHs
+--                <*> setupProgFile `existsAndIsMoreRecentThan` setupVersionFile
 
-      writeSetupVersionFile :: Version -> IO ()
-      writeSetupVersionFile version =
-          writeFile setupVersionFile (show version ++ "\n")
+--       writeSetupVersionFile :: Version -> IO ()
+--       writeSetupVersionFile version =
+--           writeFile setupVersionFile (show version ++ "\n")
 
-      installedVersion :: IO (Version, Maybe InstalledPackageId
-                             ,SetupScriptOptions)
-      installedVersion = do
-        (comp,    progdb,  options')  <- configureCompiler options
-        (version, mipkgid, options'') <- installedCabalVersion options' comp progdb
-        updateSetupScript version bt
-        writeSetupVersionFile version
-        return (version, mipkgid, options'')
+--       installedVersion :: IO (Version, Maybe InstalledPackageId
+--                              ,SetupScriptOptions)
+--       installedVersion = do
+--         (comp,    progdb,  options')  <- configureCompiler options
+--         (version, mipkgid, options'') <- installedCabalVersion options' comp progdb
+--         updateSetupScript version bt
+--         writeSetupVersionFile version
+--         return (version, mipkgid, options'')
 
-      savedVersion :: IO (Maybe Version)
-      savedVersion = do
-        versionString <- readFile setupVersionFile `catchIO` \_ -> return ""
-        case reads versionString of
-          [(version,s)] | all isSpace s -> return (Just version)
-          _                             -> return Nothing
+--       savedVersion :: IO (Maybe Version)
+--       savedVersion = do
+--         versionString <- readFile setupVersionFile `catchIO` \_ -> return ""
+--         case reads versionString of
+--           [(version,s)] | all isSpace s -> return (Just version)
+--           _                             -> return Nothing
 
-  -- | Update a Setup.hs script, creating it if necessary.
-  updateSetupScript :: Version -> BuildType -> IO ()
-  updateSetupScript _ Custom = do
-    useHs  <- doesFileExist customSetupHs
-    useLhs <- doesFileExist customSetupLhs
-    unless (useHs || useLhs) $ die' verbosity
-      "Using 'build-type: Custom' but there is no Setup.hs or Setup.lhs script."
-    let src = (if useHs then customSetupHs else customSetupLhs)
-    srcNewer <- src `moreRecentFile` setupHs
-    when srcNewer $ if useHs
-                    then copyFileVerbose verbosity src setupHs
-                    else runSimplePreProcessor ppUnlit src setupHs verbosity
-    where
-      customSetupHs   = workingDir options </> "Setup.hs"
-      customSetupLhs  = workingDir options </> "Setup.lhs"
+--   -- | Update a Setup.hs script, creating it if necessary.
+--   updateSetupScript :: Version -> BuildType -> IO ()
+--   updateSetupScript _ Custom = do
+--     useHs  <- doesFileExist customSetupHs
+--     useLhs <- doesFileExist customSetupLhs
+--     unless (useHs || useLhs) $ die' verbosity
+--       "Using 'build-type: Custom' but there is no Setup.hs or Setup.lhs script."
+--     let src = (if useHs then customSetupHs else customSetupLhs)
+--     srcNewer <- src `moreRecentFile` setupHs
+--     when srcNewer $ if useHs
+--                     then copyFileVerbose verbosity src setupHs
+--                     else runSimplePreProcessor ppUnlit src setupHs verbosity
+--     where
+--       customSetupHs   = workingDir options </> "Setup.hs"
+--       customSetupLhs  = workingDir options </> "Setup.lhs"
 
-  updateSetupScript cabalLibVersion _ =
-    rewriteFile verbosity setupHs (buildTypeScript cabalLibVersion)
+--   updateSetupScript cabalLibVersion _ =
+--     rewriteFile verbosity setupHs (buildTypeScript cabalLibVersion)
 
-  buildTypeScript :: Version -> String
-  buildTypeScript cabalLibVersion = case bt of
-    Simple    -> "import Distribution.Simple; main = defaultMain\n"
-    Configure -> "import Distribution.Simple; main = defaultMainWithHooks "
-              ++ if cabalLibVersion >= mkVersion [1,3,10]
-                   then "autoconfUserHooks\n"
-                   else "defaultUserHooks\n"
-    Make      -> "import Distribution.Make; main = defaultMain\n"
-    Custom             -> error "buildTypeScript Custom"
-    UnknownBuildType _ -> error "buildTypeScript UnknownBuildType"
+--   buildTypeScript :: Version -> String
+--   buildTypeScript cabalLibVersion = case bt of
+--     Simple    -> "import Distribution.Simple; main = defaultMain\n"
+--     Configure -> "import Distribution.Simple; main = defaultMainWithHooks "
+--               ++ if cabalLibVersion >= mkVersion [1,3,10]
+--                    then "autoconfUserHooks\n"
+--                    else "defaultUserHooks\n"
+--     Make      -> "import Distribution.Make; main = defaultMain\n"
+--     Custom             -> error "buildTypeScript Custom"
+--     UnknownBuildType _ -> error "buildTypeScript UnknownBuildType"
 
-  installedCabalVersion :: SetupScriptOptions -> Compiler -> ProgramDb
-                        -> IO (Version, Maybe InstalledPackageId
-                              ,SetupScriptOptions)
-  installedCabalVersion options' compiler progdb = do
-    index <- maybeGetInstalledPackages options' compiler progdb
-    let cabalDep   = Dependency (mkPackageName "etlas-cabal") (useCabalVersion options')
-        options''  = options' { usePackageIndex = Just index }
-    case PackageIndex.lookupDependency index cabalDep of
-      []   -> die' verbosity $ "The package '" ++ display (packageName pkg)
-                 ++ "' requires etlas-cabal library version "
-                 ++ display (useCabalVersion options)
-                 ++ " but no suitable version is installed."
-      pkgs -> let ipkginfo = head . snd . bestVersion fst $ pkgs
-              in return (packageVersion ipkginfo
-                        ,Just . IPI.installedComponentId $ ipkginfo, options'')
+--   installedCabalVersion :: SetupScriptOptions -> Compiler -> ProgramDb
+--                         -> IO (Version, Maybe InstalledPackageId
+--                               ,SetupScriptOptions)
+--   installedCabalVersion options' compiler progdb = do
+--     index <- maybeGetInstalledPackages options' compiler progdb
+--     let cabalDep   = Dependency (mkPackageName "etlas-cabal") (useCabalVersion options')
+--         options''  = options' { usePackageIndex = Just index }
+--     case PackageIndex.lookupDependency index cabalDep of
+--       []   -> die' verbosity $ "The package '" ++ display (packageName pkg)
+--                  ++ "' requires etlas-cabal library version "
+--                  ++ display (useCabalVersion options)
+--                  ++ " but no suitable version is installed."
+--       pkgs -> let ipkginfo = head . snd . bestVersion fst $ pkgs
+--               in return (packageVersion ipkginfo
+--                         ,Just . IPI.installedComponentId $ ipkginfo, options'')
 
-  bestVersion :: (a -> Version) -> [a] -> a
-  bestVersion f = firstMaximumBy (comparing (preference . f))
-    where
-      -- Like maximumBy, but picks the first maximum element instead of the
-      -- last. In general, we expect the preferred version to go first in the
-      -- list. For the default case, this has the effect of choosing the version
-      -- installed in the user package DB instead of the global one. See #1463.
-      --
-      -- Note: firstMaximumBy could be written as just
-      -- `maximumBy cmp . reverse`, but the problem is that the behaviour of
-      -- maximumBy is not fully specified in the case when there is not a single
-      -- greatest element.
-      firstMaximumBy :: (a -> a -> Ordering) -> [a] -> a
-      firstMaximumBy _ []   =
-        error "Distribution.Client.firstMaximumBy: empty list"
-      firstMaximumBy cmp xs =  foldl1' maxBy xs
-        where
-          maxBy x y = case cmp x y of { GT -> x; EQ -> x; LT -> y; }
+--   bestVersion :: (a -> Version) -> [a] -> a
+--   bestVersion f = firstMaximumBy (comparing (preference . f))
+--     where
+--       -- Like maximumBy, but picks the first maximum element instead of the
+--       -- last. In general, we expect the preferred version to go first in the
+--       -- list. For the default case, this has the effect of choosing the version
+--       -- installed in the user package DB instead of the global one. See #1463.
+--       --
+--       -- Note: firstMaximumBy could be written as just
+--       -- `maximumBy cmp . reverse`, but the problem is that the behaviour of
+--       -- maximumBy is not fully specified in the case when there is not a single
+--       -- greatest element.
+--       firstMaximumBy :: (a -> a -> Ordering) -> [a] -> a
+--       firstMaximumBy _ []   =
+--         error "Distribution.Client.firstMaximumBy: empty list"
+--       firstMaximumBy cmp xs =  foldl1' maxBy xs
+--         where
+--           maxBy x y = case cmp x y of { GT -> x; EQ -> x; LT -> y; }
 
-      preference version   = (sameVersion, sameMajorVersion
-                             ,stableVersion, latestVersion)
-        where
-          sameVersion      = version == cabalVersion
-          sameMajorVersion = majorVersion version == majorVersion cabalVersion
-          majorVersion     = take 2 . versionNumbers
-          stableVersion    = case versionNumbers version of
-                               (_:x:_) -> even x
-                               _       -> False
-          latestVersion    = version
+--       preference version   = (sameVersion, sameMajorVersion
+--                              ,stableVersion, latestVersion)
+--         where
+--           sameVersion      = version == cabalVersion
+--           sameMajorVersion = majorVersion version == majorVersion cabalVersion
+--           majorVersion     = take 2 . versionNumbers
+--           stableVersion    = case versionNumbers version of
+--                                (_:x:_) -> even x
+--                                _       -> False
+--           latestVersion    = version
 
-  configureCompiler :: SetupScriptOptions
-                    -> IO (Compiler, ProgramDb, SetupScriptOptions)
-  configureCompiler options' = do
-    (comp, progdb) <- case useCompiler options' of
-      Just comp -> return (comp, useProgramDb options')
-      Nothing   -> do (comp, _, progdb) <-
-                        configCompilerEx (Just GHC) Nothing Nothing
-                        (useProgramDb options') verbosity
-                      return (comp, progdb)
-    -- Whenever we need to call configureCompiler, we also need to access the
-    -- package index, so let's cache it in SetupScriptOptions.
-    index <- maybeGetInstalledPackages options' comp progdb
-    return (comp, progdb, options' { useCompiler      = Just comp,
-                                     usePackageIndex  = Just index,
-                                     useProgramDb = progdb })
+--   configureCompiler :: SetupScriptOptions
+--                     -> IO (Compiler, ProgramDb, SetupScriptOptions)
+--   configureCompiler options' = do
+--     (comp, progdb) <- case useCompiler options' of
+--       Just comp -> return (comp, useProgramDb options')
+--       Nothing   -> do (comp, _, progdb) <-
+--                         configCompilerEx (Just GHC) Nothing Nothing
+--                         (useProgramDb options') verbosity
+--                       return (comp, progdb)
+--     -- Whenever we need to call configureCompiler, we also need to access the
+--     -- package index, so let's cache it in SetupScriptOptions.
+--     index <- maybeGetInstalledPackages options' comp progdb
+--     return (comp, progdb, options' { useCompiler      = Just comp,
+--                                      usePackageIndex  = Just index,
+--                                      useProgramDb = progdb })
 
-  -- | Path to the setup exe cache directory and path to the cached setup
-  -- executable.
-  cachedSetupDirAndProg :: SetupScriptOptions -> Version
-                        -> IO (FilePath, FilePath)
-  cachedSetupDirAndProg options' cabalLibVersion = do
-    cabalDir <- defaultCabalDir
-    let setupCacheDir       = cabalDir </> "setup-exe-cache"
-        cachedSetupProgFile = setupCacheDir
-                              </> ("setup-" ++ buildTypeString ++ "-"
-                                   ++ cabalVersionString ++ "-"
-                                   ++ platformString ++ "-"
-                                   ++ compilerVersionString)
-                              <.> exeExtension
-    return (setupCacheDir, cachedSetupProgFile)
-      where
-        buildTypeString       = show bt
-        cabalVersionString    = "etlas-cabal-" ++ (display cabalLibVersion)
-        compilerVersionString = display $
-                                fromMaybe buildCompilerId
-                                (fmap compilerId . useCompiler $ options')
-        platformString        = display platform
+--   -- | Path to the setup exe cache directory and path to the cached setup
+--   -- executable.
+--   cachedSetupDirAndProg :: SetupScriptOptions -> Version
+--                         -> IO (FilePath, FilePath)
+--   cachedSetupDirAndProg options' cabalLibVersion = do
+--     cabalDir <- defaultCabalDir
+--     let setupCacheDir       = cabalDir </> "setup-exe-cache"
+--         cachedSetupProgFile = setupCacheDir
+--                               </> ("setup-" ++ buildTypeString ++ "-"
+--                                    ++ cabalVersionString ++ "-"
+--                                    ++ platformString ++ "-"
+--                                    ++ compilerVersionString)
+--                               <.> exeExtension
+--     return (setupCacheDir, cachedSetupProgFile)
+--       where
+--         buildTypeString       = show bt
+--         cabalVersionString    = "etlas-cabal-" ++ (display cabalLibVersion)
+--         compilerVersionString = display $
+--                                 fromMaybe buildCompilerId
+--                                 (fmap compilerId . useCompiler $ options')
+--         platformString        = display platform
 
-  -- | Look up the setup executable in the cache; update the cache if the setup
-  -- executable is not found.
-  getCachedSetupExecutable :: SetupScriptOptions
-                           -> Version -> Maybe InstalledPackageId
-                           -> IO FilePath
-  getCachedSetupExecutable options' cabalLibVersion
-                           maybeCabalLibInstalledPkgId = do
-    (setupCacheDir, cachedSetupProgFile) <-
-      cachedSetupDirAndProg options' cabalLibVersion
-    cachedSetupExists <- doesFileExist cachedSetupProgFile
-    if cachedSetupExists
-      then debug verbosity $
-           "Found cached setup executable: " ++ cachedSetupProgFile
-      else criticalSection' $ do
-        -- The cache may have been populated while we were waiting.
-        cachedSetupExists' <- doesFileExist cachedSetupProgFile
-        if cachedSetupExists'
-          then debug verbosity $
-               "Found cached setup executable: " ++ cachedSetupProgFile
-          else do
-          debug verbosity $ "Setup executable not found in the cache."
-          src <- compileSetupExecutable options'
-                 cabalLibVersion maybeCabalLibInstalledPkgId True
-          createDirectoryIfMissingVerbose verbosity True setupCacheDir
-          installExecutableFile verbosity src cachedSetupProgFile
-          -- Do not strip if we're using GHCJS, since the result may be a script
-          when (maybe True ((/=GHCJS).compilerFlavor) $ useCompiler options') $
-            Strip.stripExe verbosity platform (useProgramDb options')
-              cachedSetupProgFile
-    return cachedSetupProgFile
-      where
-        criticalSection'      = fromMaybe id
-                                (fmap criticalSection $ setupCacheLock options')
+--   -- | Look up the setup executable in the cache; update the cache if the setup
+--   -- executable is not found.
+--   getCachedSetupExecutable :: SetupScriptOptions
+--                            -> Version -> Maybe InstalledPackageId
+--                            -> IO FilePath
+--   getCachedSetupExecutable options' cabalLibVersion
+--                            maybeCabalLibInstalledPkgId = do
+--     (setupCacheDir, cachedSetupProgFile) <-
+--       cachedSetupDirAndProg options' cabalLibVersion
+--     cachedSetupExists <- doesFileExist cachedSetupProgFile
+--     if cachedSetupExists
+--       then debug verbosity $
+--            "Found cached setup executable: " ++ cachedSetupProgFile
+--       else criticalSection' $ do
+--         -- The cache may have been populated while we were waiting.
+--         cachedSetupExists' <- doesFileExist cachedSetupProgFile
+--         if cachedSetupExists'
+--           then debug verbosity $
+--                "Found cached setup executable: " ++ cachedSetupProgFile
+--           else do
+--           debug verbosity $ "Setup executable not found in the cache."
+--           src <- compileSetupExecutable options'
+--                  cabalLibVersion maybeCabalLibInstalledPkgId True
+--           createDirectoryIfMissingVerbose verbosity True setupCacheDir
+--           installExecutableFile verbosity src cachedSetupProgFile
+--           -- Do not strip if we're using GHCJS, since the result may be a script
+--           when (maybe True ((/=GHCJS).compilerFlavor) $ useCompiler options') $
+--             Strip.stripExe verbosity platform (useProgramDb options')
+--               cachedSetupProgFile
+--     return cachedSetupProgFile
+--       where
+--         criticalSection'      = fromMaybe id
+--                                 (fmap criticalSection $ setupCacheLock options')
 
-  -- | If the Setup.hs is out of date wrt the executable then recompile it.
-  -- Currently this is GHC/GHCJS only. It should really be generalised.
-  --
-  compileSetupExecutable :: SetupScriptOptions
-                         -> Version -> Maybe ComponentId -> Bool
-                         -> IO FilePath
-  compileSetupExecutable options' cabalLibVersion maybeCabalLibInstalledPkgId
-                         forceCompile = do
-    setupHsNewer      <- setupHs          `moreRecentFile` setupProgFile
-    cabalVersionNewer <- setupVersionFile `moreRecentFile` setupProgFile
-    let outOfDate = setupHsNewer || cabalVersionNewer
-    when (outOfDate || forceCompile) $ do
-      debug verbosity "Setup executable needs to be updated, compiling..."
-      (compiler, progdb, options'') <- configureCompiler options'
-      let cabalPkgid = PackageIdentifier (mkPackageName "etlas-cabal") cabalLibVersion
-          (program, extraOpts)
-            = case compilerFlavor compiler of
-                      GHCJS -> (ghcjsProgram, ["-build-runner"])
-                      _     -> (ghcProgram,   ["-threaded"])
-          cabalDep = maybe [] (\ipkgid -> [(ipkgid, cabalPkgid)])
-                              maybeCabalLibInstalledPkgId
+--   -- | If the Setup.hs is out of date wrt the executable then recompile it.
+--   -- Currently this is GHC/GHCJS only. It should really be generalised.
+--   --
+--   compileSetupExecutable :: SetupScriptOptions
+--                          -> Version -> Maybe ComponentId -> Bool
+--                          -> IO FilePath
+--   compileSetupExecutable options' cabalLibVersion maybeCabalLibInstalledPkgId
+--                          forceCompile = do
+--     setupHsNewer      <- setupHs          `moreRecentFile` setupProgFile
+--     cabalVersionNewer <- setupVersionFile `moreRecentFile` setupProgFile
+--     let outOfDate = setupHsNewer || cabalVersionNewer
+--     when (outOfDate || forceCompile) $ do
+--       debug verbosity "Setup executable needs to be updated, compiling..."
+--       (compiler, progdb, options'') <- configureCompiler options'
+--       let cabalPkgid = PackageIdentifier (mkPackageName "etlas-cabal") cabalLibVersion
+--           (program, extraOpts)
+--             = case compilerFlavor compiler of
+--                       GHCJS -> (ghcjsProgram, ["-build-runner"])
+--                       _     -> (ghcProgram,   ["-threaded"])
+--           cabalDep = maybe [] (\ipkgid -> [(ipkgid, cabalPkgid)])
+--                               maybeCabalLibInstalledPkgId
 
-          -- With 'useDependenciesExclusive' we enforce the deps specified,
-          -- so only the given ones can be used. Otherwise we allow the use
-          -- of packages in the ambient environment, and add on a dep on the
-          -- Cabal library (unless 'useDependencies' already contains one).
-          --
-          -- With 'useVersionMacros' we use a version CPP macros .h file.
-          --
-          -- Both of these options should be enabled for packages that have
-          -- opted-in and declared a custom-settup stanza.
-          --
-          selectedDeps | useDependenciesExclusive options'
-                                   = useDependencies options'
-                       | otherwise = useDependencies options' ++
-                                     if any (isCabalPkgId . snd) (useDependencies options')
-                                     then []
-                                     else cabalDep
-          addRenaming (ipid, _) =
-            -- Assert 'DefUnitId' invariant
-            (Backpack.DefiniteUnitId (unsafeMkDefUnitId (newSimpleUnitId ipid)), defaultRenaming)
-          cppMacrosFile = setupDir </> "setup_macros.h"
-          ghcOptions = mempty {
-              -- Respect -v0, but don't crank up verbosity on GHC if
-              -- Cabal verbosity is requested. For that, use --ghc-option=-v instead!
-              ghcOptVerbosity       = Flag (min verbosity normal)
-            , ghcOptMode            = Flag GhcModeMake
-            , ghcOptInputFiles      = toNubListR [setupHs]
-            , ghcOptOutputFile      = Flag setupProgFile
-            , ghcOptObjDir          = Flag setupDir
-            , ghcOptHiDir           = Flag setupDir
-            , ghcOptSourcePathClear = Flag True
-            , ghcOptSourcePath      = case bt of
-                                      Custom -> toNubListR [workingDir options']
-                                      _      -> mempty
-            , ghcOptPackageDBs      = usePackageDB options''
-            , ghcOptHideAllPackages = Flag (useDependenciesExclusive options')
-            , ghcOptCabal           = Flag (useDependenciesExclusive options')
-            , ghcOptPackages        = toNubListR $ map addRenaming selectedDeps
-            , ghcOptCppIncludes     = toNubListR [ cppMacrosFile
-                                                 | useVersionMacros options' ]
-            , ghcOptExtra           = toNubListR extraOpts
-            }
-      let ghcCmdLine = renderGhcOptions compiler platform ghcOptions
-      when (useVersionMacros options') $
-        rewriteFile verbosity cppMacrosFile
-            (generatePackageVersionMacros (map snd selectedDeps))
-      case useLoggingHandle options of
-        Nothing          -> runDbProgram verbosity program progdb ghcCmdLine
+--           -- With 'useDependenciesExclusive' we enforce the deps specified,
+--           -- so only the given ones can be used. Otherwise we allow the use
+--           -- of packages in the ambient environment, and add on a dep on the
+--           -- Cabal library (unless 'useDependencies' already contains one).
+--           --
+--           -- With 'useVersionMacros' we use a version CPP macros .h file.
+--           --
+--           -- Both of these options should be enabled for packages that have
+--           -- opted-in and declared a custom-settup stanza.
+--           --
+--           selectedDeps | useDependenciesExclusive options'
+--                                    = useDependencies options'
+--                        | otherwise = useDependencies options' ++
+--                                      if any (isCabalPkgId . snd) (useDependencies options')
+--                                      then []
+--                                      else cabalDep
+--           addRenaming (ipid, _) =
+--             -- Assert 'DefUnitId' invariant
+--             (Backpack.DefiniteUnitId (unsafeMkDefUnitId (newSimpleUnitId ipid)), defaultRenaming)
+--           cppMacrosFile = setupDir </> "setup_macros.h"
+--           ghcOptions = mempty {
+--               -- Respect -v0, but don't crank up verbosity on GHC if
+--               -- Cabal verbosity is requested. For that, use --ghc-option=-v instead!
+--               ghcOptVerbosity       = Flag (min verbosity normal)
+--             , ghcOptMode            = Flag GhcModeMake
+--             , ghcOptInputFiles      = toNubListR [setupHs]
+--             , ghcOptOutputFile      = Flag setupProgFile
+--             , ghcOptObjDir          = Flag setupDir
+--             , ghcOptHiDir           = Flag setupDir
+--             , ghcOptSourcePathClear = Flag True
+--             , ghcOptSourcePath      = case bt of
+--                                       Custom -> toNubListR [workingDir options']
+--                                       _      -> mempty
+--             , ghcOptPackageDBs      = usePackageDB options''
+--             , ghcOptHideAllPackages = Flag (useDependenciesExclusive options')
+--             , ghcOptCabal           = Flag (useDependenciesExclusive options')
+--             , ghcOptPackages        = toNubListR $ map addRenaming selectedDeps
+--             , ghcOptCppIncludes     = toNubListR [ cppMacrosFile
+--                                                  | useVersionMacros options' ]
+--             , ghcOptExtra           = toNubListR extraOpts
+--             }
+--       let ghcCmdLine = renderGhcOptions compiler platform ghcOptions
+--       when (useVersionMacros options') $
+--         rewriteFile verbosity cppMacrosFile
+--             (generatePackageVersionMacros (map snd selectedDeps))
+--       case useLoggingHandle options of
+--         Nothing          -> runDbProgram verbosity program progdb ghcCmdLine
 
-        -- If build logging is enabled, redirect compiler output to the log file.
-        (Just logHandle) -> do output <- getDbProgramOutput verbosity program
-                                         progdb ghcCmdLine
-                               hPutStr logHandle output
-    return setupProgFile
+--         -- If build logging is enabled, redirect compiler output to the log file.
+--         (Just logHandle) -> do output <- getDbProgramOutput verbosity program
+--                                          progdb ghcCmdLine
+--                                hPutStr logHandle output
+--     return setupProgFile
 
 
-isCabalPkgId :: PackageIdentifier -> Bool
-isCabalPkgId (PackageIdentifier pname _) = pname == mkPackageName "etlas-cabal"
+-- isCabalPkgId :: PackageIdentifier -> Bool
+-- isCabalPkgId (PackageIdentifier pname _) = pname == mkPackageName "etlas-cabal"

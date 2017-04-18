@@ -531,7 +531,7 @@ externalSetupMethod path verbosity options _ args = do
     doWin32CleanHack path' = do
       info verbosity $ "Using the Win32 clean hack."
       -- Recursively removes the temp dir on exit.
-      withTempDirectory verbosity (workingDir options) "etlas-tmp" $ \tmpDir ->
+      withTempDirectory verbosity (fromMaybe "." $ useWorkingDir options) "etlas-tmp" $ \tmpDir ->
           bracket (moveOutOfTheWay tmpDir path')
                   (maybeRestore path')
                   doInvoke

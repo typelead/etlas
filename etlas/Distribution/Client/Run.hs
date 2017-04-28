@@ -12,6 +12,7 @@ module Distribution.Client.Run ( run, splitRunArgs )
        where
 
 import Prelude ()
+import Data.List
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.TargetInfo     (targetCLBI)
@@ -38,6 +39,10 @@ import Distribution.System                   (Platform (..), OS(..))
 import Distribution.Verbosity                (Verbosity)
 import Distribution.Text                     (display)
 
+import Distribution.Simple.Program
+import Distribution.Client.Config
+
+import qualified Distribution.Simple.Eta as Eta
 import qualified Distribution.Simple.GHCJS as GHCJS
 
 import System.Directory                      (getCurrentDirectory)
@@ -140,11 +145,38 @@ run verbosity debug trace lbi exe exeArgs = do
                 javaCmd' <- getJavaCmd
                 let javaCmd = replaceArgs $ replaceDir exeDir javaCmd'
                     (_, cmdArgs) = break (== ' ') javaCmd
+                -- TODO: Does this work with spaces in cmdArgs classpath?
                 return ("jdb", words cmdArgs)
             | trace -> do
-                -- TODO: Finish
-                javaCmd <- getJavaCmd
-                return undefined
+                javaCmd'' <- getJavaCmd
+                etlasDir <- defaultCabalDir
+                (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
+                let javaCmd' = replaceArgs $ replaceDir exeDir javaCmd''
+                    coursierPath        = etlasDir </> "coursier"
+                    runCoursier options = getProgramInvocationOutput verbosity
+                                            (programInvocation javaProg $
+                                              (["-jar", "-noverify", coursierPath] ++ options))
+                    getTracePaths = do
+                      output <- runCoursier ["fetch", "org.slf4j:slf4j-ext:1.7.21"
+                                                    , "org.slf4j:slf4j-simple:1.7.21"
+                                                    , "org.slf4j:slf4j-api:1.7.21"
+                                                    , "org.javassist:javassist:3.20.0-GA"]
+                      let classpaths' = dropWhile ((/= '/') . head) $ lines output
+                          (agent:[], classpaths) = partition ("slf4j-ext" `isInfixOf`) classpaths'
+                      return (agent, classpaths)
+                (agent, classpaths) <- getTracePaths
+                let javaCmd =
+                        replace "\" eta.main" " eta.main"
+                      . replace "-classpath \""
+                      ( "-Djava.compiler=NONE "
+                     ++ "-javaagent:" ++ agent
+                     ++ "=ignore=org/slf4j/:ch/qos/logback/:org/apache/log4j/:cern/colt/ "
+                     ++ "-classpath "
+                     ++ Eta.mkMergedClassPath lbi classpaths
+                     ++ Eta.classPathSeparator lbi )
+                      $ javaCmd'
+                    cmd:args = words javaCmd
+                return (cmd, args)
             | otherwise -> return (p, [])
       GHCJS -> do
         let (script, cmd, cmdArgs) =

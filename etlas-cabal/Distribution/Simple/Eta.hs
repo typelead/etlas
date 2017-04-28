@@ -16,6 +16,8 @@ module Distribution.Simple.Eta (
         isDynamic,
         getGlobalPackageDB,
         -- runCmd
+        mkMergedClassPath,
+        classPathSeparator
   ) where
 
 import Prelude ()

@@ -6,6 +6,7 @@
 --
 -- Implementation of the 'run' command.
 -----------------------------------------------------------------------------
+{-# LANGUAGE MultiWayIf #-}
 
 module Distribution.Client.Run ( run, splitRunArgs )
        where
@@ -41,7 +42,7 @@ import qualified Distribution.Simple.GHCJS as GHCJS
 
 import System.Directory                      (getCurrentDirectory)
 import Distribution.Compat.Environment       (getEnvironment)
-import System.FilePath                       ((<.>), (</>))
+import System.FilePath                       ((<.>), (</>), takeDirectory)
 
 
 -- | Return the executable to run and any extra arguments that should be
@@ -106,8 +107,8 @@ splitRunArgs verbosity lbi args =
              , let name = benchmarkName b]
 
 -- | Run a given executable.
-run :: Verbosity -> LocalBuildInfo -> Executable -> [String] -> IO ()
-run verbosity lbi exe exeArgs = do
+run :: Verbosity -> Bool -> Bool -> LocalBuildInfo -> Executable -> [String] -> IO ()
+run verbosity debug trace lbi exe exeArgs = do
   curDir <- getCurrentDirectory
   let buildPref     = buildDir lbi
       pkg_descr     = localPkgDescr lbi
@@ -120,9 +121,31 @@ run verbosity lbi exe exeArgs = do
       Eta -> do
          let exeFileExt  = if isWindows lbi then ".cmd" else ""
              exeFileName = exeName' ++ exeFileExt
+         let dirEnvVarRef = if isWindows lbi then "%DIR%" else "$DIR"
+             allArgs = if isWindows lbi then "%*" else "\"$@\""
+             replace from to string
+               | from `isPrefixOf` string
+               = to ++ replace from to (drop (length from) string)
+               | c:rest <- string
+               = c : replace from to rest
+               | otherwise = []
+             replaceDir dir cmd = replace dirEnvVarRef dir cmd
+             replaceArgs cmd = replace allArgs "" cmd
          p <- tryCanonicalizePath $
             buildPref </> exeName' </> exeFileName
-         return (p, [])
+
+         let exeDir = takeDirectory p
+             getJavaCmd = fmap (head . drop 2 . lines) $ readFile p
+         if | debug -> do
+                javaCmd' <- getJavaCmd
+                let javaCmd = replaceArgs $ replaceDir exeDir javaCmd'
+                    (_, cmdArgs) = break (== ' ') javaCmd
+                return ("jdb", words cmdArgs)
+            | trace -> do
+                -- TODO: Finish
+                javaCmd <- getJavaCmd
+                return undefined
+            | otherwise -> return (p, [])
       GHCJS -> do
         let (script, cmd, cmdArgs) =
               GHCJS.runCmd (withPrograms lbi)

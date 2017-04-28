@@ -37,7 +37,7 @@ import Distribution.Client.Setup
          , InfoFlags(..), infoCommand
          , UploadFlags(..), uploadCommand
          , ReportFlags(..), reportCommand
-         , runCommand
+         , RunFlags(..), runCommand
          , InitFlags(initVerbosity), initCommand
          , SDistFlags(..), SDistExFlags(..), sdistCommand
          , Win32SelfUpgradeFlags(..), win32SelfUpgradeCommand
@@ -1038,8 +1038,8 @@ reportAction reportFlags extraArgs globalFlags = do
     (flagToMaybe $ reportUsername reportFlags')
     (flagToMaybe $ reportPassword reportFlags')
 
-runAction :: (BuildFlags, BuildExFlags) -> [String] -> Action
-runAction (buildFlags, buildExFlags) extraArgs globalFlags = do
+runAction :: (BuildFlags, BuildExFlags, RunFlags) -> [String] -> Action
+runAction (buildFlags, buildExFlags, runFlags) extraArgs globalFlags = do
   let verbosity   = fromFlagOrDefault normal (buildVerbosity buildFlags)
   (useSandbox, config) <- loadConfigOrSandboxConfig verbosity globalFlags
   distPref <- findSavedDistPref config (buildDistPref buildFlags)
@@ -1058,8 +1058,11 @@ runAction (buildFlags, buildExFlags) extraArgs globalFlags = do
     maybeWithSandboxDirOnSearchPath useSandbox $
       build verbosity config' distPref buildFlags ["exe:" ++ display (exeName exe)]
 
+    let debug = fromFlagOrDefault False (runDebug runFlags)
+        trace = fromFlagOrDefault False (runTrace runFlags)
+
     maybeWithSandboxDirOnSearchPath useSandbox $
-      run verbosity lbi exe exeArgs
+      run verbosity debug trace lbi exe exeArgs
 
 getAction :: GetFlags -> [String] -> Action
 getAction getFlags extraArgs globalFlags = do

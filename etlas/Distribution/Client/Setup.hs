@@ -39,7 +39,7 @@ module Distribution.Client.Setup
     , formatCommand
     , uploadCommand, UploadFlags(..), IsCandidate(..)
     , reportCommand, ReportFlags(..)
-    , runCommand
+    , runCommand, RunFlags(..)
     , initCommand, IT.InitFlags(..)
     , sdistCommand, SDistFlags(..), SDistExFlags(..), ArchiveFormat(..)
     , win32SelfUpgradeCommand, Win32SelfUpgradeFlags(..)
@@ -1120,7 +1120,34 @@ manpageCommand = CommandUI {
     commandOptions      = \_ -> [optionVerbosity id const]
   }
 
-runCommand :: CommandUI (BuildFlags, BuildExFlags)
+-- ------------------------------------------------------------
+-- * Run command
+-- ------------------------------------------------------------
+
+data RunFlags = RunFlags {
+  runTrace     :: Flag Bool
+, runDebug     :: Flag Bool
+} deriving Generic
+
+instance Monoid RunFlags where
+  mempty = gmempty
+  mappend = (<>)
+
+instance Semigroup RunFlags where
+  (<>) = gmappend
+
+runOptions :: ShowOrParseArgs -> [OptionField RunFlags]
+runOptions _showOrParseArgs =
+  [ option [] ["debug"]
+    "Runs jdb with the classpath required to run the executable."
+    runDebug (\v flags -> flags { runDebug = v })
+    (noArg (Flag True))
+  , option [] ["trace"]
+    "Dumps a trace for the given program."
+    runTrace (\v flags -> flags { runTrace = v })
+    (noArg (Flag True)) ]
+
+runCommand :: CommandUI (BuildFlags, BuildExFlags, RunFlags)
 runCommand = CommandUI {
     commandName         = "run",
     commandSynopsis     = "Builds and runs an executable.",
@@ -1141,15 +1168,19 @@ runCommand = CommandUI {
         ["[FLAGS] [EXECUTABLE] [-- EXECUTABLE_FLAGS]"],
     commandDefaultFlags = mempty,
     commandOptions      =
-      \showOrParseArgs -> liftOptions fst setFst
+      \showOrParseArgs -> liftOptions get1 set1
                           (commandOptions parent showOrParseArgs)
                           ++
-                          liftOptions snd setSnd
+                          liftOptions get2 set2
                           (buildExOptions showOrParseArgs)
+                          ++
+                          liftOptions get3 set3
+                          (runOptions showOrParseArgs)
   }
   where
-    setFst a (_,b) = (a,b)
-    setSnd b (a,_) = (a,b)
+    get1 (a,_,_) = a; set1 a (_,b,c) = (a,b,c)
+    get2 (_,b,_) = b; set2 b (a,_,c) = (a,b,c)
+    get3 (_,_,c) = c; set3 c (a,b,_) = (a,b,c)
 
     parent = Cabal.buildCommand defaultProgramDb
 

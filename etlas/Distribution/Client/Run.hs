@@ -157,10 +157,8 @@ run verbosity debug trace lbi exe exeArgs = do
                     runCoursier options = getProgramInvocationOutput verbosity
                                             (programInvocation javaProg $
                                               (["-jar", "-noverify", coursierPath] ++ options))
-                    stripClearLine str = fromMaybe str $ stripPrefix "\033[2K" str
                     getTracePaths = do
-                      output <- stripClearLine `fmap`
-                                runCoursier ["fetch", "--quiet"
+                      output <- runCoursier ["fetch", "--quiet"
                                                     , "org.slf4j:slf4j-ext:1.7.21"
                                                     , "org.slf4j:slf4j-simple:1.7.21"
                                                     , "org.slf4j:slf4j-api:1.7.21"

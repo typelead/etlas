@@ -13,6 +13,7 @@ module Distribution.Client.Run ( run, splitRunArgs )
 
 import Prelude ()
 import Data.List
+import Data.Maybe (fromMaybe)
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.TargetInfo     (targetCLBI)
@@ -156,13 +157,16 @@ run verbosity debug trace lbi exe exeArgs = do
                     runCoursier options = getProgramInvocationOutput verbosity
                                             (programInvocation javaProg $
                                               (["-jar", "-noverify", coursierPath] ++ options))
+                    stripClearLine str = fromMaybe str $ stripPrefix "\033[2K" str
                     getTracePaths = do
-                      output <- runCoursier ["fetch", "org.slf4j:slf4j-ext:1.7.21"
+                      output <- stripClearLine `fmap`
+                                runCoursier ["fetch", "--quiet"
+                                                    , "org.slf4j:slf4j-ext:1.7.21"
                                                     , "org.slf4j:slf4j-simple:1.7.21"
                                                     , "org.slf4j:slf4j-api:1.7.21"
                                                     , "org.javassist:javassist:3.20.0-GA"]
-                      let classpaths' = dropWhile ((/= '/') . head) $ lines output
-                          (agent:[], classpaths) = partition ("slf4j-ext" `isInfixOf`) classpaths'
+                      let (agent:[], classpaths) = partition ("slf4j-ext" `isInfixOf`) $
+                                                   lines output
                       return (agent, classpaths)
                 (agent, classpaths) <- getTracePaths
                 let javaCmd =

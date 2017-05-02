@@ -327,12 +327,12 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
 
   maybeMavenOutput <- if null mavenDeps
                       then return Nothing
-                      else fmap Just (runCoursier $ "fetch"
+                      else fmap Just (runCoursier $ "fetch" : "--quiet"
                                                   : (mavenResolvedRepos ++
                                                      mavenDeps))
 
   let mavenPaths = case maybeMavenOutput of
-        Just mavenOutput -> dropWhile ((/= '/') . head) $ lines mavenOutput
+        Just mavenOutput -> lines mavenOutput
         Nothing          -> []
       javaSrcs = (if isShared
                   then []

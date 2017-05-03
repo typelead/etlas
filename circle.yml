@@ -1,0 +1,16 @@
+machine:
+  services:
+    - docker
+
+checkout:
+  post:
+    - git submodule sync
+    - git submodule update --init --recursive
+
+dependencies:
+  cache_directories:
+    - ~/.stack
+
+test:
+  override:
+    - stack build

@@ -13,4 +13,5 @@ dependencies:
 
 test:
   override:
+    - stack setup
     - stack build

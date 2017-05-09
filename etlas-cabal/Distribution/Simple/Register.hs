@@ -87,7 +87,7 @@ import Distribution.Compat.Graph (IsNode(nodeKey))
 import System.FilePath ((</>), (<.>), isAbsolute)
 import System.Directory
 
-import Data.List (partition)
+import Data.List (partition, stripPrefix)
 import qualified Data.ByteString.Lazy.Char8 as BS.Char8
 
 -- -----------------------------------------------------------------------------
@@ -132,13 +132,14 @@ generateOne pkg lib lbi clbi regFlags
   = do
     absPackageDBs    <- absolutePackageDBPaths packageDbs
     installedPkgInfo <- generateRegistrationInfo
-                           verbosity pkg lib lbi clbi inplace reloc distPref
+                           verbosity pkg lib lbi clbi inplace reloc binary distPref
                            (registrationPackageDB absPackageDBs)
     info verbosity (IPI.showInstalledPackageInfo installedPkgInfo)
     return installedPkgInfo
   where
     inplace   = fromFlag (regInPlace regFlags)
     reloc     = relocatable lbi
+    binary    = fromFlagOrDefault False (regBinary regFlags)
     -- FIXME: there's really no guarantee this will work.
     -- registering into a totally different db stack can
     -- fail if dependencies cannot be satisfied.
@@ -220,10 +221,11 @@ generateRegistrationInfo :: Verbosity
                          -> ComponentLocalBuildInfo
                          -> Bool
                          -> Bool
+                         -> Bool
                          -> FilePath
                          -> PackageDB
                          -> IO InstalledPackageInfo
-generateRegistrationInfo verbosity pkg lib lbi clbi inplace reloc distPref packageDb = do
+generateRegistrationInfo verbosity pkg lib lbi clbi inplace reloc binary distPref packageDb = do
   --TODO: eliminate pwd!
   pwd <- getCurrentDirectory
 
@@ -235,7 +237,9 @@ generateRegistrationInfo verbosity pkg lib lbi clbi inplace reloc distPref packa
       then return (inplaceInstalledPackageInfo pwd distPref
                      pkg (mkAbiHash "inplace") lib lbi clbi)
     else do
-        abi_hash <- abiHash verbosity pkg distPref lbi lib clbi
+        abi_hash <- if binary
+                    then computeAbiHashFromJar
+                    else abiHash verbosity pkg distPref lbi lib clbi
         if reloc
           then relocRegistrationInfo verbosity
                          pkg lib lbi clbi abi_hash packageDb
@@ -244,6 +248,16 @@ generateRegistrationInfo verbosity pkg lib lbi clbi inplace reloc distPref packa
 
 
   return installedPkgInfo
+  where computeAbiHashFromJar = do
+          buildContents <- getDirectoryContents (distPref </> "build")
+          let jarName = "HS" ++ (display (package pkg))
+          case filter (jarName `isPrefixOf`) buildContents of
+            [x]
+              | Just suffix <- stripPrefix (jarName ++ "-") x
+              , (hash,_) <- break (=='.') suffix
+              -> return (mkAbiHash hash)
+            _ -> die' verbosity $
+              "generateRegistrationInfo: Unable to find " ++ jarName ++ "-*.jar."
 
 -- | Compute the 'AbiHash' of a library that we built inplace.
 abiHash :: Verbosity

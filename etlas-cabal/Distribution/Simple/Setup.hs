@@ -1206,6 +1206,7 @@ data RegisterFlags = RegisterFlags {
     regDistPref    :: Flag FilePath,
     regPrintId     :: Flag Bool,
     regVerbosity   :: Flag Verbosity,
+    regBinary      :: Flag Bool,
     -- Same as in 'buildArgs' and 'copyArgs'
     regArgs        :: [String]
   }
@@ -1220,7 +1221,8 @@ defaultRegisterFlags = RegisterFlags {
     regDistPref    = NoFlag,
     regPrintId     = Flag False,
     regArgs        = [],
-    regVerbosity   = Flag normal
+    regVerbosity   = Flag normal,
+    regBinary      = Flag False
   }
 
 registerCommand :: CommandUI RegisterFlags
@@ -1264,6 +1266,10 @@ registerCommand = CommandUI
       ,option "" ["print-ipid"]
          "print the installed package ID calculated for this package"
          regPrintId (\v flags -> flags { regPrintId = v })
+         trueArg
+      ,option "" ["binary"]
+         "calculate the ABI Hash from the library JAR file"
+         regBinary (\v flags -> flags { regBinary = v })
          trueArg
       ]
   }

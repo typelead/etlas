@@ -3195,7 +3195,8 @@ setupHsRegisterFlags ElaboratedConfiguredPackage{..} _
       regPrintId     = mempty,  -- never use
       regDistPref    = toFlag builddir,
       regArgs        = [],
-      regVerbosity   = toFlag verbosity
+      regVerbosity   = toFlag verbosity,
+      regBinary      = mempty
     }
 
 setupHsHaddockFlags :: ElaboratedConfiguredPackage

@@ -1324,7 +1324,7 @@ installLocalTarballPackage verbosity pkgid
   tmp <- getTemporaryDirectory
   withTempDirectory verbosity tmp "etlas-tmp" $ \tmpDirPath ->
     onFailure UnpackFailed $ do
-      let relUnpackedPath = display pkgid
+      let relUnpackedPath = if isGit then "" else display pkgid
           absUnpackedPath = tmpDirPath </> relUnpackedPath
           descFilePath = absUnpackedPath
                      </> display (packageName pkgid) <.> "cabal"

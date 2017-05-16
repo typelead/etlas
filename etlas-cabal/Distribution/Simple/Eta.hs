@@ -17,7 +17,8 @@ module Distribution.Simple.Eta (
         getGlobalPackageDB,
         -- runCmd
         mkMergedClassPath,
-        classPathSeparator
+        classPathSeparator,
+        mkJarName
   ) where
 
 import Prelude ()
@@ -265,7 +266,7 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
 
   unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
        let withVerify act = do
-             act
+             _ <- act
              when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
                runVerify
        if isVanillaLib
@@ -366,7 +367,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
                      ["-cp", verifyClassPath, "Verify", exeJar])
 
       withVerify act = do
-        act
+        _ <- act
         when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
           runVerify
 
@@ -414,7 +415,7 @@ installLib    :: Verbosity
               -> Library
               -> ComponentLocalBuildInfo
               -> IO ()
-installLib verbosity lbi targetDir dynlibTargetDir builtDir _pkg lib clbi = do
+installLib verbosity lbi targetDir _dynlibTargetDir builtDir _pkg lib clbi = do
   copyModuleFiles "hi"
   when hasLib $ mapM_ (installOrdinary builtDir targetDir) jarLibNames
   where
@@ -437,8 +438,6 @@ installLib verbosity lbi targetDir dynlibTargetDir builtDir _pkg lib clbi = do
 
     hasLib    = not $ null (allLibModules lib clbi)
                    && null (javaSources (libBuildInfo lib))
-    isVanillaLib = hasLib && withVanillaLib lbi
-    isSharedLib  = hasLib && withSharedLib  lbi
 
 mkJarName :: UnitId -> String
 mkJarName uid = getHSLibraryName uid <.> "jar"

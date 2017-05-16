@@ -114,6 +114,13 @@ data UserHooks = UserHooks {
     -- |Hook to run after sdist command.  Second arg indicates verbosity level.
     postSDist :: Args -> SDistFlags -> PackageDescription -> Maybe LocalBuildInfo -> IO (),
 
+    -- |Hook to run before bdist command.  Second arg indicates verbosity level.
+    preBDist  :: Args -> BDistFlags -> IO HookedBuildInfo,
+    -- |Over-ride this hook to get different behavior during bdist.
+    bDistHook :: PackageDescription -> LocalBuildInfo -> BDistFlags -> IO (),
+    -- |Hook to run after bdist command.  Second arg indicates verbosity level.
+    postBDist :: Args -> BDistFlags -> PackageDescription -> Maybe LocalBuildInfo -> IO (),
+
     -- |Hook to run before register command
     preReg  :: Args -> RegisterFlags -> IO HookedBuildInfo,
     -- |Over-ride this hook to get different behavior during registration.
@@ -188,6 +195,9 @@ emptyUserHooks
       preSDist  = rn,
       sDistHook = ru,
       postSDist = ru,
+      preBDist  = rn,
+      bDistHook = ru (),
+      postBDist = ru,
       preReg    = rn',
       regHook   = ru,
       postReg   = ru,

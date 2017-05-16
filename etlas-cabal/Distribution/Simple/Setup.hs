@@ -52,6 +52,7 @@ module Distribution.Simple.Setup (
   RegisterFlags(..), emptyRegisterFlags, defaultRegisterFlags, registerCommand,
                                                                unregisterCommand,
   SDistFlags(..),    emptySDistFlags,    defaultSDistFlags,    sdistCommand,
+  BDistFlags(..),    emptyBDistFlags,    defaultBDistFlags,    bdistCommand,
   TestFlags(..),     emptyTestFlags,     defaultTestFlags,     testCommand,
   TestShowDetails(..),
   BenchmarkFlags(..), emptyBenchmarkFlags,
@@ -1190,6 +1191,58 @@ instance Monoid SDistFlags where
   mappend = (<>)
 
 instance Semigroup SDistFlags where
+  (<>) = gmappend
+
+-- ------------------------------------------------------------
+-- * BDist flags
+-- ------------------------------------------------------------
+
+-- | Flags to @bdist@: (target directory, verbosity)
+data BDistFlags = BDistFlags {
+    bDistTargetDirectory :: Flag FilePath,
+    bDistDistPref        :: Flag FilePath,
+    bDistVerbosity       :: Flag Verbosity
+  }
+  deriving (Show, Generic)
+
+defaultBDistFlags :: BDistFlags
+defaultBDistFlags = BDistFlags {
+    bDistTargetDirectory   = NoFlag,
+    bDistDistPref          = NoFlag,
+    bDistVerbosity         = Flag normal
+  }
+
+bdistCommand :: CommandUI BDistFlags
+bdistCommand = CommandUI
+  { commandName         = "bdist"
+  , commandSynopsis     =
+      "Generate a binary distribution file (.tar.gz)."
+  , commandDescription  = Nothing
+  , commandNotes        = Nothing
+  , commandUsage        = \pname ->
+      "Usage: " ++ pname ++ " bdist [FLAGS]\n"
+  , commandDefaultFlags = defaultBDistFlags
+  , commandOptions      = \showOrParseArgs ->
+      [optionVerbosity bDistVerbosity (\v flags -> flags { bDistVerbosity = v })
+      ,optionDistPref
+         bDistDistPref (\d flags -> flags { bDistDistPref = d })
+         showOrParseArgs
+
+      ,option "" ["target-directory"]
+       ("Generate a binary distribution in the given directory.")
+         bDistTargetDirectory (\v flags -> flags { bDistTargetDirectory = v })
+         (reqArgFlag "DIR")
+      ]
+  }
+
+emptyBDistFlags :: BDistFlags
+emptyBDistFlags = mempty
+
+instance Monoid BDistFlags where
+  mempty = gmempty
+  mappend = (<>)
+
+instance Semigroup BDistFlags where
   (<>) = gmappend
 
 -- ------------------------------------------------------------

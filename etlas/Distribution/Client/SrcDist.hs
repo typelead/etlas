@@ -6,7 +6,9 @@
 -- into a tarball, making use of the corresponding Cabal module.
 module Distribution.Client.SrcDist (
          sdist,
-         allPackageSourceFiles
+         allPackageSourceFiles,
+         createTarGzArchive,
+         createZipArchive,
   )  where
 
 
@@ -107,26 +109,28 @@ sdist flags exflags = do
       }
     format        = fromFlag (sDistFormat exflags)
     createArchive = case format of
-      TargzFormat -> createTarGzArchive
-      ZipFormat   -> createZipArchive
+      TargzFormat -> createTarGzArchive False
+      ZipFormat   -> createZipArchive False
 
 tarBallName :: PackageDescription -> String
 tarBallName = display . packageId
 
 -- | Create a tar.gz archive from a tree of source files.
-createTarGzArchive :: Verbosity -> PackageDescription -> FilePath -> FilePath
+createTarGzArchive :: Bool -> Verbosity -> PackageDescription -> FilePath -> FilePath
                     -> IO ()
-createTarGzArchive verbosity pkg tmpDir targetPref = do
-    createTarGzFile tarBallFilePath tmpDir (tarBallName pkg)
-    notice verbosity $ "Source tarball created: " ++ tarBallFilePath
+createTarGzArchive isBin verbosity pkg tmpDir targetPref = do
+    createTarGzFile tarBallFilePath tmpDir tarBallName'
+    notice verbosity $ (if isBin then "Binary" else "Source")
+                    ++ " tarball created: " ++ tarBallFilePath
   where
-    tarBallFilePath = targetPref </> tarBallName pkg <.> "tar.gz"
+    tarBallName' = tarBallName pkg ++ (if isBin then "-bin" else "")
+    tarBallFilePath = targetPref </> tarBallName' <.> "tar.gz"
 
 -- | Create a zip archive from a tree of source files.
-createZipArchive :: Verbosity -> PackageDescription -> FilePath -> FilePath
+createZipArchive :: Bool ->Verbosity -> PackageDescription -> FilePath -> FilePath
                     -> IO ()
-createZipArchive verbosity pkg tmpDir targetPref = do
-    let dir       = tarBallName pkg
+createZipArchive isBin verbosity pkg tmpDir targetPref = do
+    let dir       = tarBallName pkg ++ (if isBin then "-bin" else "")
         zipfile   = targetPref </> dir <.> "zip"
     (zipProg, _) <- requireProgram verbosity zipProgram emptyProgramDb
 

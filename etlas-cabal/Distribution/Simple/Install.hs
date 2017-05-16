@@ -17,6 +17,7 @@
 
 module Distribution.Simple.Install (
         install,
+        installIncludeFiles
   ) where
 
 import Prelude ()

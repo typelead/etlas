@@ -12,7 +12,7 @@
 --
 
 module Distribution.Simple.BuildPaths (
-    defaultDistPref, srcPref,
+    defaultDistPref, srcPref, binPref,
     haddockDirName, hscolourPref, haddockPref,
     autogenModulesDir,
     autogenPackageModulesDir,
@@ -52,6 +52,9 @@ import System.FilePath ((</>), (<.>))
 
 srcPref :: FilePath -> FilePath
 srcPref distPref = distPref </> "src"
+
+binPref :: FilePath -> FilePath
+binPref distPref = distPref </> "bin"
 
 hscolourPref :: HaddockTarget -> FilePath -> PackageDescription -> FilePath
 hscolourPref = haddockPref

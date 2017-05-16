@@ -42,6 +42,7 @@ module Distribution.Client.Setup
     , runCommand, RunFlags(..)
     , initCommand, IT.InitFlags(..)
     , sdistCommand, SDistFlags(..), SDistExFlags(..), ArchiveFormat(..)
+    , bdistCommand, BDistFlags(..), BDistExFlags(..)
     , win32SelfUpgradeCommand, Win32SelfUpgradeFlags(..)
     , actAsSetupCommand, ActAsSetupFlags(..)
     , sandboxCommand, defaultSandboxLocation, SandboxFlags(..)
@@ -87,7 +88,7 @@ import qualified Distribution.Simple.Setup as Cabal
 import Distribution.Simple.Setup
          ( ConfigFlags(..), BuildFlags(..), ReplFlags
          , TestFlags(..), BenchmarkFlags(..)
-         , SDistFlags(..), HaddockFlags(..)
+         , SDistFlags(..), BDistFlags(..), HaddockFlags(..)
          , readPackageDbList, showPackageDbList
          , Flag(..), toFlag, flagToMaybe, flagToList
          , BooleanFlag(..), optionVerbosity
@@ -2097,6 +2098,51 @@ instance Monoid SDistExFlags where
   mappend = (<>)
 
 instance Semigroup SDistExFlags where
+  (<>) = gmappend
+
+-- ------------------------------------------------------------
+-- * BDist flags
+-- ------------------------------------------------------------
+
+-- | Extra flags to @bDist@ beyond runghc Setup bDist
+--
+data BDistExFlags = BDistExFlags {
+    bDistFormat    :: Flag ArchiveFormat
+  }
+  deriving (Show, Generic)
+
+defaultBDistExFlags :: BDistExFlags
+defaultBDistExFlags = BDistExFlags {
+    bDistFormat  = Flag TargzFormat
+  }
+
+bdistCommand :: CommandUI (BDistFlags, BDistExFlags)
+bdistCommand = Cabal.bdistCommand {
+    commandDefaultFlags = (commandDefaultFlags Cabal.bdistCommand, defaultBDistExFlags),
+    commandOptions      = \showOrParseArgs ->
+         liftOptions fst setFst (commandOptions Cabal.bdistCommand showOrParseArgs)
+      ++ liftOptions snd setSnd bDistExOptions
+  }
+  where
+    setFst a (_,b) = (a,b)
+    setSnd b (a,_) = (a,b)
+
+    bDistExOptions =
+      [option [] ["archive-format"] "archive-format"
+         bDistFormat (\v flags -> flags { bDistFormat = v })
+         (choiceOpt
+            [ (Flag TargzFormat, ([], ["targz"]),
+                 "Produce a '.tar.gz' format archive (default and required for uploading to hackage)")
+            , (Flag ZipFormat,   ([], ["zip"]),
+                 "Produce a '.zip' format archive")
+            ])
+      ]
+
+instance Monoid BDistExFlags where
+  mempty = gmempty
+  mappend = (<>)
+
+instance Semigroup BDistExFlags where
   (<>) = gmappend
 
 -- ------------------------------------------------------------

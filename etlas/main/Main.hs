@@ -40,6 +40,7 @@ import Distribution.Client.Setup
          , RunFlags(..), runCommand
          , InitFlags(initVerbosity), initCommand
          , SDistFlags(..), SDistExFlags(..), sdistCommand
+         , BDistFlags(..), BDistExFlags(..), bdistCommand
          , Win32SelfUpgradeFlags(..), win32SelfUpgradeCommand
          , ActAsSetupFlags(..), actAsSetupCommand
          , SandboxFlags(..), sandboxCommand
@@ -96,6 +97,7 @@ import Distribution.Client.Check as Check     (check)
 import qualified Distribution.Client.Upload as Upload
 import Distribution.Client.Run                (run, splitRunArgs)
 import Distribution.Client.SrcDist            (sdist)
+import Distribution.Client.BinaryDist         (bdist)
 import Distribution.Client.Get                (get)
 import Distribution.Client.Reconfigure        (Check(..), reconfigure)
 import Distribution.Client.Nix                (nixInstantiate
@@ -261,6 +263,7 @@ mainWorker args = topHandler $
       , hiddenCmd  unpackCommand unpackAction
       , regularCmd checkCommand checkAction
       , regularCmd sdistCommand sdistAction
+      , regularCmd bdistCommand bdistAction
       , regularCmd uploadCommand uploadAction
       , regularCmd reportCommand reportAction
       , regularCmd runCommand runAction
@@ -1023,6 +1026,17 @@ sdistAction (sdistFlags, sdistExFlags) extraArgs globalFlags = do
   distPref <- findSavedDistPref config (sDistDistPref sdistFlags)
   let sdistFlags' = sdistFlags { sDistDistPref = toFlag distPref }
   sdist sdistFlags' sdistExFlags
+
+bdistAction :: (BDistFlags, BDistExFlags) -> [String] -> Action
+bdistAction (bdistFlags, bdistExFlags) extraArgs globalFlags = do
+  let verbosity = fromFlag (bDistVerbosity bdistFlags)
+  unless (null extraArgs) $
+    die' verbosity $ "'bdist' doesn't take any extra arguments: " ++ unwords extraArgs
+  load <- try (loadConfigOrSandboxConfig verbosity globalFlags)
+  let config = either (\(SomeException _) -> mempty) snd load
+  distPref <- findSavedDistPref config (bDistDistPref bdistFlags)
+  let bdistFlags' = bdistFlags { bDistDistPref = toFlag distPref }
+  bdist bdistFlags' bdistExFlags
 
 reportAction :: ReportFlags -> [String] -> Action
 reportAction reportFlags extraArgs globalFlags = do

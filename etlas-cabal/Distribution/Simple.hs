@@ -75,6 +75,7 @@ import Distribution.Simple.Command
 
 import Distribution.Simple.Build
 import Distribution.Simple.SrcDist
+import Distribution.Simple.BinaryDist
 import Distribution.Simple.Register
 
 import Distribution.Simple.Configure
@@ -103,6 +104,7 @@ import Distribution.Compat.Environment      (getEnvironment)
 import Distribution.Compat.GetShortPathName (getShortPathName)
 
 import Data.List       (unionBy, (\\))
+import Data.Maybe      (fromJust)
 
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec
@@ -178,6 +180,7 @@ defaultMainHelper hooks args = topHandler $
       ,haddockCommand         `commandAddAction` haddockAction      hooks
       ,cleanCommand           `commandAddAction` cleanAction        hooks
       ,sdistCommand           `commandAddAction` sdistAction        hooks
+      ,bdistCommand           `commandAddAction` bdistAction        hooks
       ,hscolourCommand        `commandAddAction` hscolourAction     hooks
       ,registerCommand        `commandAddAction` registerAction     hooks
       ,unregisterCommand      `commandAddAction` unregisterAction   hooks
@@ -379,6 +382,38 @@ sdistAction hooks flags args = do
   where
     verbosity = fromFlag (sDistVerbosity flags)
 
+bdistAction :: UserHooks -> BDistFlags -> Args -> IO ()
+bdistAction hooks flags args = do
+    distPref <- findDistPrefOrDefault (bDistDistPref flags)
+    let flags' = flags { bDistDistPref = toFlag distPref }
+    pbi <- preBDist hooks args flags'
+
+    mlbi <- maybeGetPersistBuildConfig distPref
+
+    -- NB: It would be TOTALLY WRONG to use the 'PackageDescription'
+    -- store in the 'LocalBuildInfo' for the rest of @bdist@, because
+    -- that would result in only the files that would be built
+    -- according to the user's configure being packaged up.
+    -- In fact, it is not obvious why we need to read the
+    -- 'LocalBuildInfo' in the first place, except that we want
+    -- to do some architecture-independent preprocessing which
+    -- needs to be configured.  This is totally awful, see
+    -- GH#130.
+
+    (_, ppd) <- confPkgDescr hooks verbosity Nothing
+
+    let pkg_descr0 = flattenPackageDescription ppd
+    sanityCheckHookedBuildInfo pkg_descr0 pbi
+    let pkg_descr = updatePackageDescription pbi pkg_descr0
+        mlbi' = fmap (\lbi -> lbi { localPkgDescr = pkg_descr }) mlbi
+
+    when (isNothing mlbi') $
+      die' verbosity "Run 'etlas configure' first."
+    bDistHook hooks pkg_descr (fromJust mlbi') flags'
+    postBDist hooks args flags' pkg_descr mlbi'
+  where
+    verbosity = fromFlag (bDistVerbosity flags)
+
 testAction :: UserHooks -> TestFlags -> Args -> IO ()
 testAction hooks flags args = do
     distPref <- findDistPrefOrDefault (testDistPref flags)
@@ -559,6 +594,7 @@ simpleUserHooks =
        benchHook = defaultBenchHook,
        instHook  = defaultInstallHook,
        sDistHook = \p l h f -> sdist p l f srcPref (allSuffixHandlers h),
+       bDistHook = \p l f -> bdist p l f,
        cleanHook = \p _ _ f -> clean p f,
        hscolourHook = \p l h f -> hscolour p l (allSuffixHandlers h) f,
        haddockHook  = \p l h f -> haddock  p l (allSuffixHandlers h) f,

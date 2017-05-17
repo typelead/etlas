@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, TupleSections #-}
+{-# LANGUAGE CPP, TupleSections, FlexibleContexts #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -52,7 +52,7 @@ import Control.Monad
 import System.Directory
          ( getTemporaryDirectory, doesDirectoryExist, doesFileExist,
            createDirectoryIfMissing, removeFile, renameDirectory,
-           getDirectoryContents, makeAbsolute, withCurrentDirectory )
+           getDirectoryContents, makeAbsolute )
 import System.FilePath
          ( (</>), (<.>), equalFilePath, takeDirectory )
 import System.IO
@@ -137,7 +137,7 @@ import qualified Distribution.Simple.Setup as Cabal
          , testCommand, TestFlags(..), emptyTestFlags )
 import Distribution.Simple.Utils
          ( createDirectoryIfMissingVerbose, comparing
-         , writeFileAtomic, withUTF8FileContents )
+         , writeFileAtomic, withUTF8FileContents, withCurrentDirectoryVerbose )
 import Distribution.Simple.InstallDirs as InstallDirs
          ( PathTemplate, fromPathTemplate, toPathTemplate, substPathTemplate
          , initialPathTemplateEnv, installDirsTemplateEnv )
@@ -1433,7 +1433,7 @@ installUnpackedPackage verbosity installLock numJobs
             outputPath <- makeAbsolute outputPath'
             let distPref = useDistPref scriptOptions
                 withDirectory = case workingDir of
-                  Just wd -> withCurrentDirectory wd
+                  Just wd -> withCurrentDirectoryVerbose verbosity wd
                   Nothing -> id
             withDirectory $
               bdist defaultBDistFlags { bDistDistPref = toFlag distPref

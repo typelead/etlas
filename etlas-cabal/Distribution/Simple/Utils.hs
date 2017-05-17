@@ -100,6 +100,9 @@ module Distribution.Simple.Utils (
         isInSearchPath,
         addLibraryPath,
 
+        -- * current directory
+        withCurrentDirectoryVerbose,
+
         -- * simple file globbing
         matchFileGlob,
         matchDirFileGlob,
@@ -203,7 +206,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS.Char8
 import System.Directory
     ( Permissions(executable), getDirectoryContents, getPermissions
     , doesDirectoryExist, doesFileExist, removeFile, findExecutable
-    , getModificationTime )
+    , getModificationTime, getCurrentDirectory, setCurrentDirectory )
 import System.Environment
     ( getProgName )
 import System.Exit
@@ -1309,6 +1312,21 @@ doesExecutableExist f = do
     then do perms <- getPermissions f
             return (executable perms)
     else return False
+
+---------------------------------
+-- Current directory
+-- | Like 'withCurrentDirectory', but also checks that the file is executable.
+withCurrentDirectoryVerbose :: Verbosity -> FilePath -> NoCallStackIO a -> NoCallStackIO a
+withCurrentDirectoryVerbose verbosity newCurrentDir inDirAction =
+  Exception.bracket
+    getCurrentDirectory
+    (\dir -> do
+       info verbosity ("Reverting current directory to " ++ dir ++ ".")
+       setCurrentDirectory dir) $ \dir -> do
+    info verbosity ("Setting current directory to " ++ newCurrentDir
+                    ++ " from " ++ dir ++ ".")
+    setCurrentDirectory newCurrentDir
+    inDirAction
 
 ---------------------------------
 -- Deprecated file copy functions

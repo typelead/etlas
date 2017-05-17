@@ -13,7 +13,6 @@ module Distribution.Client.Run ( run, splitRunArgs )
 
 import Prelude ()
 import Data.List
-import Data.Maybe (fromMaybe)
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.TargetInfo     (targetCLBI)

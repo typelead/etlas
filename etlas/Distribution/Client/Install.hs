@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, TupleSections #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -52,7 +52,7 @@ import Control.Monad
 import System.Directory
          ( getTemporaryDirectory, doesDirectoryExist, doesFileExist,
            createDirectoryIfMissing, removeFile, renameDirectory,
-           getDirectoryContents )
+           getDirectoryContents, makeAbsolute, withCurrentDirectory )
 import System.FilePath
          ( (</>), (<.>), equalFilePath, takeDirectory )
 import System.IO
@@ -80,7 +80,8 @@ import Distribution.Client.SolverInstallPlan (SolverInstallPlan)
 import Distribution.Client.Setup
          ( GlobalFlags(..), RepoContext(..)
          , ConfigFlags(..), configureCommand, filterConfigureFlags
-         , ConfigExFlags(..), InstallFlags(..) )
+         , ConfigExFlags(..), InstallFlags(..)
+         , defaultBDistExFlags )
 import Distribution.Client.Config
          ( defaultCabalDir, defaultUserInstall )
 import Distribution.Client.Patch
@@ -103,6 +104,7 @@ import qualified Distribution.Client.Win32SelfUpgrade as Win32SelfUpgrade
 import qualified Distribution.Client.World as World
 import qualified Distribution.InstalledPackageInfo as Installed
 import Distribution.Client.JobControl
+import Distribution.Client.BinaryDist
 
 import qualified Distribution.Solver.Types.ComponentDeps as CD
 import           Distribution.Solver.Types.ConstraintSource
@@ -126,6 +128,7 @@ import Distribution.Simple.Setup
          ( haddockCommand, HaddockFlags(..)
          , buildCommand, BuildFlags(..), emptyBuildFlags
          , AllowNewer(..), AllowOlder(..), RelaxDeps(..)
+         , defaultBDistFlags, BDistFlags(..)
          , toFlag, fromFlag, fromFlagOrDefault, flagToMaybe, defaultDistPref )
 import qualified Distribution.Simple.Setup as Cabal
          ( Flag(..)
@@ -1423,6 +1426,21 @@ installUnpackedPackage verbosity installLock numJobs
           "Building " ++ display pkgid ++ "..."
         setup buildCommand' buildFlags mLogPath
 
+
+        -- Check for binaries
+        case shouldBuildBinaries of
+          Just outputPath' -> do
+            outputPath <- makeAbsolute outputPath'
+            let distPref = useDistPref scriptOptions
+                withDirectory = case workingDir of
+                  Just wd -> withCurrentDirectory wd
+                  Nothing -> id
+            withDirectory $
+              bdist defaultBDistFlags { bDistDistPref = toFlag distPref
+                                      , bDistTargetDirectory = toFlag outputPath }
+                    defaultBDistExFlags
+          Nothing -> return ()
+
     -- Doc generation phase
         docsResult <- if shouldHaddock
           then (do setup haddockCommand haddockFlags' mLogPath
@@ -1466,6 +1484,7 @@ installUnpackedPackage verbosity installLock numJobs
     pkgid            = packageId pkg
     uid              = installedUnitId rpkg
     cinfo            = compilerInfo comp
+    shouldBuildBinaries = flagToMaybe (installBinariesOutputDir installFlags)
     buildCommand'    = buildCommand progdb
     buildFlags   _   = emptyBuildFlags {
       buildDistPref  = configDistPref configFlags,

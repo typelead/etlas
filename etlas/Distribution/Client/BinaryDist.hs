@@ -6,6 +6,7 @@
 -- into a tarball, making use of the corresponding Cabal module.
 module Distribution.Client.BinaryDist (
          bdist
+       , tarBallName
   )  where
 
 
@@ -14,7 +15,7 @@ import Distribution.Client.SetupWrapper
 import Distribution.Client.SrcDist
 
 import Distribution.Package
-         ( Package(..), packageName )
+         ( Package(..) )
 import Distribution.PackageDescription
          ( PackageDescription )
 import Distribution.PackageDescription.Configuration
@@ -28,29 +29,16 @@ import Distribution.PackageDescription.Parse
 #endif
 import Distribution.Simple.Utils
          ( createDirectoryIfMissingVerbose, defaultPackageDesc
-         , warn, die', notice, withTempDirectory )
+         , withTempDirectory )
 import Distribution.Client.Setup
          ( BDistFlags(..), BDistExFlags(..), ArchiveFormat(..) )
 import Distribution.Simple.Setup
-         ( Flag(..), bdistCommand, flagToList, fromFlag, fromFlagOrDefault
-         , defaultBDistFlags )
+         ( Flag(..), bdistCommand, fromFlag, fromFlagOrDefault )
 import Distribution.Simple.BuildPaths ( binPref )
-import Distribution.Simple.Program (requireProgram, simpleProgram, programPath)
-import Distribution.Simple.Program.Db (emptyProgramDb)
 import Distribution.Text ( display )
-import Distribution.Verbosity (Verbosity, normal, lessVerbose)
-import Distribution.Version   (mkVersion, orLaterVersion, intersectVersionRanges)
 
-import Distribution.Client.Utils
-  (tryFindAddSourcePackageDesc)
-import Distribution.Compat.Exception                 (catchIO)
-
-import System.FilePath ((</>), (<.>))
-import Control.Monad (when, unless, liftM)
-import System.Directory (doesFileExist, removeFile, canonicalizePath, getTemporaryDirectory)
-import System.Process (runProcess, waitForProcess)
-import System.Exit    (ExitCode(..))
-import Control.Exception                             (IOException, evaluate)
+import System.FilePath ((</>))
+import Control.Monad (liftM)
 
 -- |Create a binary distribution.
 bdist :: BDistFlags -> BDistExFlags -> IO ()
@@ -58,23 +46,25 @@ bdist flags exflags = do
   pkg <- liftM flattenPackageDescription
     (readGenericPackageDescription verbosity =<< defaultPackageDesc verbosity)
   let withDir :: (FilePath -> IO a) -> IO a
-      withDir = withTempDirectory verbosity tmpTargetDir "sdist."
+      withDir = withTempDirectory verbosity tmpTargetDir "bdist."
+
   -- TODO: Transfer all the copied files to dist/bin if the user requests it
-  -- createDirectoryIfMissingVerbose verbosity True tmpTargetDir
+  createDirectoryIfMissingVerbose verbosity True tmpTargetDir
   withDir $ \tmpDir -> do
     let outDir = tmpDir </> tarBallName pkg
         flags' = flags { bDistTargetDirectory = Flag outDir }
 
     createDirectoryIfMissingVerbose verbosity True outDir
+    createDirectoryIfMissingVerbose verbosity True tarBallPath
 
     setupWrapper verbosity setupOpts (Just pkg) bdistCommand (const flags') []
 
-    createArchive verbosity pkg tmpDir distPref
+    createArchive verbosity pkg tmpDir tarBallPath
 
   where
-    flagEnabled f  = not . null . flagToList . f $ flags
     verbosity       = fromFlag (bDistVerbosity flags)
     distPref        = fromFlag (bDistDistPref flags)
+    tarBallPath     = fromFlagOrDefault distPref (bDistTargetDirectory flags)
     tmpTargetDir    = binPref distPref
     setupOpts       = defaultSetupScriptOptions {
       useDistPref     = distPref

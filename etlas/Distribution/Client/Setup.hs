@@ -42,7 +42,7 @@ module Distribution.Client.Setup
     , runCommand, RunFlags(..)
     , initCommand, IT.InitFlags(..)
     , sdistCommand, SDistFlags(..), SDistExFlags(..), ArchiveFormat(..)
-    , bdistCommand, BDistFlags(..), BDistExFlags(..)
+    , bdistCommand, BDistFlags(..), BDistExFlags(..), defaultBDistExFlags
     , win32SelfUpgradeCommand, Win32SelfUpgradeFlags(..)
     , actAsSetupCommand, ActAsSetupFlags(..)
     , sandboxCommand, defaultSandboxLocation, SandboxFlags(..)
@@ -1475,6 +1475,7 @@ data InstallFlags = InstallFlags {
     installLogFile          :: Flag PathTemplate,
     installBuildReports     :: Flag ReportLevel,
     installReportPlanningFailure :: Flag Bool,
+    installBinariesOutputDir:: Flag FilePath,
     installSymlinkBinDir    :: Flag FilePath,
     installPerComponent     :: Flag Bool,
     installOneShot          :: Flag Bool,
@@ -1520,6 +1521,7 @@ defaultInstallFlags = InstallFlags {
     installLogFile               = mempty,
     installBuildReports          = Flag NoReports,
     installReportPlanningFailure = Flag False,
+    installBinariesOutputDir     = mempty,
     installSymlinkBinDir         = mempty,
     installPerComponent          = Flag True,
     installOneShot               = Flag False,
@@ -1709,6 +1711,11 @@ installOptions showOrParseArgs =
           "(No longer supported, do not use.)"
           installRootCmd (\v flags -> flags { installRootCmd = v })
           (reqArg' "COMMAND" toFlag flagToList)
+
+      , option [] ["binaries-output-dir"]
+          "Directory in which to output binaries for all installed packages."
+           installBinariesOutputDir (\v flags -> flags { installBinariesOutputDir = v })
+           (reqArgFlag "DIR")
 
       , option [] ["symlink-bindir"]
           "Add symlinks to installed executables into this directory."

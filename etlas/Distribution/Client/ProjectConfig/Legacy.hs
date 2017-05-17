@@ -517,6 +517,7 @@ convertToLegacySharedConfig
       installLogFile               = projectConfigLogFile,
       installBuildReports          = projectConfigBuildReports,
       installReportPlanningFailure = projectConfigReportPlanningFailure,
+      installBinariesOutputDir     = mempty,
       installSymlinkBinDir         = projectConfigSymlinkBinDir,
       installPerComponent          = projectConfigPerComponent,
       installOneShot               = projectConfigOneShot,

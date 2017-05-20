@@ -360,7 +360,7 @@ registerPackage :: Verbosity
                 -> PackageDBStack
                 -> InstalledPackageInfo
                 -> IO ()
-registerPackage verbosity comp progdb multiInstance packageDbs installedPkgInfo =
+registerPackage verbosity comp progdb multiInstance packageDbs ipi =
   case compilerFlavor comp of
     GHC   -> GHC.registerPackage   verbosity progdb multiInstance packageDbs installedPkgInfo
     GHCJS -> GHCJS.registerPackage verbosity progdb multiInstance packageDbs installedPkgInfo
@@ -373,6 +373,14 @@ registerPackage verbosity comp progdb multiInstance packageDbs installedPkgInfo 
     HaskellSuite {} ->
       HaskellSuite.registerPackage verbosity      progdb packageDbs installedPkgInfo
     _    -> die' verbosity "Registering is not implemented for this compiler"
+  where installedPkgInfo
+          | packageName == "ghc-prim" = ipi {
+                IPI.exposedModules = IPI.ExposedModule (fromString "GHC.Prim") Nothing
+                                   : IPI.exposedModules ipi
+              }
+          | otherwise = ipi
+          where packageName = unPackageName . pkgName
+                            $ IPI.sourcePackageId ipi
 
 writeHcPkgRegisterScript :: Verbosity
                          -> [InstalledPackageInfo]

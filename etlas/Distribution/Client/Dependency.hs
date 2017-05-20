@@ -377,8 +377,10 @@ dontUpgradeNonUpgradeablePackages params =
       -- "Distribution.Solver.Modular.Solver" as well
       , pkgname <- [ mkPackageName "base"
                    , mkPackageName "ghc-prim"
+                   , mkPackageName "integer"
                    , mkPackageName "integer-gmp"
                    , mkPackageName "integer-simple"
+                   , mkPackageName "rts"
                    , mkPackageName "template-haskell"
                    ]
       , isInstalled pkgname ]

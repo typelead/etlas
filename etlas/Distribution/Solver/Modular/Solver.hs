@@ -131,9 +131,11 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
         L.map mkPackageName
              [ "base"
              , "ghc-prim"
+             , "integer"
              , "integer-gmp"
              , "integer-simple"
              , "template-haskell"
+             , "rts"
              ]
 
     -- When --reorder-goals is set, we use preferReallyEasyGoalChoices, which

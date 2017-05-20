@@ -533,7 +533,7 @@ defaultRemoteRepos = [ RemoteRepo hackageName hackageUri Nothing [] 0 False Fals
   where
     hackageName = "hackage.haskell.org"
     hackageUri  = URI "http:" (Just (URIAuth "" hackageName ""))
-                      "/packages/archive" "" ""
+                      "/" "" ""
     etlasName = "etlas.typelead.com"
     etlasUri  = URI "http:" (Just (URIAuth "" "github.com" ""))
                       "/typelead/etlas-index" "" ""

@@ -117,7 +117,7 @@ get verbosity repoCtxt globalFlags getFlags userTargets = do
                          | otherwise   = packageDescrOverride pkg
 
         case location of
-          LocalTarballPackage tarballPath ->
+          LocalTarballPackage tarballPath _isBinary ->
             unpackPackage verbosity prefix pkgid descOverride tarballPath False patchesDir
 
           RemoteTarballPackage _tarballURL tarballPath ->
@@ -163,7 +163,7 @@ unpackPackage verbosity prefix pkgid descOverride pkgPath isGit patchesDir = do
     when existsFile $ die' verbosity $
      "A file \"" ++ pkgdir ++ "\" is in the way, not unpacking."
     notice verbosity $ "Unpacking to " ++ pkgdir'
-    patchedExtractTarGzFile verbosity True prefix pkgdirname pkgPath patchesDir isGit
+    patchedExtractTarGzFile verbosity True prefix pkgdirname pkgPath patchesDir isGit False
 
     case descOverride of
       Nothing     -> return ()

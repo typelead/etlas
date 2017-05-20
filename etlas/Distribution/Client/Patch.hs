@@ -56,9 +56,10 @@ patchedExtractTarGzFile :: Verbosity
                         -> FilePath -- ^ Expected subdir (to check for tarbombs)
                         -> FilePath -- ^ Tarball
                         -> FilePath -- ^ Filepath of the patches directory
-                        -> Bool        -- ^ Is git repo
+                        -> Bool     -- ^ Is git repo
+                        -> Bool     -- ^ Is binary
                         -> IO ()
-patchedExtractTarGzFile verbosity setupForPatch dir expected tar patchesDir isGit = do
+patchedExtractTarGzFile verbosity setupForPatch dir expected tar patchesDir isGit isBinary = do
   -- TODO: Speed this up with a cache?
   let patchFileLocation' = patchesDir </> "patches" </> patchFile
   patchFileLocation <- makeAbsolute patchFileLocation'
@@ -67,7 +68,7 @@ patchedExtractTarGzFile verbosity setupForPatch dir expected tar patchesDir isGi
   if isGit
   then copyDirectoryRecursive verbosity tar dir
   else extractTarGzFile dir expected tar
-  when exists $ do
+  when (exists && not isBinary) $ do
     (gitProg, _, _) <- requireProgramVersion verbosity
                       gitProgram
                       (orLaterVersion (mkVersion [1,8,5]))

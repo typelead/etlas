@@ -191,7 +191,7 @@ rebuildTargetsDryRun distDirLayout@DistDirLayout{..} shared =
 
         -- The three tarball cases are handled the same as each other,
         -- though depending on the build style.
-        Just (LocalTarballPackage    tarball) ->
+        Just (LocalTarballPackage    tarball _isBinary) ->
           dryRunTarballPkg pkg depsBuildStatus tarball
 
         Just (RemoteTarballPackage _ tarball) ->

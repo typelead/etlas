@@ -78,8 +78,6 @@ import qualified Codec.Archive.Tar.Entry as Tar
 import qualified Distribution.Client.Tar as Tar
 import Distribution.Client.FetchUtils
 import Distribution.Client.Utils ( tryFindPackageDesc )
-import Distribution.Client.Patch ( patchedTarPackageCabalFile )
-import {-# SOURCE #-} Distribution.Client.Config (defaultPatchesDir)
 import Distribution.Client.GlobalFlags
          ( RepoContext(..) )
 
@@ -170,7 +168,7 @@ data UserTarget =
      -- > etlas install dist/foo-1.0.tar.gz
      -- > etlas install ../build/baz-1.0.tar.gz
      --
-   | UserTargetLocalTarball FilePath
+   | UserTargetLocalTarball FilePath Bool
 
      -- | A specific package that is available as a remote tarball file
      --
@@ -271,8 +269,11 @@ readUserTarget targetstr =
             | isDir
             = Just (Right (UserTargetLocalDir filename))
 
+            | isFile && extensionIsBinaryTarGz filename
+            = Just (Right (UserTargetLocalTarball filename True))
+
             | isFile && extensionIsTarGz filename
-            = Just (Right (UserTargetLocalTarball filename))
+            = Just (Right (UserTargetLocalTarball filename False))
 
             | isFile && takeExtension filename == ".cabal"
             = Just (Right (UserTargetLocalCabalFile filename))
@@ -305,6 +306,11 @@ readUserTarget targetstr =
 
     extensionIsTarGz f = takeExtension f                 == ".gz"
                       && takeExtension (dropExtension f) == ".tar"
+
+    extensionIsBinaryTarGz f = takeExtension f                 == ".gz"
+                            && takeExtension (dropExtension f) == ".tar"
+                            && checkBin (dropExtension (dropExtension f))
+      where checkBin arg = (reverse . fst . break (== '-') . reverse) arg == "bin"
 
     parseDependencyOrPackageId :: Parse.ReadP r Dependency
     parseDependencyOrPackageId = parse
@@ -456,8 +462,8 @@ expandUserTarget verbosity worldFile userTarget = case userTarget of
       _   <- tryFindPackageDesc verbosity dir (localPackageError dir) -- just as a check
       return [ PackageTargetLocation (LocalUnpackedPackage dir) ]
 
-    UserTargetLocalTarball tarballFile ->
-      return [ PackageTargetLocation (LocalTarballPackage tarballFile) ]
+    UserTargetLocalTarball tarballFile isBinary ->
+      return [ PackageTargetLocation (LocalTarballPackage tarballFile isBinary) ]
 
     UserTargetRemoteTarball tarballURL ->
       return [ PackageTargetLocation (RemoteTarballPackage tarballURL ()) ]
@@ -502,7 +508,7 @@ readPackageTarget verbosity = traverse modifyLocation
                    packageDescrOverride = Nothing
                  }
 
-      LocalTarballPackage tarballFile ->
+      LocalTarballPackage tarballFile _isBinary ->
         readTarballPackageTarget location tarballFile tarballFile
 
       RemoteTarballPackage tarballURL tarballFile ->
@@ -533,18 +539,13 @@ readPackageTarget verbosity = traverse modifyLocation
     extractTarballPackageCabalFile tarballFile tarballOriginalLoc = do
       -- Patches don't apply to local or remote tarballs since patches are
       -- primarily for those packages located in repos (Hackage or Etlas) -RM
-      patchesDir <- defaultPatchesDir
-      maybePatchedCabalFile <- patchedTarPackageCabalFile tarballFile patchesDir
-      maybe
-        ( either (die' verbosity . formatErr) return
-          . check
-          . accumEntryMap
-          . Tar.filterEntries isCabalFile
-          . Tar.read
-          . GZipUtils.maybeDecompress
-          =<< BS.readFile tarballFile )
-          return
-          maybePatchedCabalFile
+          either (die' verbosity . formatErr) return
+        . check
+        . accumEntryMap
+        . Tar.filterEntries isCabalFile
+        . Tar.read
+        . GZipUtils.maybeDecompress
+      =<< BS.readFile tarballFile
       where
         formatErr msg = "Error reading " ++ tarballOriginalLoc ++ ": " ++ msg
 

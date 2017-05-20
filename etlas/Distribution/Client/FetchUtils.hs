@@ -34,6 +34,7 @@ module Distribution.Client.FetchUtils (
   ) where
 
 import Distribution.Client.Types
+import Distribution.Client.BinaryPackageDb
 import Distribution.Client.HttpUtils
          ( downloadURI, isOldHackageURI, DownloadResult(..)
          , HttpTransport(..), transportCheckHttps, remoteRepoCheckHttps )
@@ -83,7 +84,7 @@ import qualified Hackage.Security.Client as Sec
 isFetched :: UnresolvedPkgLoc -> IO Bool
 isFetched loc = case loc of
     LocalUnpackedPackage _dir        -> return True
-    LocalTarballPackage  _file       -> return True
+    LocalTarballPackage  _file  _    -> return True
     RemoteTarballPackage _uri local  -> return (isJust local)
     RepoTarballPackage repo pkgid _  -> doesFileExist (packageFile repo pkgid)
     ScmPackage (Just repo) _ pkgid _ ->
@@ -100,8 +101,8 @@ checkFetched :: UnresolvedPkgLoc
 checkFetched loc = case loc of
     LocalUnpackedPackage dir  ->
       return (Just $ LocalUnpackedPackage dir)
-    LocalTarballPackage  file ->
-      return (Just $ LocalTarballPackage  file)
+    LocalTarballPackage  file isBinary ->
+      return (Just $ LocalTarballPackage  file isBinary)
     RemoteTarballPackage uri (Just file) ->
       return (Just $ RemoteTarballPackage uri file)
     RepoTarballPackage repo pkgid (Just file) ->
@@ -144,8 +145,8 @@ fetchPackage :: Verbosity
 fetchPackage verbosity repoCtxt loc = case loc of
     LocalUnpackedPackage dir  ->
       return (LocalUnpackedPackage dir)
-    LocalTarballPackage  file ->
-      return (LocalTarballPackage  file)
+    LocalTarballPackage  file isBinary ->
+      return (LocalTarballPackage  file isBinary)
     RemoteTarballPackage uri (Just file) ->
       return (RemoteTarballPackage uri file)
     RepoTarballPackage repo pkgid (Just file) ->
@@ -203,7 +204,7 @@ fetchRepoTarball verbosity repoCtxt repo pkgid = do
   if fetched
     then do info verbosity $ display pkgid ++ " has already been downloaded."
             return (packageFile repo pkgid)
-    else do setupMessage verbosity "Downloading" pkgid
+    else do setupMessage verbosity "Downloading [source]" pkgid
             downloadRepoPackage
   where
     downloadRepoPackage = case repo of
@@ -244,6 +245,7 @@ downloadIndex transport verbosity remoteRepo cacheDir
     if exists
     then runGit ["-C", cacheDir, "pull"]
     else runGit ["clone", "--depth=1", show (remoteRepoURI remoteRepo), cacheDir]
+    updateBinaryPackageCaches transport verbosity cacheDir
     return FileAlreadyInCache
 
   | otherwise = do

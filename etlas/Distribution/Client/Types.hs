@@ -222,7 +222,7 @@ data PackageLocation local =
     LocalUnpackedPackage FilePath
 
     -- | A package as a tarball that's available as a local tarball
-  | LocalTarballPackage FilePath
+  | LocalTarballPackage FilePath Bool
 
     -- | A package as a tarball from a remote URI
   | RemoteTarballPackage URI local

@@ -198,7 +198,7 @@ checkTarget verbosity target = case target of
 fetchPackage :: Verbosity -> RepoContext -> PackageLocation a -> IO ()
 fetchPackage verbosity repoCtxt pkgsrc = case pkgsrc of
     LocalUnpackedPackage _dir  -> return ()
-    LocalTarballPackage  _file -> return ()
+    LocalTarballPackage  _file _ -> return ()
 
     RemoteTarballPackage _uri _ ->
       die' verbosity $ "The 'fetch' command does not yet support remote tarballs. "

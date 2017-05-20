@@ -805,7 +805,7 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
         localTarballPkgs :: [(PackageId, FilePath)]
         localTarballPkgs =
           [ (pkgid, tarball)
-          | (pkgid, LocalTarballPackage tarball) <- allPkgLocations ]
+          | (pkgid, LocalTarballPackage tarball _isBinary) <- allPkgLocations ]
 
         -- Tarballs from remote URLs. We must have downloaded these already
         -- (since we extracted the .cabal file earlier)

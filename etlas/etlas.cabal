@@ -117,6 +117,7 @@ library
         Distribution.Client.SetupWrapper
         Distribution.Client.SrcDist
         Distribution.Client.BinaryDist
+        Distribution.Client.BinaryPackageDb
         Distribution.Client.SolverInstallPlan
         Distribution.Client.SourceFiles
         Distribution.Client.Tar

@@ -1163,7 +1163,7 @@ performInstallations verbosity
                      installPlan $ \rpkg ->
     installReadyPackage platform cinfo configFlags
                         rpkg $ \configFlags' src pkg pkgoverride ->
-      fetchSourcePackage verbosity repoCtxt binaryPkgDb fetchLimit reinstall src $ \src' ->
+      fetchSourcePackage verbosity repoCtxt binaryPkgDb fetchLimit noBinary src $ \src' ->
         installLocalPackage verbosity (packageId pkg) src' distPref patchesDir $ \mpath ->
           installUnpackedPackage verbosity installLock numJobs
                                  (setupScriptOptions installedPkgIndex
@@ -1182,8 +1182,10 @@ performInstallations verbosity
     keepGoing       = fromFlag (installKeepGoing installFlags)
     distPref        = fromFlagOrDefault (useDistPref defaultSetupScriptOptions)
                       (configDistPref configFlags)
-    reinstall       = fromFlag (installOverrideReinstall installFlags) ||
-                      fromFlag (installReinstall         installFlags)
+    noBinary       = fromFlag (installOverrideReinstall installFlags) ||
+                     fromFlag (installReinstall         installFlags) ||
+                     fromFlag (installAllowBootLibInstalls installFlags)
+                     == AllowBootLibInstalls True
 
     setupScriptOptions index lock rpkg =
       configureSetupScript
@@ -1343,11 +1345,11 @@ fetchSourcePackage
   -> UnresolvedPkgLoc
   -> (ResolvedPkgLoc -> IO BuildOutcome)
   -> IO BuildOutcome
-fetchSourcePackage verbosity repoCtxt binaryPkgDb fetchLimit reinstall src installPkg = do
+fetchSourcePackage verbosity repoCtxt binaryPkgDb fetchLimit noBinary src installPkg = do
   case getPackageId src of
     Just pkgId -> do
       -- A remote package
-      result <- if reinstall
+      result <- if noBinary
                 then return Nothing -- Don't download binaries on reinstall
                 else do
                   transport <- repoContextGetTransport repoCtxt

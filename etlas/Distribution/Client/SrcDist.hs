@@ -48,7 +48,7 @@ import Distribution.Client.Utils
   (tryFindAddSourcePackageDesc)
 import Distribution.Compat.Exception                 (catchIO)
 
-import System.FilePath ((</>), (<.>))
+import System.FilePath ((</>), (<.>), normalise)
 import Control.Monad (when, unless, liftM)
 import System.Directory (doesFileExist, removeFile, canonicalizePath, getTemporaryDirectory)
 import System.Process (runProcess, waitForProcess)
@@ -124,7 +124,7 @@ createTarGzArchive isBin verbosity pkg tmpDir targetPref = do
                     ++ " tarball created: " ++ tarBallFilePath
   where
     tarBallName' = tarBallName pkg ++ (if isBin then "-bin" else "")
-    tarBallFilePath = targetPref </> tarBallName' <.> "tar.gz"
+    tarBallFilePath = normalise (targetPref </> tarBallName' <.> "tar.gz")
 
 -- | Create a zip archive from a tree of source files.
 createZipArchive :: Bool ->Verbosity -> PackageDescription -> FilePath -> FilePath

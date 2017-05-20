@@ -51,7 +51,7 @@ bdist :: PackageDescription     -- ^information from the tarball
 bdist pkg lbi flags = do
   case flagToMaybe (bDistTargetDirectory flags) of
     Just targetDir -> do
-      setupMessage verbosity "Building binary dist for" (packageId pkg)
+      setupMessage verbosity "Creating binary distribution for" (packageId pkg)
       prepareTree verbosity pkg lbi targetDir
       info verbosity $ "Binary directory created: " ++ targetDir
     Nothing -> die' verbosity "Must supply a target directory."

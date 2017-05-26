@@ -219,7 +219,12 @@ mainWorker args = topHandler $
     CommandHelp   help                 -> printGlobalHelp help
     CommandList   opts                 -> printOptionsList opts
     CommandErrors errs                 -> printErrors errs
-    CommandReadyToGo (globalFlags, commandParse)  ->
+    CommandReadyToGo (globalFlags, commandParse)  -> do
+
+      -- TODO: Fix this dirty hack. See the definition of `etaProgram`.
+      writeIORef findEtaRef    (findEtaInBinaryIndex "eta"     0 globalFlags)
+      writeIORef findEtaPkgRef (findEtaInBinaryIndex "eta-pkg" 1 globalFlags)
+
       case commandParse of
         _ | fromFlagOrDefault False (globalVersion globalFlags)
             -> printVersion
@@ -230,11 +235,6 @@ mainWorker args = topHandler $
         CommandErrors   errs           -> printErrors errs
         CommandReadyToGo action        -> do
           globalFlags' <- updateSandboxConfigFileFlag globalFlags
-
-          -- TODO: Fix this dirty hack. See the definition of `etaProgram`.
-          writeIORef findEtaRef    (findEtaInBinaryIndex "eta"     0 globalFlags')
-          writeIORef findEtaPkgRef (findEtaInBinaryIndex "eta-pkg" 1 globalFlags')
-
           action globalFlags'
 
   where

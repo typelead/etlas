@@ -118,6 +118,7 @@ library
         Distribution.Client.SrcDist
         Distribution.Client.BinaryDist
         Distribution.Client.BinaryPackageDb
+        Distribution.Client.BinaryUtils
         Distribution.Client.SolverInstallPlan
         Distribution.Client.SourceFiles
         Distribution.Client.Tar

@@ -135,6 +135,7 @@ import Distribution.Client.Utils              (determineNumJobs
                                               ,relaxEncodingErrors
 #endif
                                               )
+import Distribution.Client.BinaryUtils
 
 import Distribution.Package (packageId)
 import Distribution.PackageDescription
@@ -165,7 +166,9 @@ import qualified Distribution.Simple.LocalBuildInfo as LBI
 import Distribution.Simple.Program (defaultProgramDb
                                    ,configureAllKnownPrograms
                                    ,simpleProgramInvocation
-                                   ,getProgramInvocationOutput)
+                                   ,getProgramInvocationOutput
+                                   ,findEtaRef
+                                   ,findEtaPkgRef)
 import Distribution.Simple.Program.Db (reconfigurePrograms)
 import qualified Distribution.Simple.Setup as Cabal
 import Distribution.Simple.Utils
@@ -179,6 +182,7 @@ import Distribution.Version
          ( Version, mkVersion, orLaterVersion )
 import qualified Paths_etlas (version)
 
+import Data.IORef
 import System.Environment       (getArgs, getProgName)
 import System.Exit              (exitFailure, exitSuccess)
 import System.FilePath          ( dropExtension, splitExtension
@@ -226,6 +230,11 @@ mainWorker args = topHandler $
         CommandErrors   errs           -> printErrors errs
         CommandReadyToGo action        -> do
           globalFlags' <- updateSandboxConfigFileFlag globalFlags
+
+          -- TODO: Fix this dirty hack. See the definition of `etaProgram`.
+          writeIORef findEtaRef    (findEtaInBinaryIndex "eta"     0 globalFlags')
+          writeIORef findEtaPkgRef (findEtaInBinaryIndex "eta-pkg" 1 globalFlags')
+
           action globalFlags'
 
   where

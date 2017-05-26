@@ -227,29 +227,16 @@ install verbosity packageDBs repos comp platform progdb useSandbox mSandboxPkgIn
     installContext@(installedPkgIdx, _, binaryPkgDb, _, _, _, _)
       <- makeInstallContext verbosity args (Just userTargets0)
 
-    -- The magic that installs all the boot libraries
-    if ((fromFlag (installAllowBootLibInstalls installFlags))
-          == AllowBootLibInstalls False
-          && missingBootLibraries installedPkgIdx)
-    then do
-      installBaseLibraries verbosity packageDBs repos comp platform progdb
-        useSandbox mSandboxPkgInfo globalFlags configFlags configExFlags
-        installFlags haddockFlags binaryPkgDb
-      -- Try again after installing
-      install verbosity packageDBs repos comp platform progdb useSandbox
-        mSandboxPkgInfo globalFlags configFlags configExFlags installFlags
-        haddockFlags userTargets0
-    else do
-      planResult     <- foldProgress logMsg (return . Left) (return . Right) =<<
-                        makeInstallPlan verbosity args installContext
+    planResult <- foldProgress logMsg (return . Left) (return . Right) =<<
+                    makeInstallPlan verbosity args installContext
 
-      case planResult of
-          Left message -> do
-              reportPlanningFailure verbosity args installContext message
-              die'' message
+    case planResult of
+        Left message -> do
+            reportPlanningFailure verbosity args installContext message
+            die'' message
 
-          Right installPlan ->
-              processInstallPlan verbosity args installContext installPlan
+        Right installPlan ->
+            processInstallPlan verbosity args installContext installPlan
   where
     args :: InstallArgs
     args = (packageDBs, repos, comp, platform, progdb, useSandbox,
@@ -265,48 +252,6 @@ install verbosity packageDBs repos comp platform progdb useSandbox mSandboxPkgIn
       ++ "Try reinstalling/unregistering the offending packages or "
       ++ "recreating the sandbox."
     logMsg message rest = debugNoWrap verbosity message >> rest
-
-    missingBootLibraries pkgIdx = not . all
-                                 (\pkg ->
-                                    case PackageIndex.searchByName pkgIdx pkg of
-                                      PackageIndex.None -> False
-                                      _                 -> True)
-                                $ bootPackages
-      where bootPackages = ["rts", "base", "ghc-prim", "integer", "template-haskell"]
-
-installBaseLibraries
-  :: Verbosity
-  -> PackageDBStack
-  -> RepoContext
-  -> Compiler
-  -> Platform
-  -> ProgramDb
-  -> UseSandbox
-  -> Maybe SandboxPackageInfo
-  -> GlobalFlags
-  -> ConfigFlags
-  -> ConfigExFlags
-  -> InstallFlags
-  -> HaddockFlags
-  -> BinaryPackageDb
-  -> IO ()
-installBaseLibraries verbosity packageDBs repos comp platform progdb useSandbox
-  mSandboxPkgInfo globalFlags configFlags configExFlags installFlags haddockFlags
-  binaryPkgDb = do
-  notice verbosity "Installing boot libraries..."
-  transport <- repoContextGetTransport repos
-  paths <- getBasePackageBinaryPaths verbosity transport binaryPkgDb mVersion
-  forM_ paths $ \path -> do
-    install verbosity packageDBs repos comp platform progdb useSandbox
-      mSandboxPkgInfo globalFlags configFlags configExFlags installFlags'
-      haddockFlags [UserTargetLocalTarball path True]
-  where installFlags' = installFlags {
-            installAllowBootLibInstalls = toFlag (AllowBootLibInstalls True),
-            installOverrideReinstall = toFlag True
-          }
-        mVersion = do
-          prog <- lookupProgram etaProgram progdb
-          programVersion prog
 
 -- TODO: Make InstallContext a proper data type with documented fields.
 -- | Common context for makeInstallPlan and processInstallPlan.

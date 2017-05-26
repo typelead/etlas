@@ -75,7 +75,7 @@ import Distribution.License
 import Distribution.ReadE
   ( runReadE, readP_to_E )
 import Distribution.Simple.Setup
-  ( Flag(..), flagToMaybe )
+  ( Flag(..), flagToMaybe, maybeToFlag )
 import Distribution.Simple.Configure
   ( getInstalledPackages )
 import Distribution.Simple.Compiler
@@ -155,10 +155,6 @@ f ?>> g = do
   if isJust ma
     then return ma
     else g
-
--- | Witness the isomorphism between Maybe and Flag.
-maybeToFlag :: Maybe a -> Flag a
-maybeToFlag = maybe NoFlag Flag
 
 -- | Get the package name: use the package directory (supplied, or the current
 --   directory by default) as a guess. It looks at the SourcePackageDb to avoid

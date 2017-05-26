@@ -52,9 +52,15 @@ module Distribution.Simple.Program.Builtin (
     cppProgram,
     pkgConfigProgram,
     hpcProgram,
+
+    -- * Eta hack
+    findEtaRef,
+    findEtaPkgRef
   ) where
 
 import Prelude ()
+import Data.IORef
+import System.IO.Unsafe
 import Distribution.Compat.Prelude
 
 import Distribution.Simple.Program.Find
@@ -175,9 +181,20 @@ ghcjsPkgProgram = (simpleProgram "ghcjs-pkg") {
         _               -> ""
   }
 
+-- TODO: Extremely dirty (but safe) hack because etlas-cabal has no HTTP-aware modules.
+--       Basically, we want to be able to search the index for a given eta version
+--       when we can't find any. But we need HTTP ability for that.
+findEtaRef :: IORef (Verbosity -> ProgramSearchPath -> NoCallStackIO (Maybe (FilePath, [FilePath])))
+findEtaRef = unsafePerformIO $ newIORef $ \verbosity _ -> do
+  info verbosity $ "The Eta Ref has not been initialized!"
+  return Nothing
+
 etaProgram :: Program
-etaProgram = (simpleProgram "eta") {
-    programFindVersion = findProgramVersion "--numeric-version" id
+etaProgram = unsafePerformIO $ do
+  searchFun <- readIORef findEtaRef
+  return $ (simpleProgram "eta") {
+    programFindVersion = findProgramVersion "--numeric-version" id,
+    programFindLocation = searchFun
   }
 
 underscoreToDot :: String -> String
@@ -254,15 +271,24 @@ gitProgram = (simpleProgram "git") {
           _               -> ""
   }
 
+
+findEtaPkgRef :: IORef (Verbosity -> ProgramSearchPath -> NoCallStackIO (Maybe (FilePath, [FilePath])))
+findEtaPkgRef = unsafePerformIO $ newIORef $ \verbosity _ -> do
+  info verbosity $ "The EtaPkg Ref has not been initialized!"
+  return Nothing
+
 -- note: version is the version number of the GHC version that eta-pkg was built with
 etaPkgProgram :: Program
-etaPkgProgram = (simpleProgram "eta-pkg") {
+etaPkgProgram = unsafePerformIO $ do
+  searchFun <- readIORef findEtaPkgRef
+  return $ (simpleProgram "eta-pkg") {
     programFindVersion = findProgramVersion "--version" $ \str ->
       -- Invoking "eta-pkg --version" gives a string like
       -- "ETA package manager version 0.0.1"
       case words str of
         (_:_:_:_:ver:_) -> ver
         _               -> ""
+    , programFindLocation = searchFun
   }
 
 lhcProgram :: Program

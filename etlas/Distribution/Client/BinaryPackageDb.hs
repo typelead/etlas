@@ -1,21 +1,14 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-module Distribution.Client.BinaryPackageDb (
-    BinaryPackageDb
-  , lookupBinaryPackageDb
-  , insertBinaryPackageDb
+module Distribution.Client.BinaryPackageDb where
 
-  , getBinaryPackages
-  , tryDownloadBinary
-  , updateBinaryPackageCaches
-  , getBasePackageBinaryPaths
-  ) where
-
-import {-# SOURCE #-} Distribution.Client.Config
-import Distribution.Client.HttpUtils
+import Distribution.Client.Config
 import Distribution.Client.GlobalFlags
+import Distribution.Client.HttpUtils
 import Distribution.Client.Types
+
 import Distribution.Simple.Utils
+import Distribution.System
 import Distribution.Verbosity
 import Distribution.Version
 import Distribution.Text
@@ -27,6 +20,7 @@ import System.FilePath
 import System.IO.Unsafe
 
 import Control.Monad
+import Control.Exception
 import Data.Char
 import Data.List
 import Data.Maybe
@@ -87,6 +81,8 @@ remoteBinaryUris cacheDirOrRepo = do
 readLines :: FilePath -> IO [String]
 readLines path = readFile path >>= return . filter (not . all isSpace) . lines
 
+-- URI Paths
+
 packageIndexPath :: Either String Version -> FilePath
 packageIndexPath version = either id etaVersionedPath version
                         </> "packages" </> "index"
@@ -95,8 +91,28 @@ basePackageIndexPath :: Either String Version -> FilePath
 basePackageIndexPath version = either id etaVersionedPath version
                             </> "packages" </> "base-index"
 
+etaBinariesIndexPath :: Either String Version -> FilePath
+etaBinariesIndexPath version = either id etaVersionedPath version
+                            </> "binaries" </> ("index." ++ display buildPlatform)
+
+etaProgPath :: String -> Either String Version -> FilePath
+etaProgPath prog version = either id etaVersionedPath version
+                        </> "binaries" </> (prog ++ "_" ++ display buildPlatform)
+
 topLevelIndexPath :: String
 topLevelIndexPath = "index"
+
+-- Converts a local path to a normalised URI path
+uriWithPath :: URI -> FilePath -> URI
+uriWithPath uri path = uri { uriPath = "/" ++ map makeUniform path }
+  where makeUniform c = if c == pathSeparator then '/' else c
+
+-- Local Paths
+
+defaultBinariesPath :: FilePath
+defaultBinariesPath = unsafePerformIO $ do
+  dir <- defaultCabalDir
+  return $ dir </> "binaries"
 
 topLevelIndexFile :: URIDomain -> FilePath
 topLevelIndexFile uriName = defaultBinariesPath </> uriName </> topLevelIndexPath
@@ -108,6 +124,14 @@ packageIndexFile uriName version
 basePackageIndexFile :: URIDomain -> Either String Version -> FilePath
 basePackageIndexFile uriName version
   = defaultBinariesPath </> uriName </> basePackageIndexPath version
+
+etaBinariesIndexFile :: URIDomain -> Either String Version -> FilePath
+etaBinariesIndexFile uriName version
+  = defaultBinariesPath </> uriName </> etaBinariesIndexPath version
+
+etaProgFile :: URIDomain -> String -> Either String Version -> FilePath
+etaProgFile uriName prog version
+  = defaultBinariesPath </> uriName </> etaProgPath prog version
 
 readBinaryIndexFile :: (PackageName -> URI) -> FilePath -> IO BinaryPackageDb
 readBinaryIndexFile mkUri indexFilePath = do
@@ -126,9 +150,8 @@ fetchBinaryPackageDb :: Verbosity -> Version -> URI -> IO BinaryPackageDb
 fetchBinaryPackageDb verbosity version uri
   | Just uriName <- getURIDomain uri
   , let indexFile = packageIndexFile uriName (Right version)
-        genMkEntry pkgName = uri {
-            uriPath = "/" ++ (etaVersionedPath version </> "packages" </> (pkgName ++ "-bin.tar.gz"))
-          }
+        genMkEntry pkgName = uriWithPath uri $
+          etaVersionedPath version </> "packages" </> (pkgName ++ "-bin.tar.gz")
   = do exists <- doesFileExist indexFile
        if exists
        then readBinaryIndexFile genMkEntry indexFile
@@ -162,80 +185,18 @@ tryDownloadBinary verbosity transport binaryPkgDb pkgid
   | Just (uri:_) <- lookupBinaryPackageDb pkgid binaryPkgDb
   = do let cached = cachedBinaryPackagePath uri
        exists <- doesFileExist cached
-       when (not (exists)) $ do
+       if not exists
+       then do
          notice verbosity $ "Downloading [binary] " ++ display pkgid ++ "..."
-         _ <- downloadURI transport verbosity uri cached
-         return ()
-       return (Just cached)
+         result <- downloadURIAllowFail (const $ return True) transport
+                     verbosity uri cached
+         return $ maybe (Just cached) (const Nothing) result
+       else return (Just cached)
   | otherwise
   = return Nothing
 
-defaultBinariesPath :: FilePath
-defaultBinariesPath = unsafePerformIO $ do
-  dir <- defaultCabalDir
-  return $ dir </> "binaries"
-
-updateBinaryPackageCaches :: HttpTransport -> Verbosity -> FilePath -> IO ()
-updateBinaryPackageCaches transport verbosity cacheDir = do
-  notice verbosity $ "Updating binary package index..."
-  uris <- remoteBinaryUris (Left cacheDir)
-  forM_ uris $ \uri -> do
-    case getURIDomain uri of
-      Just domain -> do
-        let indexFile = topLevelIndexFile domain
-        createDirectoryIfMissingVerbose verbosity True (takeDirectory indexFile)
-        _ <- downloadURI transport verbosity uri { uriPath = "/" ++ topLevelIndexPath } indexFile
-        versions <- readLines indexFile
-        forM_ versions $ \version -> do
-          let pkgIdxFile     = packageIndexFile     domain (Left version)
-          let basePkgIdxFile = basePackageIndexFile domain (Left version)
-          createDirectoryIfMissingVerbose verbosity True (takeDirectory pkgIdxFile)
-          createDirectoryIfMissingVerbose verbosity True (takeDirectory basePkgIdxFile)
-          _ <- downloadURI transport verbosity uri {
-                  uriPath = "/" ++ packageIndexPath (Left version)
-                } pkgIdxFile
-          downloadURI transport verbosity uri {
-                  uriPath = "/" ++ basePackageIndexPath (Left version)
-                } basePkgIdxFile
-
-      Nothing -> die' verbosity $ "Invalid domain name for URL: " ++ show uri
-
-getBasePackageBinaryPaths :: Verbosity -> HttpTransport -> BinaryPackageDb
-                          -> Maybe Version -> IO [FilePath]
-getBasePackageBinaryPaths verbosity transport binaryPkgDb mVersion = do
-
-  when (isNothing mVersion) $
-    die' verbosity "getBasePackageBinaryPaths: Unable to determine eta version."
-
-  let etaVersion = fromJust mVersion
-      -- NOTE: We assume that base-index is the same across mirrors for a given eta version
-      mUri       = getArbitraryURI binaryPkgDb
-      domain     = fromJust (getURIDomain (fromJust mUri))
-      indexFile  = basePackageIndexFile domain (Right etaVersion)
-
-  when (isNothing mUri) $
-    dieWithError "Your binary cache seems to be empty."
-
-  exists <- doesFileExist indexFile
-
-  when (not exists) $
-    dieWithError "Your binary cache index file seems to be missing."
-
-  packageLines <- readLines indexFile
-  forM packageLines $ \line -> do
-    case simpleParse line of
-      Just pkgId -> do
-        result <- tryDownloadBinary verbosity transport binaryPkgDb pkgId
-        case result of
-          Just path -> return path
-          Nothing   -> dieWithError $ "Unable to find base package "
-                                   ++ display pkgId ++ " in binary package index."
-      Nothing -> dieWithError "Your binary cache index file seems to corrupted."
-
-  where dieWithError msg = die' verbosity $
-                            msg ++ "\n"
-                         ++ "Run `etlas update` and try again.\n"
-                         ++ "If that doesn't work, please report this as a bug at\n\n"
-                         ++ "https://github.com/typelead/eta/issues/new\n\n"
-                         ++ "specifying your Eta & Etlas versions."
+downloadURIAllowFail :: (SomeException -> IO a) -> HttpTransport -> Verbosity -> URI -> FilePath -> IO (Maybe a)
+downloadURIAllowFail handler transport verbosity uri path =
+  catch (downloadURI transport verbosity uri path >> return Nothing)
+        (fmap Just . handler)
 

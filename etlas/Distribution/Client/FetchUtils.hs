@@ -34,7 +34,7 @@ module Distribution.Client.FetchUtils (
   ) where
 
 import Distribution.Client.Types
-import Distribution.Client.BinaryPackageDb
+import {-# SOURCE #-} Distribution.Client.BinaryUtils
 import Distribution.Client.HttpUtils
          ( downloadURI, isOldHackageURI, DownloadResult(..)
          , HttpTransport(..), transportCheckHttps, remoteRepoCheckHttps )

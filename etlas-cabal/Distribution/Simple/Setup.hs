@@ -71,6 +71,7 @@ module Distribution.Simple.Setup (
   fromFlag,
   fromFlagOrDefault,
   flagToMaybe,
+  maybeToFlag,
   flagToList,
   BooleanFlag(..),
   boolOpt, boolOpt', trueArg, falseArg,
@@ -176,6 +177,9 @@ fromFlagOrDefault def NoFlag   = def
 flagToMaybe :: Flag a -> Maybe a
 flagToMaybe (Flag x) = Just x
 flagToMaybe NoFlag   = Nothing
+
+maybeToFlag :: Maybe a -> Flag a
+maybeToFlag = maybe NoFlag Flag
 
 flagToList :: Flag a -> [a]
 flagToList (Flag x) = [x]

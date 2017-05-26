@@ -138,6 +138,9 @@ module Distribution.Simple.Program (
     , findProgramOnPath
     , findProgramLocation
 
+    -- * Eta hack
+    , findEtaRef
+    , findEtaPkgRef
     ) where
 
 import Prelude ()

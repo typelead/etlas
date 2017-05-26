@@ -98,7 +98,7 @@ nestedProgramInvocation mainProg mainArgs secProg secArgs =
   where mainInvoc = programInvocation mainProg mainArgs
         secInvoc = programInvocation secProg secArgs
         nestedArgs = progInvokeArgs mainInvoc ++
-                     progInvokePath secInvoc ++
+                     [progInvokePath secInvoc] ++
                      progInvokeArgs secInvoc
 
 runProgramInvocation :: Verbosity -> ProgramInvocation -> IO ()

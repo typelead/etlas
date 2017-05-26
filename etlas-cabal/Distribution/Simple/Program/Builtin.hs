@@ -242,8 +242,7 @@ javacProgram = (simpleProgram "javac") {
 
 coursierProgram :: Program
 coursierProgram = (simpleProgram "coursier") {
-    programFindLocation = \v p -> findProgramInJavaHomeOrSearchPath "coursier" v p
-  , programFindVersion = findProgramVersion "--help" $ \str ->
+    programFindVersion = findProgramVersion "--help" $ \str ->
         -- Invoking "coursier --help" gives a string like
         -- "Coursier 1.0.0-M15"
         -- TODO: We may need to make this more robust.

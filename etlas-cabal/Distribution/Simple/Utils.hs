@@ -23,7 +23,7 @@
 
 module Distribution.Simple.Utils (
         cabalVersion,
-
+        defaultCabalDir,
         -- * logging and errors
         -- Old style
         die, dieWithLocation,
@@ -206,7 +206,8 @@ import qualified Data.ByteString.Lazy.Char8 as BS.Char8
 import System.Directory
     ( Permissions(executable), getDirectoryContents, getPermissions
     , doesDirectoryExist, doesFileExist, removeFile, findExecutable
-    , getModificationTime, getCurrentDirectory, setCurrentDirectory )
+    , getModificationTime, getCurrentDirectory, setCurrentDirectory
+    , getAppUserDataDirectory)
 import System.Environment
     ( getProgName )
 import System.Exit
@@ -215,7 +216,7 @@ import System.FilePath
     ( normalise, (</>), (<.>)
     , getSearchPath, joinPath, takeDirectory, splitFileName
     , splitExtension, splitExtensions, splitDirectories
-    , searchPathSeparator )
+    , searchPathSeparator)
 import System.Directory
     ( createDirectory, removeDirectoryRecursive )
 import System.IO
@@ -246,6 +247,11 @@ cabalVersion = mkVersion [2,1,0,0]
 -- #else
 -- cabalVersion = mkVersion [1,9999]  --used when bootstrapping
 -- #endif
+
+--TODO: misleading, there's no way to override this default
+--      either make it possible or rename to simply getCabalDir.
+defaultCabalDir :: IO FilePath
+defaultCabalDir = getAppUserDataDirectory "etlas"
 
 -- ----------------------------------------------------------------------------
 -- Exception and logging utils

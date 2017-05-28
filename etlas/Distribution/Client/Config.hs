@@ -93,7 +93,7 @@ import Distribution.Simple.Command
 import Distribution.Simple.Program
          ( defaultProgramDb )
 import Distribution.Simple.Utils
-         ( die', notice, warn, lowercase )
+         ( die', notice, warn, lowercase, defaultCabalDir )
 import Distribution.Compiler
          ( CompilerFlavor(..), defaultCompilerFlavor )
 import Distribution.Verbosity
@@ -479,11 +479,6 @@ initialSavedConfig = do
 
 etaHackageUrl :: String
 etaHackageUrl = "https://github.com/typelead/eta-hackage"
-
---TODO: misleading, there's no way to override this default
---      either make it possible or rename to simply getCabalDir.
-defaultCabalDir :: IO FilePath
-defaultCabalDir = getAppUserDataDirectory "etlas"
 
 defaultConfigFile :: IO FilePath
 defaultConfigFile = do

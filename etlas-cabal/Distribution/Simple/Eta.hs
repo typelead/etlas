@@ -19,6 +19,7 @@ module Distribution.Simple.Eta (
         mkMergedClassPath,
         classPathSeparator,
         mkJarName,
+        JavaExec(..),
         runJava,
         fetchMavenDependencies
   ) where

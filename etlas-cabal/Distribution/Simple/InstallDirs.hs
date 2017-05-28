@@ -25,6 +25,8 @@
 module Distribution.Simple.InstallDirs (
         InstallDirs(..),
         InstallDirTemplates,
+        defaultEtlasDir,
+        defaultCabalDir,
         defaultInstallDirs,
         defaultInstallDirs',
         combineInstallDirs,
@@ -160,6 +162,12 @@ type InstallDirTemplates = InstallDirs PathTemplate
 -- ---------------------------------------------------------------------------
 -- Default installation directories
 
+defaultEtlasDir :: IO FilePath
+defaultEtlasDir = getAppUserDataDirectory "etlas"
+
+defaultCabalDir :: IO FilePath
+defaultCabalDir = defaultEtlasDir 
+
 defaultInstallDirs :: CompilerFlavor -> Bool -> Bool -> IO InstallDirTemplates
 defaultInstallDirs = defaultInstallDirs' False
 
@@ -174,7 +182,7 @@ defaultInstallDirs' True comp userInstall hasLibs = do
 defaultInstallDirs' False comp userInstall _hasLibs = do
   installPrefix <-
       if userInstall
-      then getAppUserDataDirectory "cabal"
+      then defaultCabalDir
       else case buildOS of
            Windows -> do windowsProgramFilesDir <- getWindowsProgramFilesDir
                          return (windowsProgramFilesDir </> "Haskell")

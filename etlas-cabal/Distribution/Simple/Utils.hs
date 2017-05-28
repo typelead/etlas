@@ -23,7 +23,6 @@
 
 module Distribution.Simple.Utils (
         cabalVersion,
-        defaultCabalDir,
         -- * logging and errors
         -- Old style
         die, dieWithLocation,
@@ -247,11 +246,6 @@ cabalVersion = mkVersion [2,1,0,0]
 -- #else
 -- cabalVersion = mkVersion [1,9999]  --used when bootstrapping
 -- #endif
-
---TODO: misleading, there's no way to override this default
---      either make it possible or rename to simply getCabalDir.
-defaultCabalDir :: IO FilePath
-defaultCabalDir = getAppUserDataDirectory "etlas"
 
 -- ----------------------------------------------------------------------------
 -- Exception and logging utils

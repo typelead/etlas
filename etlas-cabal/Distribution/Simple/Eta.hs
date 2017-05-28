@@ -36,6 +36,7 @@ import Distribution.Simple.PackageIndex ( InstalledPackageIndex )
 import qualified Distribution.Simple.PackageIndex as PackageIndex
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Utils
+import Distribution.Simple.InstallDirs (defaultEtlasDir)
 import Distribution.Simple.Program
 import qualified Distribution.Simple.Program.HcPkg as HcPkg
 import Distribution.Simple.Program.GHC
@@ -222,7 +223,7 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
   createDirectoryIfMissingVerbose verbosity True libTargetDir
   -- TODO: do we need to put hs-boot files into place for mutually recursive
   -- modules?
-  etlasDir <- defaultCabalDir
+  etlasDir <- defaultEtlasDir
 
   let javaSrcs    = javaSources libBi
       baseOpts    = componentGhcOptions verbosity lbi libBi clbi libTargetDir
@@ -296,7 +297,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
 
   (etaProg, _)  <- requireProgram verbosity etaProgram  (withPrograms lbi)
   (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
-  etlasDir <- defaultCabalDir
+  etlasDir <- defaultEtlasDir
   let runEtaProg  = runGHC verbosity etaProg comp (hostPlatform lbi)
 
   createDirectoryIfMissingVerbose verbosity True exeDir
@@ -613,7 +614,7 @@ runJava verb javaArgs javaExec javaExecArgs progDb = do
 
 runCoursier :: Verbosity -> [String] -> ProgramDb -> IO String
 runCoursier verb opts progDb= do
-  etlasDir <- defaultCabalDir
+  etlasDir <- defaultEtlasDir
   let path = etlasDir </> "coursier"
   runJava verb ["-noverify"] (Jar path) opts progDb
          

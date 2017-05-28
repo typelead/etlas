@@ -59,6 +59,7 @@ module Distribution.Simple.Program (
     , emptyProgramInvocation
     , simpleProgramInvocation
     , programInvocation
+    , nestedProgramInvocation
     , runProgramInvocation
     , getProgramInvocationOutput
 
@@ -103,7 +104,6 @@ module Distribution.Simple.Program (
     , javaProgram
     , javacProgram
     , gitProgram
-    , coursierProgram
     , lhcProgram
     , lhcPkgProgram
     , hmakeProgram

@@ -18,6 +18,7 @@ module Distribution.Simple.Program.Run (
     emptyProgramInvocation,
     simpleProgramInvocation,
     programInvocation,
+    nestedProgramInvocation,
     multiStageProgramInvocation,
 
     runProgramInvocation,
@@ -91,15 +92,12 @@ programInvocation prog args =
     progInvokeEnv  = programOverrideEnv prog
   }
 
-nestedProgramInvocation :: ConfiguredProgram -> [String] ->
-                           ConfiguredProgram -> [String] -> ProgramInvocation
-nestedProgramInvocation mainProg mainArgs secProg secArgs =
-  mainInvoc { progInvokeArgs = nestedArgs }
-  where mainInvoc = programInvocation mainProg mainArgs
-        secInvoc = programInvocation secProg secArgs
-        nestedArgs = progInvokeArgs mainInvoc ++
-                     [progInvokePath secInvoc] ++
-                     progInvokeArgs secInvoc
+nestedProgramInvocation :: ProgramInvocation ->
+                           ProgramInvocation -> ProgramInvocation
+nestedProgramInvocation mainInv secInv  =
+  mainInv { progInvokeArgs = nestedArgs }
+  where nestedArgs = progInvokeArgs mainInv ++ [progInvokePath secInv] ++
+                     progInvokeArgs secInv
 
 runProgramInvocation :: Verbosity -> ProgramInvocation -> IO ()
 runProgramInvocation verbosity
@@ -286,3 +284,5 @@ multiStageProgramInvocation simple (initial, middle, final) args =
 --
 maxCommandLineSize :: Int
 maxCommandLineSize = 30 * 1024
+
+        

@@ -149,21 +149,16 @@ run verbosity debug trace lbi exe exeArgs = do
                 return ("jdb", words cmdArgs)
             | trace -> do
                 javaCmd'' <- getJavaCmd
-                etlasDir <- defaultCabalDir
-                (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
                 let javaCmd' = replaceArgs $ replaceDir exeDir javaCmd''
-                    coursierPath        = etlasDir </> "coursier"
-                    runCoursier options = getProgramInvocationOutput verbosity
-                                            (programInvocation javaProg $
-                                              (["-jar", "-noverify", coursierPath] ++ options))
                     getTracePaths = do
-                      output <- runCoursier ["fetch", "--quiet"
-                                                    , "org.slf4j:slf4j-ext:1.7.21"
-                                                    , "org.slf4j:slf4j-simple:1.7.21"
-                                                    , "org.slf4j:slf4j-api:1.7.21"
-                                                    , "org.javassist:javassist:3.20.0-GA"]
+                      mavenDeps <- Eta.fetchMavenDependencies verbosity []
+                                      [ "org.slf4j:slf4j-ext:1.7.21"
+                                      , "org.slf4j:slf4j-simple:1.7.21"
+                                      , "org.slf4j:slf4j-api:1.7.21"
+                                      , "org.javassist:javassist:3.20.0-GA"]
+                                      (withPrograms lbi)
                       let (agent:[], classpaths) = partition ("slf4j-ext" `isInfixOf`) $
-                                                   lines output
+                                                   mavenDeps
                       return (agent, classpaths)
                 (agent, classpaths) <- getTracePaths
                 let javaCmd =

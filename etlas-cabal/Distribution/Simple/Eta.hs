@@ -18,7 +18,9 @@ module Distribution.Simple.Eta (
         -- runCmd
         mkMergedClassPath,
         classPathSeparator,
-        mkJarName
+        mkJarName,
+        runJava,
+        fetchMavenDependencies
   ) where
 
 import Prelude ()
@@ -204,37 +206,23 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       comp = compiler lbi
 
   (etaProg, _) <- requireProgram verbosity etaProgram (withPrograms lbi)
-  etlasDir <- defaultCabalDir
-  (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
   let runEtaProg          = runGHC verbosity etaProg comp (hostPlatform lbi)
       libBi               = libBuildInfo lib
-      coursierPath        = etlasDir </> "coursier"
-      runCoursier options = getProgramInvocationOutput verbosity
-                              (programInvocation javaProg $
-                                (["-jar", "-noverify", coursierPath] ++ options))
 
   (depJars, mavenDeps') <- getDependencyClassPaths (installedPkgs lbi)
                             pkgDescr lbi clbi
 
   let mavenDeps = mavenDeps' ++ extraLibs libBi
       mavenRepos = frameworks libBi
-      mavenResolvedRepos = concatMap (\r -> ["-r", r]) $ map resolveOrId mavenRepos
-
-  maybeMavenOutput <- if null mavenDeps
-                      then return Nothing
-                      else fmap Just (runCoursier $ "fetch"
-                                                  : (mavenResolvedRepos ++
-                                                     mavenDeps))
-
-  let mavenPaths = case maybeMavenOutput of
-        Just mavenOutput -> dropWhile ((/= '/') . head) $ lines mavenOutput
-        Nothing          -> []
-
-      fullClassPath = depJars ++ mavenPaths
+  mavenPaths <- fetchMavenDependencies verbosity mavenRepos mavenDeps
+                   (withPrograms lbi)
+  let fullClassPath = depJars ++ mavenPaths
 
   createDirectoryIfMissingVerbose verbosity True libTargetDir
   -- TODO: do we need to put hs-boot files into place for mutually recursive
   -- modules?
+  etlasDir <- defaultCabalDir
+
   let javaSrcs    = javaSources libBi
       baseOpts    = componentGhcOptions verbosity lbi libBi clbi libTargetDir
       linkJavaLibOpts = mempty {
@@ -258,12 +246,11 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
                         ghcOptExtraDefault = toNubListR ["-staticlib"]
                     }
       target = libTargetDir </> mkJarName uid
-
-      runVerify = runProgramInvocation verbosity
-                    (programInvocation javaProg $
-                     ["-cp", mkMergedClassPath lbi (etlasDir : fullClassPath)
-                     , "Verify", target])
-
+      runVerify = do
+        _ <- runJava verbosity
+                  ["-cp", mkMergedClassPath lbi (etlasDir : fullClassPath)]
+                  (JavaClass "Verify") [target] (withPrograms lbi)
+        return ()
   unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
        let withVerify act = do
              _ <- act
@@ -309,11 +296,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
   (etaProg, _)  <- requireProgram verbosity etaProgram  (withPrograms lbi)
   (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
   etlasDir <- defaultCabalDir
-  let runEtaProg          = runGHC verbosity etaProg comp (hostPlatform lbi)
-      coursierPath        = etlasDir </> "coursier"
-      runCoursier options = getProgramInvocationOutput verbosity
-                              (programInvocation javaProg $
-                                (["-jar", "-noverify", coursierPath] ++ options))
+  let runEtaProg  = runGHC verbosity etaProg comp (hostPlatform lbi)
 
   createDirectoryIfMissingVerbose verbosity True exeDir
 
@@ -324,18 +307,9 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
 
   let mavenDeps = mavenDeps' ++ (extraLibs . buildInfo $ exe)
       mavenRepos = frameworks . buildInfo $ exe
-      mavenResolvedRepos = concatMap (\r -> ["-r", r]) $ map resolveOrId mavenRepos
-
-  maybeMavenOutput <- if null mavenDeps
-                      then return Nothing
-                      else fmap Just (runCoursier $ "fetch" : "--quiet"
-                                                  : (mavenResolvedRepos ++
-                                                     mavenDeps))
-
-  let mavenPaths = case maybeMavenOutput of
-        Just mavenOutput -> lines mavenOutput
-        Nothing          -> []
-      javaSrcs = (if isShared
+  mavenPaths <- fetchMavenDependencies verbosity
+                  mavenRepos mavenDeps (withPrograms lbi)
+  let javaSrcs = (if isShared
                   then []
                   else mavenPaths) ++ javaSrcs'
 
@@ -623,6 +597,27 @@ classPathSeparator lbi | Platform _ Windows <- hostPlatform lbi = ";"
 mkMergedClassPath :: LocalBuildInfo -> [FilePath] -> FilePath
 mkMergedClassPath lbi = intercalate (classPathSeparator lbi)
 
--- TODO: Duplicate definition warning -RM
-defaultCabalDir :: IO FilePath
-defaultCabalDir = getAppUserDataDirectory "etlas"
+data JavaExec = Jar FilePath | JavaClass String
+
+runJava :: Verbosity -> [String] -> JavaExec -> [String] ->
+           ProgramDb -> IO String
+runJava verb javaArgs javaExec javaExecArgs progDb = do
+  (javaProg,_) <- requireProgram verb javaProgram progDb
+  let (exJavaArgs,javaExec')  = case javaExec of
+                                 Jar path -> (["-jar"],path)
+                                 JavaClass name -> ([],name)
+      javaInv = programInvocation javaProg $ javaArgs ++ exJavaArgs
+      javaExecInv = simpleProgramInvocation javaExec' javaExecArgs
+  getProgramInvocationOutput verb $ nestedProgramInvocation javaInv javaExecInv
+
+runCoursier :: Verbosity -> [String] -> ProgramDb -> IO String
+runCoursier verb opts progDb= do
+  etlasDir <- defaultCabalDir
+  let path = etlasDir </> "coursier"
+  runJava verb ["-noverify"] (Jar path) opts progDb
+         
+fetchMavenDependencies :: Verbosity -> [String] -> [String] -> ProgramDb -> IO [String]
+fetchMavenDependencies _ _ [] _ = return []
+fetchMavenDependencies verb repos deps progDb= do
+  let resolvedRepos = concatMap (\r -> ["-r", resolveOrId r]) repos
+  fmap lines $ runCoursier verb (["fetch","--quiet"] ++ deps ++ resolvedRepos) progDb 

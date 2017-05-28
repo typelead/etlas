@@ -71,7 +71,7 @@ import Distribution.Simple.Setup
          , Flag(..), toFlag, flagToMaybe, fromFlagOrDefault )
 import Distribution.Simple.InstallDirs
          ( InstallDirs(..), defaultInstallDirs
-         , PathTemplate, toPathTemplate )
+         , PathTemplate, toPathTemplate, defaultCabalDir )
 import Distribution.ParseUtils
          ( FieldDescr(..), liftField
          , ParseResult(..), PError(..), PWarning(..)
@@ -93,7 +93,7 @@ import Distribution.Simple.Command
 import Distribution.Simple.Program
          ( defaultProgramDb )
 import Distribution.Simple.Utils
-         ( die', notice, warn, lowercase, defaultCabalDir )
+         ( die', notice, warn, lowercase )
 import Distribution.Compiler
          ( CompilerFlavor(..), defaultCompilerFlavor )
 import Distribution.Verbosity

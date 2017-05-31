@@ -1,25 +1,26 @@
-import Distribution.PackageDescription ( PackageDescription )
-import Distribution.Simple ( defaultMainWithHooks
-                           , simpleUserHooks
-                           , postBuild
-                           , postCopy
-                           , postInst
-                           )
-import Distribution.Simple.InstallDirs ( mandir
-                                       , CopyDest (NoCopyDest)
-                                       )
-import Distribution.Simple.LocalBuildInfo ( LocalBuildInfo(..)
-                                          , absoluteInstallDirs
-                                          )
-import Distribution.Simple.Utils ( installOrdinaryFiles
-                                 , notice )
-import Distribution.Simple.Setup ( buildVerbosity
-                                 , copyDest
-                                 , copyVerbosity
-                                 , fromFlag
-                                 , installVerbosity
-                                 )
-import Distribution.Verbosity ( Verbosity )
+{-# LANGUAGE PackageImports #-}
+import "Cabal" Distribution.PackageDescription ( PackageDescription )
+import "Cabal" Distribution.Simple ( defaultMainWithHooks
+                                   , simpleUserHooks
+                                   , postBuild
+                                   , postCopy
+                                   , postInst
+                                   )
+import "Cabal" Distribution.Simple.InstallDirs ( mandir
+                                               , CopyDest (NoCopyDest)
+                                               )
+import "Cabal" Distribution.Simple.LocalBuildInfo ( LocalBuildInfo(..)
+                                                  , absoluteInstallDirs
+                                                  )
+import "Cabal" Distribution.Simple.Utils ( installOrdinaryFiles
+                                         , notice )
+import "Cabal" Distribution.Simple.Setup ( buildVerbosity
+                                         , copyDest
+                                         , copyVerbosity
+                                         , fromFlag
+                                         , installVerbosity
+                                         )
+import "Cabal" Distribution.Verbosity ( Verbosity )
 
 import System.IO ( openFile
                  , IOMode (WriteMode)

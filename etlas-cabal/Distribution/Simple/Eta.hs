@@ -609,8 +609,19 @@ runJava verb javaArgs javaExec javaExecArgs progDb = do
                                  Jar path -> (["-jar"],path)
                                  JavaClass name -> ([],name)
       javaInv = programInvocation javaProg $ javaArgs ++ exJavaArgs
+      javaInv' = withSystemProxySetting javaInv
       javaExecInv = simpleProgramInvocation javaExec' javaExecArgs
-  getProgramInvocationOutput verb $ nestedProgramInvocation javaInv javaExecInv
+  getProgramInvocationOutput verb $ nestedProgramInvocation javaInv' javaExecInv
+
+withSystemProxySetting :: ProgramInvocation -> ProgramInvocation
+withSystemProxySetting  javaInvoc@ProgramInvocation {
+    progInvokeArgs  = args
+    } = javaInvoc {progInvokeArgs = args ++ proxySetting}
+    where hasProxySetting = any (isSubsequenceOf "proxyHost") args
+          proxySetting = if not hasProxySetting then
+                           ["-Djava.net.useSystemProxies=true"]
+                         else []
+            
 
 runCoursier :: Verbosity -> [String] -> ProgramDb -> IO String
 runCoursier verb opts progDb= do
@@ -623,3 +634,4 @@ fetchMavenDependencies _ _ [] _ = return []
 fetchMavenDependencies verb repos deps progDb= do
   let resolvedRepos = concatMap (\r -> ["-r", resolveOrId r]) repos
   fmap lines $ runCoursier verb (["fetch","--quiet"] ++ deps ++ resolvedRepos) progDb 
+

@@ -45,7 +45,7 @@ updateBinaryPackageCaches transport verbosity cacheDir = do
       Just domain -> do
         let indexFile = topLevelIndexFile domain
         createDirectoryIfMissingVerbose verbosity True (takeDirectory indexFile)
-        _ <- downloadURIWithMsg "Failed to download top-level index file."
+        _ <- downloadURIWithMsg "Unable to download top-level index file."
                transport verbosity (uriWithPath uri topLevelIndexPath) indexFile
         versions <- readLines indexFile
         forM_ versions $ \version -> do
@@ -54,7 +54,7 @@ updateBinaryPackageCaches transport verbosity cacheDir = do
               basePkgIdxFile = basePackageIndexFile domain (Left version)
               etaBinaryIdxFile  = etaBinariesIndexFile domain (Left version)
               msgWithVersion msg = "[" ++ userReadableVersion version
-                                ++ "] Failed to download " ++ msg
+                                ++ "] Unable to download " ++ msg
           createDirectoryIfMissingVerbose verbosity True (takeDirectory pkgIdxFile)
           createDirectoryIfMissingVerbose verbosity True (takeDirectory basePkgIdxFile)
           createDirectoryIfMissingVerbose verbosity True (takeDirectory etaBinaryIdxFile)

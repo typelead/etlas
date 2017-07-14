@@ -36,7 +36,7 @@ import Distribution.Simple.PackageIndex ( InstalledPackageIndex )
 import qualified Distribution.Simple.PackageIndex as PackageIndex
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Utils
-import Distribution.Simple.InstallDirs (defaultEtlasDir)
+import Distribution.Simple.InstallDirs (defaultEtlasDir, defaultEtlasToolsDir)
 import Distribution.Simple.Program
 import qualified Distribution.Simple.Program.HcPkg as HcPkg
 import Distribution.Simple.Program.GHC
@@ -248,16 +248,11 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
                         ghcOptExtraDefault = toNubListR ["-staticlib"]
                     }
       target = libTargetDir </> mkJarName uid
-      runVerify = do
-        _ <- runJava verbosity
-                  ["-cp", mkMergedClassPath lbi (etlasDir : fullClassPath)]
-                  (JavaClass "Verify") [target] (withPrograms lbi)
-        return ()
   unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
        let withVerify act = do
              _ <- act
              when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
-               runVerify
+               runVerify verbosity fullClassPath target lbi
        if isVanillaLib
        then withVerify $ runEtaProg vanillaOpts
        else if isSharedLib
@@ -338,14 +333,10 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
 
       verifyClassPath = mkMergedClassPath lbi (etlasDir : exeJar : classPaths)
 
-      runVerify = runProgramInvocation verbosity
-                    (programInvocation javaProg $
-                     ["-cp", verifyClassPath, "Verify", exeJar])
-
       withVerify act = do
         _ <- act
         when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
-          runVerify
+          runVerify verbosity (exeJar : classPaths) exeJar lbi
 
   withVerify $ runEtaProg baseOpts
 
@@ -621,17 +612,23 @@ withSystemProxySetting  javaInvoc@ProgramInvocation {
           proxySetting = if not hasProxySetting then
                            ["-Djava.net.useSystemProxies=true"]
                          else []
-            
 
 runCoursier :: Verbosity -> [String] -> ProgramDb -> IO String
-runCoursier verb opts progDb= do
-  etlasDir <- defaultEtlasDir
-  let path = etlasDir </> "coursier"
+runCoursier verb opts progDb = do
+  etlasToolsDir <- defaultEtlasToolsDir
+  let path = etlasToolsDir </> "coursier"
   runJava verb ["-noverify"] (Jar path) opts progDb
-         
+
+runVerify :: Verbosity -> [String] -> String -> LocalBuildInfo -> IO ()
+runVerify verbosity classPath target lbi = do
+  etlasToolsDir <- defaultEtlasToolsDir
+  let path = etlasToolsDir </> "classes"
+  _ <- runJava verbosity ["-cp", mkMergedClassPath lbi (path:classPath)]
+         (JavaClass "Verify") [target] (withPrograms lbi)
+  return ()
+
 fetchMavenDependencies :: Verbosity -> [String] -> [String] -> ProgramDb -> IO [String]
 fetchMavenDependencies _ _ [] _ = return []
-fetchMavenDependencies verb repos deps progDb= do
+fetchMavenDependencies verb repos deps progDb = do
   let resolvedRepos = concatMap (\r -> ["-r", resolveOrId r]) repos
-  fmap lines $ runCoursier verb (["fetch","--quiet"] ++ deps ++ resolvedRepos) progDb 
-
+  fmap lines $ runCoursier verb (["fetch","--quiet"] ++ deps ++ resolvedRepos) progDb

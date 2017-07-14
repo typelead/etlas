@@ -26,6 +26,7 @@ module Distribution.Simple.InstallDirs (
         InstallDirs(..),
         InstallDirTemplates,
         defaultEtlasDir,
+        defaultEtlasToolsDir,
         defaultCabalDir,
         defaultInstallDirs,
         defaultInstallDirs',
@@ -165,8 +166,13 @@ type InstallDirTemplates = InstallDirs PathTemplate
 defaultEtlasDir :: IO FilePath
 defaultEtlasDir = getAppUserDataDirectory "etlas"
 
+defaultEtlasToolsDir :: IO FilePath
+defaultEtlasToolsDir = do
+ etlasDir <- defaultEtlasDir
+ return $ etlasDir </> "tools"
+
 defaultCabalDir :: IO FilePath
-defaultCabalDir = defaultEtlasDir 
+defaultCabalDir = defaultEtlasDir
 
 defaultInstallDirs :: CompilerFlavor -> Bool -> Bool -> IO InstallDirTemplates
 defaultInstallDirs = defaultInstallDirs' False

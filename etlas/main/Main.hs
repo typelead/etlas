@@ -151,6 +151,8 @@ import Distribution.PackageDescription.PrettyPrint
 import qualified Distribution.Simple as Simple
 import qualified Distribution.Make as Make
 import qualified Distribution.Types.UnqualComponentName as Make
+
+import Distribution.Simple.Eta ( findVerifyRef, findCoursierRef )
 import Distribution.Simple.Build
          ( startInterpreter )
 import Distribution.Simple.Command
@@ -222,8 +224,10 @@ mainWorker args = topHandler $
     CommandReadyToGo (globalFlags, commandParse)  -> do
 
       -- TODO: Fix this dirty hack. See the definition of `etaProgram`.
-      writeIORef findEtaRef    (findEtaInBinaryIndex "eta"     0 globalFlags)
-      writeIORef findEtaPkgRef (findEtaInBinaryIndex "eta-pkg" 1 globalFlags)
+      writeIORef findEtaRef      (findEtaInBinaryIndex "eta"     0 globalFlags)
+      writeIORef findEtaPkgRef   (findEtaInBinaryIndex "eta-pkg" 1 globalFlags)
+      writeIORef findCoursierRef (findCoursier                     globalFlags)
+      writeIORef findVerifyRef   (findVerify                       globalFlags)
 
       case commandParse of
         _ | fromFlagOrDefault False (globalVersion globalFlags)

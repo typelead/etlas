@@ -1,8 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Distribution.Client.BinaryUtils (
     updateBinaryPackageCaches
   , findEtaInBinaryIndex
+  , findCoursier
+  , findVerify
   ) where
 
 import Distribution.Client.BinaryPackageDb
@@ -20,6 +22,7 @@ import Distribution.Client.Targets
 import Distribution.Solver.Types.Settings
 
 import Distribution.Simple.Command
+import Distribution.Simple.InstallDirs
 import Distribution.Simple.PackageIndex as PackageIndex
 import Distribution.Simple.Program
 import Distribution.Simple.Setup hiding (GlobalFlags)
@@ -27,7 +30,9 @@ import Distribution.Simple.Utils
 import Distribution.Verbosity
 import Distribution.Version
 import Distribution.Text
+import qualified Paths_etlas (version)
 
+import Control.Exception
 import Network.URI
 import System.Directory
 import System.FilePath
@@ -50,9 +55,9 @@ updateBinaryPackageCaches transport verbosity cacheDir = do
         versions <- readLines indexFile
         forM_ versions $ \version -> do
 
-          let pkgIdxFile     = packageIndexFile     domain (Left version)
-              basePkgIdxFile = basePackageIndexFile domain (Left version)
-              etaBinaryIdxFile  = etaBinariesIndexFile domain (Left version)
+          let pkgIdxFile         = packageIndexFile     domain (Left version)
+              basePkgIdxFile     = basePackageIndexFile domain (Left version)
+              etaBinaryIdxFile   = etaBinariesIndexFile domain (Left version)
               msgWithVersion msg = "[" ++ userReadableVersion version
                                 ++ "] Unable to download " ++ msg
           createDirectoryIfMissingVerbose verbosity True (takeDirectory pkgIdxFile)
@@ -284,7 +289,6 @@ installBootLibraries verbosity mVersion repos config globalFlags programPaths = 
         haddockFlags [UserTargetLocalTarball path True]
   else notice verbosity "Boot libraries already installed."
 
-
 missingBootLibraries :: InstalledPackageIndex -> Bool
 missingBootLibraries pkgIdx = not . all
                               (\pkg ->
@@ -293,3 +297,47 @@ missingBootLibraries pkgIdx = not . all
                                   _                 -> True)
                             $ bootPackages
   where bootPackages = ["rts", "base", "ghc-prim", "integer", "template-haskell"]
+
+etlasVersion :: String
+etlasVersion =  "etlas-" ++ display (mkVersion' Paths_etlas.version)
+
+findTool :: FilePath -> GlobalFlags -> Verbosity -> IO ()
+findTool relPath globalFlags' verbosity = do
+  savedConfig <- fmap snd $ loadConfigOrSandboxConfig verbosity globalFlags'
+  let globalFlags = savedGlobalFlags savedConfig `mappend` globalFlags'
+  withRepoContext verbosity globalFlags $ \repoCtxt -> do
+    transport <- repoContextGetTransport repoCtxt
+    let gitRepos = gitIndexedRepos repoCtxt
+    result <- untilM (\repo -> do
+                         uris <- remoteBinaryUris (Right repo)
+                         untilM (downloadTool verbosity transport relPath) uris)
+              gitRepos
+    case result of
+      Just _  -> return ()
+      Nothing -> die' verbosity $ "Failed to download " ++ relPath ++ "."
+
+findCoursier, findVerify :: GlobalFlags -> Verbosity -> IO ()
+findCoursier = findTool "coursier"
+findVerify   = findTool "classes/Verify.class"
+
+untilM :: (a -> IO (Maybe b)) -> [a] -> IO (Maybe b)
+untilM f elems = case elems of
+  x:xs -> do
+    result <- f x
+    case result of
+      mb@(Just _) -> return mb
+      Nothing     -> untilM f xs
+  _ -> return Nothing
+
+downloadTool :: Verbosity -> HttpTransport -> FilePath -> URI -> IO (Maybe ())
+downloadTool verbosity transport relPath uri = do
+  etlasToolsDir <- defaultEtlasToolsDir
+  let etlasToolsDest = etlasToolsDir </> relPath
+  createDirectoryIfMissingVerbose verbosity True (takeDirectory etlasToolsDest)
+  mResult <- downloadURIAllowFail (\(e :: SomeException) -> print e) transport verbosity
+               (uriWithPath uri (etlasVersion </> "tools" </> relPath))
+               etlasToolsDest
+  return $
+    if isNothing mResult
+    then Just ()
+    else Nothing

@@ -21,10 +21,14 @@ module Distribution.Simple.Eta (
         mkJarName,
         JavaExec(..),
         runJava,
-        fetchMavenDependencies
+        fetchMavenDependencies,
+        findCoursierRef,
+        findVerifyRef
   ) where
 
 import Prelude ()
+import Data.IORef
+import System.IO.Unsafe
 import Distribution.Compat.Prelude
 
 import Distribution.Simple.GHC.ImplInfo
@@ -613,16 +617,43 @@ withSystemProxySetting  javaInvoc@ProgramInvocation {
                            ["-Djava.net.useSystemProxies=true"]
                          else []
 
+-- TODO: Extremely dirty (but safe) hack because etlas-cabal has no HTTP-aware modules.
+--       Basically, we want to be able to search the index for a given eta version
+--       when we can't find any. But we need HTTP ability for that.
+findCoursierRef :: IORef (Verbosity -> NoCallStackIO ())
+findCoursierRef = unsafePerformIO $ newIORef $ \verbosity -> do
+  info verbosity $ "The Coursier Ref has not been initialized!"
+  return ()
+
 runCoursier :: Verbosity -> [String] -> ProgramDb -> IO String
-runCoursier verb opts progDb = do
+runCoursier verbosity opts progDb = do
   etlasToolsDir <- defaultEtlasToolsDir
   let path = etlasToolsDir </> "coursier"
-  runJava verb ["-noverify"] (Jar path) opts progDb
+  exists <- doesFileExist path
+  when (not exists) $ do
+    findCoursier <- readIORef findCoursierRef
+    findCoursier verbosity
+
+  runJava verbosity ["-noverify"] (Jar path) opts progDb
+
+-- TODO: Extremely dirty (but safe) hack because etlas-cabal has no HTTP-aware modules.
+--       Basically, we want to be able to search the index for a given eta version
+--       when we can't find any. But we need HTTP ability for that.
+findVerifyRef :: IORef (Verbosity -> NoCallStackIO ())
+findVerifyRef = unsafePerformIO $ newIORef $ \verbosity -> do
+  info verbosity $ "The Verify Ref has not been initialized!"
+  return ()
 
 runVerify :: Verbosity -> [String] -> String -> LocalBuildInfo -> IO ()
 runVerify verbosity classPath target lbi = do
   etlasToolsDir <- defaultEtlasToolsDir
   let path = etlasToolsDir </> "classes"
+      verifyClass = path </> "Verify.class"
+  exists <- doesFileExist verifyClass
+  when (not exists) $ do
+    findVerify <- readIORef findVerifyRef
+    findVerify verbosity
+
   _ <- runJava verbosity ["-cp", mkMergedClassPath lbi (path:classPath)]
          (JavaClass "Verify") [target] (withPrograms lbi)
   return ()

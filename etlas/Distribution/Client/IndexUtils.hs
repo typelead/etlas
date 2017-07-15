@@ -371,7 +371,12 @@ readRepoIndex verbosity repoCtxt repo idxState =
 
 -- | Return the age of the index file in days (as a Double).
 getIndexFileAge :: Repo -> IO Double
-getIndexFileAge repo = getFileAge $ indexBaseName repo <.> "tar"
+getIndexFileAge repo = getFileAge fileName
+  where fileName
+          | Just r <- maybeRepoRemote repo
+          , remoteRepoGitIndexed r
+          = repoLocalDir repo </> ".git" </> "FETCH_HEAD"
+          | otherwise = indexBaseName repo <.> "tar"
 
 -- | A set of files (or directories) that can be monitored to detect when
 -- there might have been a change in the source packages.

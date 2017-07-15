@@ -354,7 +354,7 @@ readRepoIndex verbosity repoCtxt repo idxState =
         return (mempty,mempty,emptyStateInfo)
       else ioError e
 
-    isOldThreshold = 15 --days
+    isOldThreshold = 2 --days
     warnIfIndexIsOld dt = do
       when (dt >= isOldThreshold) $ case repo of
         RepoRemote{..} -> warn verbosity $ errOutdatedPackageList repoRemote dt

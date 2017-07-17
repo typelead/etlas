@@ -477,7 +477,9 @@ convertToLegacySharedConfig
       globalIgnoreExpiry      = projectConfigIgnoreExpiry,
       globalHttpTransport     = projectConfigHttpTransport,
       globalNix               = mempty,
-      globalPatchesDir        = mempty
+      globalPatchesDir        = mempty,
+      globalAutoUpdate        = mempty,
+      globalSendMetrics       = mempty
     }
 
     configFlags = mempty {

@@ -142,6 +142,7 @@ import Data.Function
 import Data.List
          ( nubBy )
 import GHC.Generics ( Generic )
+import Data.Maybe
 
 --
 -- * Configuration saved in the config file
@@ -233,7 +234,9 @@ instance Semigroup SavedConfig where
         globalIgnoreExpiry      = combine globalIgnoreExpiry,
         globalHttpTransport     = combine globalHttpTransport,
         globalNix               = combine globalNix,
-        globalPatchesDir        = combine globalPatchesDir
+        globalPatchesDir        = combine globalPatchesDir,
+        globalAutoUpdate        = combine globalAutoUpdate,
+        globalSendMetrics       = combine globalSendMetrics
         }
         where
           combine        = combine'        savedGlobalFlags
@@ -443,7 +446,9 @@ baseSavedConfig = do
     savedGlobalFlags = mempty {
       globalLogsDir      = toFlag logsDir,
       globalWorldFile    = toFlag worldFile,
-      globalPatchesDir   = toFlag patchesDir
+      globalPatchesDir   = toFlag patchesDir,
+      globalAutoUpdate   = toFlag True,
+      globalSendMetrics  = toFlag False
     }
   }
 
@@ -465,7 +470,9 @@ initialSavedConfig = do
       globalCacheDir     = toFlag cacheDir,
       globalRemoteRepos  = toNubList defaultRemoteRepos,
       globalWorldFile    = toFlag worldFile,
-      globalPatchesDir   = toFlag patchesDir
+      globalPatchesDir   = toFlag patchesDir,
+      globalAutoUpdate   = toFlag True,
+      globalSendMetrics  = toFlag False
     },
     savedConfigureFlags  = mempty {
       configProgramPathExtra = toNubList extraPath
@@ -629,13 +636,21 @@ loadRawConfig verbosity configFileFlag = do
   minp <- readConfigFile mempty configFile
   case minp of
     Nothing -> do
+      sendMetrics <- promptUserForTelemetry
       notice verbosity $ "Config file path source is " ++ sourceMsg source ++ "."
       notice verbosity $ "Config file " ++ configFile ++ " not found."
-      createDefaultConfigFile verbosity configFile
+      createDefaultConfigFile verbosity configFile (Just sendMetrics)
     Just (ParseOk ws conf) -> do
       unless (null ws) $ warn verbosity $
         unlines (map (showPWarning configFile) ws)
-      return conf
+      if isNothing (flagToMaybe (globalSendMetrics (savedGlobalFlags conf)))
+      then do
+        sendMetrics <- promptUserForTelemetry
+        newConfig   <- userConfigUpdate verbosity configFileFlag
+                         (Just (conf, sendMetrics))
+        notice verbosity $ "Updated " ++ configFile ++ " to reflect your preference."
+        return newConfig
+      else return conf
     Just (ParseFailed err) -> do
       let (line, msg) = locatedErrorMsg err
       die' verbosity $
@@ -680,10 +695,11 @@ readConfigFile initial file = handleNotExists $
         then return Nothing
         else ioError ioe
 
-createDefaultConfigFile :: Verbosity -> FilePath -> IO SavedConfig
-createDefaultConfigFile verbosity filePath = do
+createDefaultConfigFile :: Verbosity -> FilePath -> Maybe Bool -> IO SavedConfig
+createDefaultConfigFile verbosity filePath mSendMetrics = do
   commentConf <- commentSavedConfig
-  initialConf <- initialSavedConfig
+  initialConf' <- initialSavedConfig
+  let initialConf = addSendMetrics initialConf' mSendMetrics
   notice verbosity $ "Writing default configuration to " ++ filePath
   writeConfigFile filePath commentConf initialConf
   return initialConf
@@ -1211,14 +1227,36 @@ userConfigDiff globalFlags = do
 
 
 -- | Update the user's ~/.etlas/config' keeping the user's customizations.
-userConfigUpdate :: Verbosity -> GlobalFlags -> IO ()
-userConfigUpdate verbosity globalFlags = do
-  userConfig  <- loadRawConfig normal (globalConfigFile globalFlags)
+userConfigUpdate :: Verbosity -> Flag FilePath -> Maybe (SavedConfig, Bool) -> IO SavedConfig
+userConfigUpdate verbosity configFlag mConfigSendMetrics = do
+  userConfig  <- case mConfigSendMetrics of
+                   Just (conf, sendMetrics) ->
+                     return $ addSendMetrics conf (Just sendMetrics)
+                   Nothing -> loadRawConfig normal configFlag
   newConfig   <- initialSavedConfig
   commentConf <- commentSavedConfig
-  cabalFile <- getConfigFilePath $ globalConfigFile globalFlags
+  cabalFile   <- getConfigFilePath configFlag
   let backup = cabalFile ++ ".backup"
   notice verbosity $ "Renaming " ++ cabalFile ++ " to " ++ backup ++ "."
   renameFile cabalFile backup
   notice verbosity $ "Writing merged config to " ++ cabalFile ++ "."
-  writeConfigFile cabalFile commentConf (newConfig `mappend` userConfig)
+  let finalConfig = newConfig `mappend` userConfig
+  writeConfigFile cabalFile commentConf finalConfig
+  return finalConfig
+
+promptUserForTelemetry :: IO Bool
+promptUserForTelemetry = do
+  -- TODO: Make this message more precise.
+  putStrLn "We would like to send usage statistics to help better your experience."
+  putStrLn "Would you like to help us? (y/n) "
+  c <- getChar
+  return $ not (c == 'n' || c == 'N')
+
+addSendMetrics :: SavedConfig -> Maybe Bool -> SavedConfig
+addSendMetrics savedConfig mSendMetrics
+  | Just sendMetrics <- mSendMetrics
+  = savedConfig {
+      savedGlobalFlags = (savedGlobalFlags savedConfig)
+        { globalSendMetrics = toFlag sendMetrics }
+      }
+  | otherwise = savedConfig

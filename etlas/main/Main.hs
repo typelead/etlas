@@ -1181,10 +1181,10 @@ userConfigAction ucflags extraArgs globalFlags = do
       path       <- configFile
       fileExists <- doesFileExist path
       if (not fileExists || (fileExists && force))
-      then void $ createDefaultConfigFile verbosity path
+      then void $ createDefaultConfigFile verbosity path Nothing
       else die' verbosity $ path ++ " already exists."
-    ("diff":_) -> mapM_ putStrLn =<< userConfigDiff globalFlags
-    ("update":_) -> userConfigUpdate verbosity globalFlags
+    ("diff":_)   -> mapM_ putStrLn =<< userConfigDiff globalFlags
+    ("update":_) -> void $ userConfigUpdate verbosity (globalConfigFile globalFlags) Nothing
     -- Error handling.
     [] -> die' verbosity $ "Please specify a subcommand (see 'help user-config')"
     _  -> die' verbosity $ "Unknown 'user-config' subcommand: " ++ unwords extraArgs

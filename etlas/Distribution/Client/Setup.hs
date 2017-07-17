@@ -330,7 +330,14 @@ globalCommand commands = CommandUI {
          "Specify explicit patches directory."
          globalPatchesDir (\v flags -> flags { globalPatchesDir = v })
          (reqArgFlag "DIR")
-
+      ,option [] ["auto-update"]
+         "This will automatically run `etlas update` on a daily basis."
+         globalAutoUpdate (\v flags -> flags { globalAutoUpdate = v })
+         (boolOpt [] [])
+      ,option [] ["send-metrics"]
+         "This will automatically send metrics to facilitate better evolution of Eta."
+         globalSendMetrics (\v flags -> flags { globalSendMetrics = v })
+         (boolOpt [] [])
       ]
 
     -- arguments we don't want shown in the help

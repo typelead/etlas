@@ -68,10 +68,12 @@ data GlobalFlags = GlobalFlags {
     globalWorldFile         :: Flag FilePath,
     globalRequireSandbox    :: Flag Bool,
     globalIgnoreSandbox     :: Flag Bool,
-    globalIgnoreExpiry      :: Flag Bool,    -- ^ Ignore security expiry dates
+    globalIgnoreExpiry      :: Flag Bool,     -- ^ Ignore security expiry dates
     globalHttpTransport     :: Flag String,
-    globalNix               :: Flag Bool,  -- ^ Integrate with Nix
-    globalPatchesDir        :: Flag FilePath -- ^ Patches directory
+    globalNix               :: Flag Bool,     -- ^ Integrate with Nix
+    globalPatchesDir        :: Flag FilePath, -- ^ Patches directory
+    globalAutoUpdate        :: Flag Bool, -- ^ Automatically update package listing
+    globalSendMetrics       :: Flag Bool  -- ^ Send telemetry
   } deriving Generic
 
 defaultGlobalFlags :: GlobalFlags
@@ -91,7 +93,9 @@ defaultGlobalFlags  = GlobalFlags {
     globalIgnoreExpiry      = Flag False,
     globalHttpTransport     = mempty,
     globalNix               = Flag False,
-    globalPatchesDir        = mempty
+    globalPatchesDir        = mempty,
+    globalAutoUpdate        = mempty,
+    globalSendMetrics       = mempty
   }
 
 instance Monoid GlobalFlags where

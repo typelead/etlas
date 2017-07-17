@@ -736,7 +736,7 @@ mainHs = unlines
   [ "module Main where"
   , ""
   , "main :: IO ()"
-  , "main = putStrLn \"Hello, Haskell!\""
+  , "main = putStrLn \"Hello, Eta!\""
   ]
 
 -- | Move an existing file, if there is one, and the overwrite flag is

@@ -245,14 +245,17 @@ getSourcePackagesAtIndexState verbosity repoCtxt mb_idxState = do
       isOldThreshold = 0.25 --days
 
   outdatedRepos <- forM (repoContextRepos repoCtxt) $ \repo -> do
-                     dt <- getIndexFileAge repo
-                     let outdated = dt >= isOldThreshold
-                     when (not autoUpdate && outdated) $
-                       case maybeRepoRemote repo of
-                         Just repoRemote ->
-                           warn verbosity $ errOutdatedPackageList repoRemote dt
-                         Nothing -> return ()
-                     return outdated
+                     mdt <- getIndexFileAge repo
+                     case mdt of
+                       Just dt -> do
+                          let outdated = dt >= isOldThreshold
+                          when (not autoUpdate && outdated) $
+                            case maybeRepoRemote repo of
+                              Just repoRemote ->
+                                warn verbosity $ errOutdatedPackageList repoRemote dt
+                              Nothing -> return ()
+                          return outdated
+                       Nothing -> return True
 
   when (any id outdatedRepos) $ flip catch
     (\(e :: SomeException) -> info verbosity $ "Failed to send metrics.\n"
@@ -360,10 +363,14 @@ readRepoIndex :: Verbosity -> RepoContext -> Repo -> IndexState
               -> IO (PackageIndex UnresolvedSourcePackage, [Dependency], IndexStateInfo)
 readRepoIndex verbosity repoCtxt repo idxState =
   handleNotFound $ do
-    updateRepoIndexCache verbosity (RepoIndex repoCtxt repo)
-    readPackageIndexCacheFile verbosity mkAvailablePackage
-                              (RepoIndex repoCtxt repo)
-                              idxState (repoContextPatchesDir repoCtxt)
+    mdt <- getIndexFileAge repo
+    case mdt of
+      Nothing -> handleNotExists
+      Just _ -> do
+        updateRepoIndexCache verbosity (RepoIndex repoCtxt repo)
+        readPackageIndexCacheFile verbosity mkAvailablePackage
+                                  (RepoIndex repoCtxt repo)
+                                  idxState (repoContextPatchesDir repoCtxt)
 
   where
     mkAvailablePackage pkgEntry =
@@ -385,15 +392,17 @@ readRepoIndex verbosity repoCtxt repo idxState =
         pkgDesc    = PD.packageDescription genPkgDesc
         srcRepos   = PD.sourceRepos pkgDesc
 
+    handleNotExists = do
+      case repo of
+        RepoRemote{..} -> warn verbosity $ errMissingPackageList repoRemote
+        RepoSecure{..} -> warn verbosity $ errMissingPackageList repoRemote
+        RepoLocal{..}  -> warn verbosity $
+              "The package list for the local repo '" ++ repoLocalDir
+          ++ "' is missing. The repo is invalid."
+      return (mempty,mempty,emptyStateInfo)
+
     handleNotFound action = catchIO action $ \e -> if isDoesNotExistError e
-      then do
-        case repo of
-          RepoRemote{..} -> warn verbosity $ errMissingPackageList repoRemote
-          RepoSecure{..} -> warn verbosity $ errMissingPackageList repoRemote
-          RepoLocal{..}  -> warn verbosity $
-               "The package list for the local repo '" ++ repoLocalDir
-            ++ "' is missing. The repo is invalid."
-        return (mempty,mempty,emptyStateInfo)
+      then handleNotExists
       else ioError e
 
     errMissingPackageList repoRemote =
@@ -401,8 +410,11 @@ readRepoIndex verbosity repoCtxt repo idxState =
       ++ "' does not exist. Run 'etlas update' to download it."
 
 -- | Return the age of the index file in days (as a Double).
-getIndexFileAge :: Repo -> IO Double
-getIndexFileAge repo = getFileAge fileName
+getIndexFileAge :: Repo -> IO (Maybe Double)
+getIndexFileAge repo = do
+  exists <- doesFileExist fileName
+  if exists then fmap Just $ getFileAge fileName
+  else return Nothing
   where fileName = case repo of
                      RepoSecure {..} -> indexBaseName repo <.> "timestamp"
                      RepoRemote {..}

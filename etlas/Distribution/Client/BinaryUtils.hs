@@ -18,6 +18,7 @@ import {-# SOURCE #-} Distribution.Client.Sandbox
 import Distribution.Client.Setup as Setup
 import Distribution.Client.Sandbox.Types
 import Distribution.Client.Targets
+import Distribution.Client.Update
 
 import Distribution.Solver.Types.Settings
 
@@ -157,14 +158,24 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
               notice verbosity $
                   "No existing installation found for '" ++ prog ++ "'.\n"
                ++ "Attempting to download binaries..."
-              result <- searchRepos globalFlags savedConfig
-              if isNothing result
-              then do
-                _ <- dieWithError verbosity $
-                        "Unable to find an Eta binary for your platform.\n"
-                     ++ "Either install from source or try the following:"
-                return Nothing
-              else return result
+              withRepoContext verbosity globalFlags $
+                goSearchRepos globalFlags savedConfig
+
+        goSearchRepos globalFlags savedConfig repoCtxt = do
+          result <- searchRepos globalFlags savedConfig
+          if isNothing result
+          then do
+            exists <- doesDirectoryExist defaultBinariesPath
+            if exists
+            then do
+              _ <- dieWithError verbosity $
+                     "Unable to find an Eta binary for your platform.\n"
+                  ++ "Either install from source or try the following:"
+              return Nothing
+            else do
+              update verbosity (commandDefaultFlags updateCommand) repoCtxt
+              goSearchRepos globalFlags savedConfig repoCtxt
+          else return result
         searchRepos globalFlags savedConfig =
           withRepoContext verbosity globalFlags $ \repoCtxt -> do
             first (gitIndexedRepos repoCtxt) $ \repo -> do
@@ -198,7 +209,8 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
           forM programs $ \prog -> do
             notice verbosity $ "Downloading executable '" ++ prog ++ "'..."
             let progFile = etaProgFile domain prog (Left version)
-            _ <- downloadURI transport verbosity
+            _ <- downloadURIWithMsg ("Failed to download executable '" ++ prog ++ "'.")
+                   transport verbosity
                    (uriWithPath uri (etaProgPath prog (Left version))) progFile
             setFileExecutable progFile
             return progFile
@@ -233,7 +245,7 @@ dieWithError verbosity msg = die' verbosity $
 downloadURIWithMsg :: String -> HttpTransport -> Verbosity -> URI -> FilePath -> IO (Maybe ())
 downloadURIWithMsg msg transport verbosity uri path =
   downloadURIAllowFail handler transport verbosity uri path
-  where handler _ = putStrLn $ msg ++ " - " ++ uriToString id uri ""
+  where handler _ = info verbosity $ msg ++ " - " ++ uriToString id uri ""
 
 userReadableVersion :: String -> String
 userReadableVersion version = reverse ('b' : drop 1 rest) ++ reverse buildNumber

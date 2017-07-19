@@ -93,11 +93,11 @@ basePackageIndexPath version = either id etaVersionedPath version
 
 etaBinariesIndexPath :: Either String Version -> FilePath
 etaBinariesIndexPath version = either id etaVersionedPath version
-                            </> "binaries" </> ("index." ++ display buildPlatform)
+                            </> "binaries" </> display buildPlatform </> "index"
 
 etaProgPath :: String -> Either String Version -> FilePath
 etaProgPath prog version = either id etaVersionedPath version
-                        </> "binaries" </> (prog ++ "_" ++ display buildPlatform)
+                        </> "binaries" </> display buildPlatform </> prog
 
 topLevelIndexPath :: String
 topLevelIndexPath = "index"

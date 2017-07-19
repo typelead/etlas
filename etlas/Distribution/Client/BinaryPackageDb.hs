@@ -197,6 +197,6 @@ tryDownloadBinary verbosity transport binaryPkgDb pkgid
 
 downloadURIAllowFail :: (SomeException -> IO a) -> HttpTransport -> Verbosity -> URI -> FilePath -> IO (Maybe a)
 downloadURIAllowFail handler transport verbosity uri path =
-  catch (downloadURI transport verbosity uri path >> return Nothing)
+  catch (downloadURI transport (lessVerbose verbosity) uri path >> return Nothing)
         (fmap Just . handler)
 

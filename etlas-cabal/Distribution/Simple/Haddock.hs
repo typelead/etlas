@@ -443,7 +443,7 @@ getGhcLibDir verbosity lbi = do
     l <- case compilerFlavor (compiler lbi) of
             GHC   -> GHC.getLibDir   verbosity lbi
             GHCJS -> GHCJS.getLibDir verbosity lbi
-            Eta   -> Eta.getLibDir   verbosity lbi
+            Eta   -> Eta.getLibDir   verbosity (withPrograms lbi)
             _     -> error "haddock only supports GHC and GHCJS"
     return $ mempty { argGhcLibDir = Flag l }
 

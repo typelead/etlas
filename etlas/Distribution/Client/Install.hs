@@ -224,8 +224,7 @@ install verbosity packageDBs repos comp platform progdb useSandbox mSandboxPkgIn
         ++ "it is generally considered a bad idea to install packages "
         ++ "into the global store"
 
-    installContext@(installedPkgIdx, _, binaryPkgDb, _, _, _, _)
-      <- makeInstallContext verbosity args (Just userTargets0)
+    installContext <- makeInstallContext verbosity args (Just userTargets0)
 
     planResult <- foldProgress logMsg (return . Left) (return . Right) =<<
                     makeInstallPlan verbosity args installContext

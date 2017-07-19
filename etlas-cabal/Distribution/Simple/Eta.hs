@@ -178,11 +178,11 @@ getInstalledPackages' verbosity packagedbs progdb =
          return (packagedb, pkgs)
     | packagedb <- packagedbs ]
 
-getLibDir :: Verbosity -> LocalBuildInfo -> IO FilePath
-getLibDir verbosity lbi =
+getLibDir :: Verbosity -> ProgramDb -> IO FilePath
+getLibDir verbosity progDb =
     (reverse . dropWhile isSpace . reverse) `fmap`
      getDbProgramOutput verbosity etaProgram
-     (withPrograms lbi) ["--print-libdir"]
+     progDb ["--print-libdir"]
 
 -- getLibDir' :: Verbosity -> ConfiguredProgram -> IO FilePath
 -- getLibDir' verbosity etaProg =

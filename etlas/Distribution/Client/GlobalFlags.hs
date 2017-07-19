@@ -19,7 +19,7 @@ import Distribution.Client.Compat.Prelude
 import Distribution.Client.Types
          ( Repo(..), RemoteRepo(..) )
 import Distribution.Simple.Setup
-         ( Flag(..), fromFlag, flagToMaybe )
+         ( Flag(..), fromFlag, flagToMaybe, fromFlagOrDefault )
 import Distribution.Utils.NubList
          ( NubList, fromNubList )
 import Distribution.Client.HttpUtils
@@ -137,6 +137,10 @@ data RepoContext = RepoContext {
     -- | Should we ignore expiry times (when checking security)?
   , repoContextIgnoreExpiry :: Bool
   , repoContextPatchesDir :: FilePath
+    -- | Update automatically
+  , repoContextAutoUpdate :: Bool
+    -- | Send metrics
+  , repoContextSendMetrics :: Bool
   }
 
 -- | Wrapper around 'Repository', hiding the type argument
@@ -152,14 +156,17 @@ withRepoContext verbosity globalFlags =
       (flagToMaybe (globalHttpTransport globalFlags))
       (flagToMaybe (globalIgnoreExpiry  globalFlags))
       (fromFlag    (globalPatchesDir    globalFlags))
+      (fromFlagOrDefault True  (globalAutoUpdate    globalFlags))
+      (fromFlagOrDefault False (globalSendMetrics   globalFlags))
 
 withRepoContext' :: Verbosity -> [RemoteRepo] -> [FilePath]
                  -> FilePath  -> Maybe String -> Maybe Bool
-                 -> FilePath
+                 -> FilePath  -> Bool -> Bool
                  -> (RepoContext -> IO a)
                  -> IO a
 withRepoContext' verbosity remoteRepos localRepos
-                 sharedCacheDir httpTransport ignoreExpiry patchesDir = \callback -> do
+                 sharedCacheDir httpTransport ignoreExpiry patchesDir autoUpdate
+                 sendMetrics = \callback -> do
     transportRef <- newMVar Nothing
     let httpLib = Sec.HTTP.transportAdapter
                     verbosity
@@ -172,6 +179,8 @@ withRepoContext' verbosity remoteRepos localRepos
         , repoContextWithSecureRepo = withSecureRepo secureRepos'
         , repoContextIgnoreExpiry   = fromMaybe False ignoreExpiry
         , repoContextPatchesDir     = patchesDir
+        , repoContextAutoUpdate     = autoUpdate
+        , repoContextSendMetrics    = sendMetrics
         }
   where
     secureRemoteRepos =

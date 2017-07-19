@@ -43,8 +43,8 @@ import Data.Maybe
 
 updateBinaryPackageCaches :: HttpTransport -> Verbosity -> FilePath -> IO ()
 updateBinaryPackageCaches transport verbosity cacheDir = do
-  notice verbosity $ "Updating binary package index..."
   uris <- remoteBinaryUris (Left cacheDir)
+  notice verbosity $ "Updating binary package index."
   forM_ uris $ \uri -> do
     case getURIDomain uri of
       Just domain -> do

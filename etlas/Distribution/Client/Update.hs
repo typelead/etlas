@@ -26,11 +26,11 @@ import Distribution.Client.FetchUtils
 import Distribution.Client.IndexUtils.Timestamp
 import Distribution.Client.IndexUtils
          ( updateRepoIndexCache, Index(..), writeIndexTimestamp
-         , currentIndexTimestamp )
+         , currentIndexTimestamp, sendMetrics )
 import Distribution.Client.Config
          ( etaHackageUrl )
 import Distribution.Simple.Program
-         ( gitProgram, defaultProgramDb, runProgramInvocation, programInvocation,
+         ( gitProgram, defaultProgramDb, getProgramInvocationOutput, programInvocation,
            requireProgramVersion )
 import Distribution.Client.JobControl
          ( newParallelJobControl, spawnJob, collectJob )
@@ -41,7 +41,7 @@ import Distribution.Text
 import Distribution.Verbosity
 
 import Distribution.Simple.Utils
-         ( writeFileAtomic, warn, notice, noticeNoWrap )
+         ( writeFileAtomic, warn, notice, noticeNoWrap, info )
 import Distribution.Version
          ( orLaterVersion, mkVersion )
 import Distribution.Client.GZipUtils ( maybeDecompress )
@@ -77,6 +77,8 @@ update verbosity updateFlags repoCtxt = do
 
   -- Update the Eta Hackage patches repository
   updatePatchRepo verbosity (repoContextPatchesDir repoCtxt)
+  -- Send metrics if enabled
+  sendMetrics verbosity repoCtxt
 
 updateRepo :: Verbosity -> UpdateFlags -> RepoContext -> Repo -> IO ()
 updateRepo verbosity updateFlags repoCtxt repo = do
@@ -121,12 +123,14 @@ updateRepo verbosity updateFlags repoCtxt repo = do
 -- See  http://stackoverflow.com/questions/5083224/git-pull-while-not-in-a-git-directory
 updatePatchRepo :: Verbosity -> FilePath -> IO ()
 updatePatchRepo verbosity patchesDir = do
-  notice verbosity $ "Updating the eta-hackage patch set"
+  notice verbosity $ "Updating the eta-hackage patch set."
   (gitProg, _, _) <- requireProgramVersion verbosity
                       gitProgram
                       (orLaterVersion (mkVersion [1,8,5]))
                       defaultProgramDb
-  let runGit = runProgramInvocation verbosity . programInvocation gitProg
+  let runGit args =
+        getProgramInvocationOutput verbosity (programInvocation gitProg args) >>=
+          info verbosity
   exists <- doesDirectoryExist patchesDir
   if exists
   then runGit ["-C", patchesDir, "pull"]

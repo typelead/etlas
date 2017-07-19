@@ -149,6 +149,7 @@ projectConfigWithBuilderRepoContext :: Verbosity
                                     -> (RepoContext -> IO a) -> IO a
 projectConfigWithBuilderRepoContext verbosity BuildTimeSettings{..} f = do
     -- TODO: Should we customize patches dir here? -RM
+    --       Handle sending metrics/updating here.
     patchesDir <- defaultPatchesDir
     withRepoContext'
       verbosity
@@ -158,6 +159,8 @@ projectConfigWithBuilderRepoContext verbosity BuildTimeSettings{..} f = do
       buildSettingHttpTransport
       (Just buildSettingIgnoreExpiry)
       patchesDir
+      True
+      False
       f
 
 
@@ -184,6 +187,8 @@ projectConfigWithSolverRepoContext verbosity
       (flagToMaybe projectConfigHttpTransport)
       (flagToMaybe projectConfigIgnoreExpiry)
       patchesDir
+      True
+      False
       f
 
 

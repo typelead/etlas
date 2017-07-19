@@ -3,6 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -35,9 +36,12 @@ module Distribution.Client.IndexUtils (
   currentIndexTimestamp,
   readCacheStrict, -- only used by soon-to-be-obsolete sandbox code
 
-  BuildTreeRefType(..), refTypeFromTypeCode, typeCodeFromRefType
+  BuildTreeRefType(..), refTypeFromTypeCode, typeCodeFromRefType,
+
+  sendMetrics
   ) where
 
+import {-# SOURCE #-} Distribution.Client.Update
 import Prelude ()
 import Distribution.Client.Compat.Prelude
 
@@ -62,17 +66,19 @@ import qualified Distribution.PackageDescription as PD
 import Distribution.Simple.Compiler
          ( Compiler, PackageDBStack )
 import Distribution.Simple.Program
-         ( ProgramDb )
+         ( ProgramDb, defaultProgramDb, etaProgram, configureProgram, lookupProgramVersion )
 import qualified Distribution.Simple.Configure as Configure
          ( getInstalledPackages, getInstalledPackagesMonitorFiles )
 import Distribution.Version
-         ( mkVersion, intersectVersionRanges )
+         ( mkVersion, intersectVersionRanges, anyVersion )
 import Distribution.Text
          ( display, simpleParse )
 import Distribution.Simple.Utils
          ( die', warn, info )
 import Distribution.Client.Setup
-         ( RepoContext(..) )
+         ( RepoContext(..), updateCommand  )
+import Distribution.Simple.Command
+import qualified Distribution.Simple.Eta as Eta
 
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec
@@ -83,6 +89,8 @@ import Distribution.ParseUtils
          ( ParseResult(..) )
 import Distribution.PackageDescription.Parse
          ( parseGenericPackageDescription )
+import Distribution.System
+         ( buildPlatform )
 import Distribution.Simple.Utils
          ( fromUTF8, ignoreBOM )
 import qualified Distribution.PackageDescription.Parse as PackageDesc.Parse
@@ -92,6 +100,7 @@ import           Distribution.Solver.Types.PackageIndex (PackageIndex)
 import qualified Distribution.Solver.Types.PackageIndex as PackageIndex
 import           Distribution.Solver.Types.SourcePackage
 
+import Data.Maybe
 import qualified Data.Map as Map
 import Control.DeepSeq
 import Control.Monad
@@ -101,6 +110,7 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as BS.Char8
 import qualified Data.ByteString.Char8 as BSS
 import Data.ByteString.Lazy (ByteString)
+import Distribution.Client.HttpUtils
 import Distribution.Client.GZipUtils (maybeDecompress)
 import Distribution.Client.Utils ( byteStringToFilePath
                                  , tryFindAddSourcePackageDesc )
@@ -116,6 +126,8 @@ import System.FilePath.Posix as FilePath.Posix
 import System.IO
 import System.IO.Unsafe (unsafeInterleaveIO)
 import System.IO.Error (isDoesNotExistError)
+import Network.URI
+import Network.HTTP.Headers
 
 import qualified Hackage.Security.Client    as Sec
 import qualified Hackage.Security.Util.Some as Sec
@@ -229,6 +241,27 @@ getSourcePackagesAtIndexState verbosity repoCtxt mb_idxState = do
   let describeState IndexStateHead        = "most recent state"
       describeState (IndexStateTime time) = "historical state as of " ++ display time
 
+      autoUpdate = repoContextAutoUpdate repoCtxt
+      isOldThreshold = 0.25 --days
+
+  outdatedRepos <- forM (repoContextRepos repoCtxt) $ \repo -> do
+                     dt <- getIndexFileAge repo
+                     let outdated = dt >= isOldThreshold
+                     when (not autoUpdate && outdated) $
+                       case maybeRepoRemote repo of
+                         Just repoRemote ->
+                           warn verbosity $ errOutdatedPackageList repoRemote dt
+                         Nothing -> return ()
+                     return outdated
+
+  when (any id outdatedRepos) $ flip catch
+    (\(e :: SomeException) -> info verbosity $ "Failed to send metrics.\n"
+                                            ++ show e) $ do
+    if autoUpdate
+    then update silent (commandDefaultFlags updateCommand) repoCtxt
+         -- Update will already send metrics so no need to send again.
+    else sendMetrics verbosity repoCtxt
+
   pkgss <- forM (repoContextRepos repoCtxt) $ \r -> do
       let rname = maybe "" remoteRepoName $ maybeRepoRemote r
       info verbosity ("Reading available packages of " ++ rname ++ "...")
@@ -295,6 +328,16 @@ getSourcePackagesAtIndexState verbosity repoCtxt mb_idxState = do
     packagePreferences = prefs'
   }
 
+  where errOutdatedPackageList repoRemote dt =
+            "The package list for '" ++ remoteRepoName repoRemote
+          ++ "' is " ++ daysString ++ " old.\nRun "
+          ++ "'etlas update' to get the latest list of available packages."
+          where daysString = show days ++ " " ++ suffix
+                  where days = floor dt
+                        suffix
+                          | days > 1  = "days"
+                          | otherwise = "day"
+
 readCacheStrict :: Verbosity -> Index -> (PackageEntry -> pkg) -> IO ([pkg], [Dependency])
 readCacheStrict verbosity index mkPkg = do
     updateRepoIndexCache verbosity index
@@ -317,7 +360,6 @@ readRepoIndex :: Verbosity -> RepoContext -> Repo -> IndexState
               -> IO (PackageIndex UnresolvedSourcePackage, [Dependency], IndexStateInfo)
 readRepoIndex verbosity repoCtxt repo idxState =
   handleNotFound $ do
-    warnIfIndexIsOld =<< getIndexFileAge repo
     updateRepoIndexCache verbosity (RepoIndex repoCtxt repo)
     readPackageIndexCacheFile verbosity mkAvailablePackage
                               (RepoIndex repoCtxt repo)
@@ -354,29 +396,19 @@ readRepoIndex verbosity repoCtxt repo idxState =
         return (mempty,mempty,emptyStateInfo)
       else ioError e
 
-    isOldThreshold = 2 --days
-    warnIfIndexIsOld dt = do
-      when (dt >= isOldThreshold) $ case repo of
-        RepoRemote{..} -> warn verbosity $ errOutdatedPackageList repoRemote dt
-        RepoSecure{..} -> warn verbosity $ errOutdatedPackageList repoRemote dt
-        RepoLocal{..}  -> return ()
-
     errMissingPackageList repoRemote =
          "The package list for '" ++ remoteRepoName repoRemote
       ++ "' does not exist. Run 'etlas update' to download it."
-    errOutdatedPackageList repoRemote dt =
-         "The package list for '" ++ remoteRepoName repoRemote
-      ++ "' is " ++ shows (floor dt :: Int) " days old.\nRun "
-      ++ "'etlas update' to get the latest list of available packages."
 
 -- | Return the age of the index file in days (as a Double).
 getIndexFileAge :: Repo -> IO Double
 getIndexFileAge repo = getFileAge fileName
-  where fileName
-          | Just r <- maybeRepoRemote repo
-          , remoteRepoGitIndexed r
-          = repoLocalDir repo </> ".git" </> "FETCH_HEAD"
-          | otherwise = indexBaseName repo <.> "tar"
+  where fileName = case repo of
+                     RepoSecure {..} -> indexBaseName repo <.> "timestamp"
+                     RepoRemote {..}
+                      | remoteRepoGitIndexed repoRemote -> repoLocalDir
+                                                       </> ".git" </> "FETCH_HEAD"
+                     _ -> indexBaseName repo <.> "tar"
 
 -- | A set of files (or directories) that can be monitored to detect when
 -- there might have been a change in the source packages.
@@ -1041,3 +1073,49 @@ show00IndexCacheEntry entry = unwords $ case entry of
                                ]
    where choose (Left relPath)  = [pathKey, relPath]
          choose (Right blockNo) = [blocknoKey, show blockNo]
+
+sendMetrics :: Verbosity -> RepoContext -> IO ()
+sendMetrics verbosity repoCtxt
+  | repoContextSendMetrics repoCtxt = withEtaLibDir $ \(libDir, etaVersion) -> do
+      let metricsDir    = libDir </> "metrics"
+          metricsFile   = metricsDir </> "events.log"
+          metricsIdFile = metricsDir </> "metrics.id"
+          host          = "http://metrics.eta-lang.org/"
+          getURI        = fromJust . parseURI
+          uuidUrl       = getURI $ host ++ "uuid"
+          metricsUrl    = getURI $ host ++ "metrics"
+      exists <- doesFileExist metricsFile
+      when exists $ do
+        exists     <- doesFileExist metricsIdFile
+        transport  <- repoContextGetTransport repoCtxt
+        let readMetricsId = fmap (Just . lines) $ readFile metricsIdFile
+        mMetricsId <- if exists then readMetricsId
+                      else do
+                        (resCode, _) <- getHttp transport verbosity uuidUrl Nothing
+                                                metricsIdFile []
+                        if resCode /= 200 then return Nothing
+                        else readMetricsId
+        case mMetricsId of
+          Just (metricsId:_) -> do
+            let headers = [Header (HdrCustom "X-Metrics-Id") metricsId
+                          ,Header (HdrCustom "X-Eta-Version") $
+                                  display etaVersion
+                          ,Header HdrContentType "text/plain;charset=utf-8"]
+            (resCode, _) <- putHttpFile transport verbosity metricsUrl metricsFile
+                                        Nothing headers
+            writeFile metricsFile ""
+            info verbosity $ "Metrics were sent with result code: " ++ show resCode
+            return ()
+          _ -> return ()
+  | otherwise = withEtaLibDir $ \(libDir, _) -> do
+      -- Periodic garbage collection when not collecting metrics
+      writeFile (libDir </> "metrics" </> "events.log") ""
+
+  where withEtaLibDir io = do
+          etaProgDb     <- configureProgram verbosity etaProgram defaultProgramDb
+          eitherVersion <- lookupProgramVersion verbosity etaProgram anyVersion etaProgDb
+          case eitherVersion of
+            Left  error -> info verbosity $ "Error configuring eta: " ++ error
+            Right (_, etaVersion, _) -> do
+              libDir <- Eta.getLibDir verbosity etaProgDb
+              io (libDir, etaVersion)

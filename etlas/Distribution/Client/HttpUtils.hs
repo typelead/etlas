@@ -73,6 +73,7 @@ import System.Directory (canonicalizePath)
 import System.FilePath (takeFileName, takeDirectory)
 import System.Random (randomRIO)
 import System.Exit (ExitCode(..))
+import Data.Maybe (isJust)
 
 
 ------------------------------------------------------------------------------
@@ -353,7 +354,9 @@ curlTransport prog =
             [ "--digest"
             , "--user " ++ uname ++ ":" ++ passwd
             ]
-      , progInvokeArgs = ["--config", "-"] ++ progInvokeArgs progInvocation
+      , progInvokeArgs = (if isJust auth
+                          then ["--config", "-"]
+                          else []) ++ progInvokeArgs progInvocation
       }
 
     posthttpfile verbosity uri path auth = do

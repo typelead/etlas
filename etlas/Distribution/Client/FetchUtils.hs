@@ -241,7 +241,9 @@ downloadIndex transport verbosity remoteRepo cacheDir
                           gitProgram
                           (orLaterVersion (mkVersion [1,8,5]))
                           defaultProgramDb
-    let runGit = runProgramInvocation verbosity . programInvocation gitProg
+    let runGit args =
+          getProgramInvocationOutput verbosity (programInvocation gitProg args) >>=
+            info verbosity
     if exists
     then runGit ["-C", cacheDir, "pull"]
     else runGit ["clone", "--depth=1", show (remoteRepoURI remoteRepo), cacheDir]

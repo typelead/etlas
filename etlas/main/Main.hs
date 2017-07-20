@@ -179,7 +179,7 @@ import Distribution.Simple.Utils
 import Distribution.Text
          ( display )
 import Distribution.Verbosity as Verbosity
-         ( Verbosity, normal )
+         ( Verbosity, normal, moreVerbose )
 import Distribution.Version
          ( Version, mkVersion, orLaterVersion )
 import qualified Paths_etlas (version)
@@ -1119,6 +1119,7 @@ initAction initFlags extraArgs globalFlags = do
   let configFlags  = savedConfigureFlags config
   let globalFlags' = savedGlobalFlags    config `mappend` globalFlags
   (comp, _, progdb) <- configCompilerAux' configFlags
+    { configVerbosity = fmap Verbosity.moreVerbose (configVerbosity configFlags) }
   withRepoContext verbosity globalFlags' $ \repoContext ->
     initCabal verbosity
             (configPackageDB' configFlags)

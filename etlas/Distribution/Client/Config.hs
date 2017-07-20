@@ -1249,7 +1249,8 @@ promptUserForTelemetry = do
   putStrLn $ unlines [
     "Welcome to Etlas, the awesome build tool for the Eta programming language!",
     "",
-    "We are working hard to make the best platform for pure functional programming on the Java Virtual Machine.",
+    "We are working hard to make the best platform for pure functional programming",
+    "on the Java Virtual Machine.",
     "",
     "Etlas will periodically send usage statistics to help us:",
     "",
@@ -1263,7 +1264,7 @@ promptUserForTelemetry = do
     "",
     "For more details, please consult our privacy policy:",
     "",
-    "                  http://eta-lang.org/docs/html/privacy-policy.html",
+    "        http://eta-lang.org/docs/html/privacy-policy.html",
     "",
     "Would you like to help us make Eta the fastest growing programming language,",
     "and help pure functional programming become mainstream? (y/n)"]

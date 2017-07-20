@@ -1246,9 +1246,27 @@ userConfigUpdate verbosity configFlag mConfigSendMetrics = do
 
 promptUserForTelemetry :: IO Bool
 promptUserForTelemetry = do
-  -- TODO: Make this message more precise.
-  putStrLn "We would like to send usage statistics to help better your experience."
-  putStrLn "Would you like to help us? (y/n) "
+  putStrLn $ unlines [
+    "Welcome to Etlas, the awesome build tool for the Eta programming language!",
+    "",
+    "We are working hard to make the best platform for pure functional programming on the Java Virtual Machine.",
+    "",
+    "Etlas will periodically send usage statistics to help us:",
+    "",
+    "* Make decisions on how to evolve the language",
+    "",
+    "* Build a community portal that displays the data we collect in visual form",
+    "",
+    "* Build an Etlas package repository that will accurately display package popularity",
+    "",
+    "* And more!",
+    "",
+    "For more details, please consult our privacy policy:",
+    "",
+    "                  http://eta-lang.org/docs/html/privacy-policy.html",
+    "",
+    "Would you like to help us make Eta the fastest growing programming language,",
+    "and help pure functional programming become mainstream? (y/n)"]
   c <- getChar
   return $ not (c == 'n' || c == 'N')
 

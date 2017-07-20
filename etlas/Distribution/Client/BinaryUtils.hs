@@ -173,7 +173,7 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
                   ++ "Either install from source or try the following:"
               return Nothing
             else do
-              update verbosity (commandDefaultFlags updateCommand) repoCtxt
+              update verbosity (commandDefaultFlags updateCommand) repoCtxt True
               goSearchRepos globalFlags savedConfig repoCtxt
           else return result
         searchRepos globalFlags savedConfig =
@@ -278,12 +278,6 @@ installBootLibraries verbosity mVersion repos config globalFlags programPaths = 
 
       configExFlags  = defaultConfigExFlags         `mappend`
                          savedConfigureExFlags config `mappend` configExFlags'
-      installFlags   = Setup.defaultInstallFlags      `mappend`
-                         savedInstallFlags     config `mappend` installFlags' {
-                           installAllowBootLibInstalls =
-                             toFlag (AllowBootLibInstalls True),
-                           installOverrideReinstall = toFlag True
-                         }
       haddockFlags   = defaultHaddockFlags          `mappend`
                          savedHaddockFlags     config `mappend`
                          haddockFlags' { haddockDistPref = toFlag dist }
@@ -292,23 +286,36 @@ installBootLibraries verbosity mVersion repos config globalFlags programPaths = 
   (comp, platform, progdb') <- configCompilerAux' configFlags
   progdb <- configureAllKnownPrograms verbosity progdb'
   installedPkgIndex <- getInstalledPackages verbosity comp packageDBs progdb
-  if missingBootLibraries installedPkgIndex
+  let missing = numMissingBootLibraries installedPkgIndex
+  if missing > 0
   then do
+    -- TODO: Optimize this to only attempt to install the missing packages.
+    --       Without reinstalls.
     notice verbosity "Installing boot libraries..."
+    let installFlags = Setup.defaultInstallFlags      `mappend`
+                        savedInstallFlags     config `mappend` installFlags' {
+                          installAllowBootLibInstalls =
+                            toFlag (AllowBootLibInstalls True),
+                          installOverrideReinstall =
+                            toFlag True
+                        }
     forM_ paths $ \path -> do
       install verbosity packageDBs repos comp platform progdb NoSandbox
         Nothing globalFlags configFlags configExFlags installFlags
         haddockFlags [UserTargetLocalTarball path True]
+    notice verbosity "Finished installing boot libraries."
   else notice verbosity "Boot libraries already installed."
 
-missingBootLibraries :: InstalledPackageIndex -> Bool
-missingBootLibraries pkgIdx = not . all
-                              (\pkg ->
-                                case PackageIndex.searchByName pkgIdx pkg of
-                                  PackageIndex.None -> False
-                                  _                 -> True)
-                            $ bootPackages
-  where bootPackages = ["rts", "base", "ghc-prim", "integer", "template-haskell"]
+numMissingBootLibraries :: InstalledPackageIndex -> Int
+numMissingBootLibraries pkgIdx = length
+                               $ filter
+                                 (\pkg ->
+                                     case PackageIndex.searchByName pkgIdx pkg of
+                                       PackageIndex.None -> True
+                                       _                 -> False)
+                               $ bootPackages
+bootPackages :: [String]
+bootPackages = ["rts", "base", "ghc-prim", "integer", "template-haskell"]
 
 etlasVersion :: String
 etlasVersion =  "etlas-" ++ display (mkVersion' Paths_etlas.version)

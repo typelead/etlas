@@ -128,7 +128,7 @@ import Distribution.Simple.Setup
          , buildCommand, BuildFlags(..), emptyBuildFlags
          , AllowNewer(..), AllowOlder(..), RelaxDeps(..)
          , defaultBDistFlags, BDistFlags(..)
-         , toFlag, fromFlag, fromFlagOrDefault, flagToMaybe, defaultDistPref )
+         , toFlag, fromFlag, fromFlagOrDefault, flagToMaybe, defaultDistPref, asBool )
 import qualified Distribution.Simple.Setup as Cabal
          ( Flag(..)
          , copyCommand, CopyFlags(..), emptyCopyFlags
@@ -575,7 +575,7 @@ checkPrintPlan verbosity installed installPlan sourcePkgDb
   -- If the install plan is dangerous, we print various warning messages. In
   -- particular, if we can see that packages are likely to be broken, we even
   -- bail out (unless installation has been forced with --force-reinstalls).
-  when containsReinstalls $ do
+  when (containsReinstalls && not bootLibInstalls) $ do
     if breaksPkgs
       then do
         (if dryRun || overrideReinstall then warn else die') verbosity $ unlines $
@@ -610,6 +610,8 @@ checkPrintPlan verbosity installed installPlan sourcePkgDb
 
     dryRun            = fromFlag (installDryRun            installFlags)
     overrideReinstall = fromFlag (installOverrideReinstall installFlags)
+    bootLibInstalls =
+      asBool (fromFlag (installAllowBootLibInstalls installFlags))
 
 data PackageStatus = NewPackage
                    | NewVersion [Version]

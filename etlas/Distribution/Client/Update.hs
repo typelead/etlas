@@ -56,11 +56,11 @@ import Control.Monad
 import qualified Hackage.Security.Client as Sec
 
 -- | 'update' downloads the package list from all known servers
-update :: Verbosity -> UpdateFlags -> RepoContext -> IO ()
-update verbosity _ repoCtxt | null (repoContextRepos repoCtxt) = do
+update :: Verbosity -> UpdateFlags -> RepoContext -> Bool -> IO ()
+update verbosity _ repoCtxt _ | null (repoContextRepos repoCtxt) = do
   warn verbosity $ "No remote package servers have been specified. Usually "
                 ++ "you would have one specified in the config file."
-update verbosity updateFlags repoCtxt = do
+update verbosity updateFlags repoCtxt firstTime = do
   let repos       = repoContextRepos repoCtxt
       remoteRepos = catMaybes (map maybeRepoRemote repos)
   case remoteRepos of
@@ -78,7 +78,7 @@ update verbosity updateFlags repoCtxt = do
   -- Update the Eta Hackage patches repository
   updatePatchRepo verbosity (repoContextPatchesDir repoCtxt)
   -- Send metrics if enabled
-  sendMetrics verbosity repoCtxt
+  sendMetrics verbosity repoCtxt firstTime
 
 updateRepo :: Verbosity -> UpdateFlags -> RepoContext -> Repo -> IO ()
 updateRepo verbosity updateFlags repoCtxt repo = do

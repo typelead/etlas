@@ -261,9 +261,9 @@ getSourcePackagesAtIndexState verbosity repoCtxt mb_idxState = do
     (\(e :: SomeException) -> info verbosity $ "Failed to send metrics.\n"
                                             ++ show e) $ do
     if autoUpdate
-    then update silent (commandDefaultFlags updateCommand) repoCtxt
+    then update silent (commandDefaultFlags updateCommand) repoCtxt False
          -- Update will already send metrics so no need to send again.
-    else sendMetrics verbosity repoCtxt
+    else sendMetrics verbosity repoCtxt False
 
   pkgss <- forM (repoContextRepos repoCtxt) $ \r -> do
       let rname = maybe "" remoteRepoName $ maybeRepoRemote r
@@ -1086,8 +1086,9 @@ show00IndexCacheEntry entry = unwords $ case entry of
    where choose (Left relPath)  = [pathKey, relPath]
          choose (Right blockNo) = [blocknoKey, show blockNo]
 
-sendMetrics :: Verbosity -> RepoContext -> IO ()
-sendMetrics verbosity repoCtxt
+sendMetrics :: Verbosity -> RepoContext -> Bool -> IO ()
+sendMetrics verbosity repoCtxt firstTime
+  | firstTime = return ()
   | repoContextSendMetrics repoCtxt = withEtaLibDir $ \(libDir, etaVersion) -> do
       let metricsDir    = libDir </> "metrics"
           metricsFile   = metricsDir </> "events.log"
@@ -1121,7 +1122,9 @@ sendMetrics verbosity repoCtxt
           _ -> return ()
   | otherwise = withEtaLibDir $ \(libDir, _) -> do
       -- Periodic garbage collection when not collecting metrics
-      writeFile (libDir </> "metrics" </> "events.log") ""
+      let metricsFile = libDir </> "metrics" </> "events.log"
+      exists <- doesFileExist metricsFile
+      when exists $ writeFile metricsFile ""
 
   where withEtaLibDir io = do
           etaProgDb     <- configureProgram verbosity etaProgram defaultProgramDb

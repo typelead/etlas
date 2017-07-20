@@ -151,6 +151,7 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
             Just (path, _paths) -> do
               notice verbosity $
                 "Found installed '" ++ prog ++ "' at " ++ path ++ "."
+              createDirectoryIfMissingVerbose verbosity True (takeDirectory etaPointerFile)
               writeFile etaPointerFile $ unlines
                                        $ replicate numEtaPrograms programOnPath
               return result

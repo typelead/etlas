@@ -53,6 +53,7 @@ import Distribution.Verbosity
 import Distribution.Utils.NubList
 import Distribution.Text
 import Distribution.Types.UnitId
+import qualified Paths_etlas_cabal as Etlas (version)
 
 import qualified Data.Map as Map
 import Data.List
@@ -287,11 +288,14 @@ buildOrReplExe :: Bool -> Verbosity  -> Cabal.Flag (Maybe Int)
 buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
   exe@Executable { exeName, modulePath = modPath } clbi = do
   let exeName'    = display exeName
-      exeNameReal = exeName' <.> (if takeExtension exeName' /= ('.':jarExtension)
-                                  then jarExtension
-                                  else "")
+      exeNameReal
+        | takeExtension exeName' /= ('.':jarExtension)
+        = exeName' <.> jarExtension
+        | otherwise = exeName'
       targetDir   = buildDir lbi </> exeName'
-      exeDir      = targetDir </> (exeName' ++ "-tmp")
+      extrasJar   = "__extras.jar"
+      exeTmpDir   = exeName' ++ "-tmp"
+      exeDir      = targetDir </> exeTmpDir
       exeJar      = targetDir </> exeNameReal
 
   (etaProg, _)  <- requireProgram verbosity etaProgram  (withPrograms lbi)
@@ -310,19 +314,24 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
       mavenRepos = frameworks . buildInfo $ exe
   mavenPaths <- fetchMavenDependencies verbosity
                   mavenRepos mavenDeps (withPrograms lbi)
-  let javaSrcs = (if isShared
-                  then []
-                  else mavenPaths) ++ javaSrcs'
+  let javaSrcs
+        | isShared  = javaSrcs'
+        | otherwise = mavenPaths ++ javaSrcs'
 
       fullClassPath = depJars ++ mavenPaths
 
-      classPaths' = if isShared then fullClassPath else []
+      classPaths
+        | isShared  = fullClassPath
+        | otherwise = []
       dirEnvVar = "DIR"
-      dirEnvVarRef = if isWindows' then "%" ++ dirEnvVar ++ "%" else "$" ++ dirEnvVar
-      classPaths = (if isShared && not (null javaSrcs)
-                    then [dirEnvVarRef ++ "/" ++ exeName' ++ "-tmp/__extras.jar"]
-                    else [])
-                    ++ classPaths'
+      dirEnvVarRef
+        | isWindows' = "%" ++ dirEnvVar ++ "%"
+        | otherwise  = "$" ++ dirEnvVar
+      hasJavaSources = isShared && not (null javaSrcs)
+      javaSourcePath = exeDir </> extrasJar
+      maybeJavaSourceEnv
+        | hasJavaSources = [dirEnvVarRef </> exeTmpDir </> extrasJar]
+        | otherwise      =  []
       baseOpts = (componentGhcOptions verbosity lbi exeBi clbi exeDir)
                  `mappend` mempty {
                    ghcOptMode         = toFlag GhcModeMake,
@@ -335,36 +344,59 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
                      ["-cp", mkMergedClassPath lbi fullClassPath]
                  }
 
-      verifyClassPath = mkMergedClassPath lbi (etlasDir : exeJar : classPaths)
-
       withVerify act = do
         _ <- act
         when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
-          runVerify verbosity (exeJar : classPaths) exeJar lbi
+          runVerify verbosity (exeJar : javaSourcePath : classPaths) exeJar lbi
 
   withVerify $ runEtaProg baseOpts
 
   -- Generate command line executable file
-  let classPaths''= if null classPaths then ""
-                     else classPathSep : mkMergedClassPath lbi classPaths
-      generateExeScript =
-        if isWindows' then
-             "@echo off\r\n"
-          ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"
-          ++ "java -classpath \"" ++ dirEnvVarRef ++ "/" ++ exeNameReal
-          ++ classPaths''
-          ++ "\" eta.main %*\r\n"
-        else
-             "#!/usr/bin/env bash\n"
-          ++ dirEnvVar ++ "=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"\n"
-          ++ "java -classpath \"" ++ dirEnvVarRef ++ "/" ++ exeNameReal
-          ++ classPaths''
-          ++ "\" eta.main \"$@\"\n"
-      scriptFile = targetDir </> exeName'
-                               ++ if isWindows' then ".cmd" else ""
+  let classPaths''
+        | null classPaths && not hasJavaSources = ""
+        | otherwise = mkMergedClassPath lbi (maybeJavaSourceEnv ++ classPaths)
+      exeJarEnv   = dirEnvVarRef </> exeNameReal
+      totalClassPath = exeJarEnv ++ [classPathSep] ++ classPaths''
+      -- For Windows
+      launcherJarEnv = dirEnvVarRef </> (exeName' ++ ".launcher.jar")
+      generateExeScript
+        | isWindows'
+        = "@echo off\r\n"
+       ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"
+       ++ "java -classpath \"" ++ launcherJarEnv ++ "\" eta.main %*\r\n"
+        | otherwise
+        = "#!/usr/bin/env bash\n"
+       ++ dirEnvVar ++ "=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"\n"
+       ++ "java -classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"\n"
+      scriptFile
+        | isWindows' = prefix ++ ".cmd"
+        | otherwise  = prefix
+        where prefix = targetDir </> exeName'
+
+  {- Windows faces the dreaded line-length limit which forces us to create a
+      launcher jar as a workaround. This places a restriction that you must
+      develop Eta on the same drive that you installed it in. -}
+  when isWindows' $ do
+    jarProg <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
+    let maybeJavaSourceAttr
+          | hasJavaSources = [exeTmpDir </> extrasJar]
+          | otherwise      = []
+        relativeClassPaths = map (mkRelative targetDir) classPaths
+        targetManifest = targetDir </> "MANIFEST.MF"
+        launcherJar = targetDir </> (exeName' ++ ".launcher.jar")
+    writeFile targetManifest $ unlines $
+      ["Manifest-Version: 1.0"
+      ,"Created-By: etlas-" ++ display Etlas.version
+      ,"Main-Class: eta.main"
+      ,"Class-Path: " ++ exeJar]
+      ++ map ((++) "  ") (maybeJavaSourceAttr ++ relativeClassPaths)
+    -- Create the launcher jar
+    runProgramInvocation verbosity
+      $ programInvocation jarProg ["cfm", launcherJar, targetManifest]
+
   writeUTF8File scriptFile generateExeScript
   p <- getPermissions scriptFile
-  setPermissions scriptFile (p {executable = True})
+  setPermissions scriptFile (p { executable = True })
   where comp         = compiler lbi
         exeBi        = buildInfo exe
         isShared     = withDynExe lbi
@@ -375,6 +407,14 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
 isWindows :: LocalBuildInfo -> Bool
 isWindows lbi | Platform _ Windows <- hostPlatform lbi = True
               | otherwise = False
+
+mkRelative :: FilePath -> FilePath -> FilePath
+mkRelative base target = intercalate [pathSeparator]
+                         (replicate (length baseParts) "..")
+                     </> joinPath targetParts
+  where (baseParts, targetParts) = unzip
+                                 $ dropWhile (\(a,b) -> a == b)
+                                 $ zip (splitPath base) (splitPath target)
 
 -- |Install for ghc, .hi, .a and, if --with-ghci given, .o
 installLib    :: Verbosity

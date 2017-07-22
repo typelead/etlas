@@ -54,7 +54,7 @@ regenerateHaddockIndex verbosity pkgs progdb index = do
         let flags = [ "--gen-contents"
                     , "--gen-index"
                     , "--odir=" ++ tempDir
-                    , "--title=Haskell modules on this system" ]
+                    , "--title=Eta modules on this system" ]
                  ++ [ "--read-interface=" ++ html ++ "," ++ interface
                     | (interface, html) <- paths' ]
         runProgram verbosity confHaddock flags

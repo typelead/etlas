@@ -26,6 +26,7 @@ module Distribution.Simple.Program.Builtin (
     etaProgram,
     javaProgram,
     javacProgram,
+    jarProgram,
     gitProgram,
     etaPkgProgram,
     lhcProgram,
@@ -120,6 +121,7 @@ builtinPrograms =
     -- Eta-specific tools
     , javaProgram
     , javacProgram
+    , jarProgram
     , gitProgram
     ]
 
@@ -236,6 +238,13 @@ javacProgram = (simpleProgram "javac") {
           (l:_)
             | (_:version:_) <- words l -> underscoreToDot version
           _             -> error $ "Invalid javac version"
+  }
+
+jarProgram :: Program
+jarProgram = (simpleProgram "jar") {
+    programFindLocation = \v p -> findProgramInJavaHomeOrSearchPath "jar" v p
+    -- 'jar' doesn't seen to have a version so we'll just return 0
+  , programFindVersion = \_ _ -> return (Just (mkVersion [0]))
   }
 
 gitProgram :: Program

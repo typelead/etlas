@@ -512,14 +512,11 @@ checkFields pkg =
            "The 'description' field should be longer than the 'synopsis' "
         ++ "field. "
         ++ "It's useful to provide an informative 'description' to allow "
-        ++ "Haskell programmers who have never heard about your package to "
+        ++ "Eta programmers who have never heard about your package to "
         ++ "understand the purpose of your package. "
         ++ "The 'description' field content is typically shown by tooling "
-        ++ "(e.g. 'cabal info', Haddock, Hackage) below the 'synopsis' which "
+        ++ "(e.g. 'etlas info') below the 'synopsis' which "
         ++ "serves as a headline. "
-        ++ "Please refer to <https://www.haskell.org/"
-        ++ "cabal/users-guide/developing-packages.html#package-properties>"
-        ++ " for more details."
 
     -- check use of impossible constraints "tested-with: GHC== 6.10 && ==6.12"
   , check (not (null testedWithImpossibleRanges)) $

@@ -103,6 +103,7 @@ module Distribution.Simple.Program (
     , etaPkgProgram
     , javaProgram
     , javacProgram
+    , jarProgram
     , gitProgram
     , lhcProgram
     , lhcPkgProgram

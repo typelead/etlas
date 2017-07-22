@@ -191,7 +191,7 @@ defaultInstallDirs' False comp userInstall _hasLibs = do
       then defaultCabalDir
       else case buildOS of
            Windows -> do windowsProgramFilesDir <- getWindowsProgramFilesDir
-                         return (windowsProgramFilesDir </> "Haskell")
+                         return (windowsProgramFilesDir </> "Eta")
            _       -> return "/usr/local"
   installLibDir <-
       case buildOS of

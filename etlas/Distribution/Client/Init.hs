@@ -783,10 +783,7 @@ generateCabalFile fileName c =
                 True
 
        , field  "version"       (version       c)
-                (Just $ "The package version.  See the Haskell package versioning policy (PVP) for standards guiding when and how versions should be incremented.\nhttps://wiki.haskell.org/Package_versioning_policy\n"
-                ++ "PVP summary:      +-+------- breaking API changes\n"
-                ++ "                  | | +----- non-breaking API additions\n"
-                ++ "                  | | | +--- code changes with no API change")
+                (Just $ "The package version (i.e. 1.2.3.4).")
                 True
 
        , fieldS "synopsis"      (synopsis      c)

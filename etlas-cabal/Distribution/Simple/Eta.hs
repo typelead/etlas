@@ -377,18 +377,19 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
       launcher jar as a workaround. This places a restriction that you must
       develop Eta on the same drive that you installed it in. -}
   when isWindows' $ do
-    jarProg <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
+    jarProg    <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
+    targetDir' <- makeAbsolute targetDir
     let maybeJavaSourceAttr
           | hasJavaSources = [exeTmpDir </> extrasJar]
           | otherwise      = []
-        relativeClassPaths = map (mkRelative targetDir) classPaths
+        relativeClassPaths = map (mkRelative targetDir') classPaths
         targetManifest = targetDir </> "MANIFEST.MF"
         launcherJar = targetDir </> (exeName' ++ ".launcher.jar")
     writeFile targetManifest $ unlines $
       ["Manifest-Version: 1.0"
       ,"Created-By: etlas-" ++ display Etlas.version
       ,"Main-Class: eta.main"
-      ,"Class-Path: " ++ exeJar]
+      ,"Class-Path: " ++ exeNameReal]
       ++ map ((++) "  ") (maybeJavaSourceAttr ++ relativeClassPaths)
     -- Create the launcher jar
     runProgramInvocation verbosity
@@ -410,11 +411,13 @@ isWindows lbi | Platform _ Windows <- hostPlatform lbi = True
 
 mkRelative :: FilePath -> FilePath -> FilePath
 mkRelative base target = intercalate [pathSeparator]
-                         (replicate (length baseParts) "..")
-                     </> joinPath targetParts
-  where (baseParts, targetParts) = unzip
-                                 $ dropWhile (\(a,b) -> a == b)
-                                 $ zip (splitPath base) (splitPath target)
+                         (replicate numDots "..")
+                     </> joinPath (drop numEqualParts targetSplit)
+  where numEqualParts  =
+          length $ takeWhile (\(a,b) -> a == b) $ zip baseSplit targetSplit
+        numDots = length $ drop numEqualParts baseSplit
+        baseSplit   = splitPath base
+        targetSplit = splitPath target
 
 -- |Install for ghc, .hi, .a and, if --with-ghci given, .o
 installLib    :: Verbosity

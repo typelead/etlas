@@ -1267,8 +1267,21 @@ promptUserForTelemetry = do
     "        http://eta-lang.org/docs/html/privacy-policy.html",
     "",
     "Would you like to help us make Eta the fastest growing programming language,",
-    "and help pure functional programming become mainstream? (y/n)"]
+    "and help pure functional programming become mainstream? (y/n)" ]
   c <- getChar
+  putStrLn $ unlines [
+    "Thank you for trying out Eta.",
+    "",
+    "If you face any issues, you can:",
+    "",
+    "* File an issue at:",
+    "      https://github.com/typelead/eta/issues/new",
+    "",
+    "* Post your question on Eta-Discuss:",
+    "      https://groups.google.com/forum/#!newtopic/eta-discuss",
+    "",
+    "* Ask on the Gitter channel:",
+    "      https://gitter.im/typelead/eta" ]
   return $ not (c == 'n' || c == 'N')
 
 addSendMetrics :: SavedConfig -> Maybe Bool -> SavedConfig

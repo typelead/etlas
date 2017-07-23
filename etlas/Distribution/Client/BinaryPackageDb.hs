@@ -97,7 +97,10 @@ etaBinariesIndexPath version = either id etaVersionedPath version
 
 etaProgPath :: String -> Either String Version -> FilePath
 etaProgPath prog version = either id etaVersionedPath version
-                        </> "binaries" </> display buildPlatform </> prog
+                        </> "binaries" </> display buildPlatform </> (prog ++ ext)
+  where ext
+          | Platform _ Windows <- buildPlatform = ".exe"
+          | otherwise = ""
 
 topLevelIndexPath :: String
 topLevelIndexPath = "index"

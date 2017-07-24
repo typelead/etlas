@@ -9,7 +9,7 @@ license:            BSD3
 license-file:       LICENSE
 author:             TypeLead
 maintainer:         typeleadhq@gmail.com
-copyright:          2017, TypeLead Technologies Pvt. Ltd.
+copyright:          2017, TypeLead, Inc.
 category:           Distribution
 build-type:         Custom
 cabal-version:      >= 1.10

@@ -1,0 +1,48 @@
+version: 2.0
+jobs:
+  build:
+    working_directory: ~/etlas
+    docker:
+      - image: fpco/stack-build:latest
+
+    steps:
+      - checkout
+      - run: mkdir -p ~/.local/bin
+      - run: git submodule sync
+      - run: git submodule update --init --recursive
+      - run: grep '^resolver:' stack.yaml > resolver.txt
+
+      - restore_cache:
+          keys:
+            - dot-stack-{{ checksum "stack.yaml" }}-{{ checksum "etlas/etlas.cabal" }}-{{ checksum "etlas-cabal/etlas-cabal.cabal" }}
+            - dot-stack-{{ checksum "stack.yaml" }}
+            - dot-stack-{{ checksum "resolver.txt" }}
+            - dot-stack-resolver-{{ checksum "resolver.txt" }}
+
+      - run: stack setup
+      - save_cache:
+          key: dot-stack-resolver-{{ checksum "resolver.txt" }}
+          paths:
+            - ~/.stack
+
+      - restore_cache:
+          key: stack-work-{{ checksum "stack.yaml" }}
+
+      - run: stack build
+
+      - save_cache:
+          key: dot-stack-{{ checksum "stack.yaml" }}-{{ checksum "etlas/etlas.cabal" }}-{{ checksum "etlas-cabal/etlas-cabal.cabal" }}
+          paths:
+            - ~/.stack
+
+      - save_cache:
+          key: dot-stack-{{ checksum "stack.yaml" }}
+          paths:
+            - ~/.stack
+
+      - save_cache:
+          key: stack-work-{{ checksum "stack.yaml" }}
+          paths:
+            - ~/etlas/.stack-work
+            - ./etlas-cabal/.stack-work
+

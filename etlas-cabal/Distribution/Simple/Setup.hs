@@ -45,6 +45,7 @@ module Distribution.Simple.Setup (
   HaddockTarget(..),
   HaddockFlags(..),  emptyHaddockFlags,  defaultHaddockFlags,  haddockCommand,
   HscolourFlags(..), emptyHscolourFlags, defaultHscolourFlags, hscolourCommand,
+  DepsFlags(..),     emptyDepsFlags,     defaultDepsFlags,     depsCommand,
   BuildFlags(..),    emptyBuildFlags,    defaultBuildFlags,    buildCommand,
   buildVerbose,
   ReplFlags(..),                         defaultReplFlags,     replCommand,
@@ -1706,6 +1707,60 @@ instance Monoid CleanFlags where
 
 instance Semigroup CleanFlags where
   (<>) = gmappend
+
+-- ------------------------------------------------------------
+-- * Deps flags
+-- ------------------------------------------------------------
+
+data DepsFlags = DepsFlags {
+  depsVerbosity :: Flag Verbosity,
+  depsClasspath :: Flag Bool,
+  depsMaven     :: Flag Bool
+  } deriving Generic
+
+defaultDepsFlags :: DepsFlags
+defaultDepsFlags =
+  DepsFlags { depsVerbosity = toFlag normal
+            , depsClasspath = mempty
+            , depsMaven     = mempty }
+
+depsCommand :: CommandUI DepsFlags
+depsCommand = CommandUI
+  { commandName         = "deps"
+  , commandSynopsis     = "Obtain dependency information about the project."
+  , commandDescription  = Just $ \_ -> wrapText $
+      "Affected by configuration options, see `configure`.\n"
+  , commandNotes        = Just $ \pname ->
+       "Examples:\n"
+        ++ "  " ++ pname ++ " deps --classpath"
+        ++ "    Lists the absolute paths of all the dependency jars\n"
+        ++ "  " ++ pname ++ " deps --maven"
+        ++ "    Lists the transitive Maven dependencies\n"
+  , commandUsage        = usageAlternatives "deps" ["[FLAGS]"]
+  , commandDefaultFlags = defaultDepsFlags
+  , commandOptions      = \showOrParseArgs ->
+      [ optionVerbosity depsVerbosity (\v flags -> flags { depsVerbosity = v })
+      , option [] ["classpath"]
+          "List the absolute paths of all the dependency jars."
+          depsClasspath (\v flags -> flags { depsClasspath = v })
+          trueArg
+
+      , option [] ["maven"]
+          "List the transitive Maven dependencies."
+          depsMaven (\v flags -> flags { depsMaven = v })
+          trueArg
+      ]
+  }
+
+instance Monoid DepsFlags where
+  mempty = gmempty
+  mappend = (<>)
+
+instance Semigroup DepsFlags where
+  (<>) = gmappend
+
+emptyDepsFlags :: DepsFlags
+emptyDepsFlags = mempty
 
 -- ------------------------------------------------------------
 -- * Build flags

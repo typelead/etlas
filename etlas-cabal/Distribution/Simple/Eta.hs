@@ -23,7 +23,9 @@ module Distribution.Simple.Eta (
         runJava,
         fetchMavenDependencies,
         findCoursierRef,
-        findVerifyRef
+        findVerifyRef,
+        getLibraryComponent,
+        getDependencyClassPaths
   ) where
 
 import Prelude ()
@@ -216,53 +218,55 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
   let runEtaProg          = runGHC verbosity etaProg comp (hostPlatform lbi)
       libBi               = libBuildInfo lib
 
-  (depJars, mavenDeps') <- getDependencyClassPaths (installedPkgs lbi)
-                            pkgDescr lbi clbi
+  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi
+  case mDeps of
+    Just (depJars, mavenDeps') -> do
 
-  let mavenDeps = mavenDeps' ++ extraLibs libBi
-      mavenRepos = frameworks libBi
-  mavenPaths <- fetchMavenDependencies verbosity mavenRepos mavenDeps
-                   (withPrograms lbi)
-  let fullClassPath = depJars ++ mavenPaths
+      let mavenDeps = mavenDeps' ++ extraLibs libBi
+          mavenRepos = frameworks libBi
+      mavenPaths <- fetchMavenDependencies verbosity mavenRepos mavenDeps
+                      (withPrograms lbi)
+      let fullClassPath = depJars ++ mavenPaths
 
-  createDirectoryIfMissingVerbose verbosity True libTargetDir
-  -- TODO: do we need to put hs-boot files into place for mutually recursive
-  -- modules?
-  etlasDir <- defaultEtlasDir
+      createDirectoryIfMissingVerbose verbosity True libTargetDir
+      -- TODO: do we need to put hs-boot files into place for mutually recursive
+      -- modules?
+      etlasDir <- defaultEtlasDir
 
-  let javaSrcs    = javaSources libBi
-      baseOpts    = componentGhcOptions verbosity lbi libBi clbi libTargetDir
-      linkJavaLibOpts = mempty {
-                          ghcOptInputFiles = toNubListR javaSrcs,
-                          ghcOptExtra      = toNubListR $
-                            ["-cp", mkMergedClassPath lbi fullClassPath]
-                      }
-      vanillaOptsNoJavaLib = baseOpts `mappend` mempty {
-                      ghcOptMode         = toFlag GhcModeMake,
-                      ghcOptNumJobs      = numJobs,
-                      ghcOptInputModules = toNubListR $ allLibModules lib clbi,
-                      ghcOptOutputFile   = toFlag target
-                    }
-      vanillaOpts' = vanillaOptsNoJavaLib `mappend` linkJavaLibOpts
-      sharedOpts  = vanillaOpts' `mappend` mempty {
-                        ghcOptShared = toFlag True,
-                        ghcOptExtra       = toNubListR $
-                                            etaSharedOptions libBi
-                      }
-      vanillaOpts = vanillaOpts' {
-                        ghcOptExtraDefault = toNubListR ["-staticlib"]
-                    }
-      target = libTargetDir </> mkJarName uid
-  unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
-       let withVerify act = do
-             _ <- act
-             when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
-               runVerify verbosity fullClassPath target lbi
-       if isVanillaLib
-       then withVerify $ runEtaProg vanillaOpts
-       else if isSharedLib
-       then withVerify $ runEtaProg sharedOpts
-       else return ()
+      let javaSrcs    = javaSources libBi
+          baseOpts    = componentGhcOptions verbosity lbi libBi clbi libTargetDir
+          linkJavaLibOpts = mempty {
+                              ghcOptInputFiles = toNubListR javaSrcs,
+                              ghcOptExtra      = toNubListR $
+                                ["-cp", mkMergedClassPath lbi fullClassPath]
+                          }
+          vanillaOptsNoJavaLib = baseOpts `mappend` mempty {
+                          ghcOptMode         = toFlag GhcModeMake,
+                          ghcOptNumJobs      = numJobs,
+                          ghcOptInputModules = toNubListR $ allLibModules lib clbi,
+                          ghcOptOutputFile   = toFlag target
+                        }
+          vanillaOpts' = vanillaOptsNoJavaLib `mappend` linkJavaLibOpts
+          sharedOpts  = vanillaOpts' `mappend` mempty {
+                            ghcOptShared = toFlag True,
+                            ghcOptExtra       = toNubListR $
+                                                etaSharedOptions libBi
+                          }
+          vanillaOpts = vanillaOpts' {
+                            ghcOptExtraDefault = toNubListR ["-staticlib"]
+                        }
+          target = libTargetDir </> mkJarName uid
+      unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
+          let withVerify act = do
+                _ <- act
+                when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
+                  runVerify verbosity fullClassPath target lbi
+          if isVanillaLib
+          then withVerify $ runEtaProg vanillaOpts
+          else if isSharedLib
+          then withVerify $ runEtaProg sharedOpts
+          else return ()
+    Nothing -> die' verbosity "Missing dependencies. Try `etlas install --dependencies-only`?"
 
 -- | Start a REPL without loading any source files.
 startInterpreter :: Verbosity -> ProgramDb -> Compiler -> Platform
@@ -307,97 +311,100 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
 
   srcMainFile <- findFile (hsSourceDirs exeBi) modPath
 
-  (depJars, mavenDeps') <- getDependencyClassPaths (installedPkgs lbi)
-                            pkgDescr lbi clbi
+  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi
+  case mDeps of
+    Just (depJars, mavenDeps') -> do
 
-  let mavenDeps = mavenDeps' ++ (extraLibs . buildInfo $ exe)
-      mavenRepos = frameworks . buildInfo $ exe
-  mavenPaths <- fetchMavenDependencies verbosity
-                  mavenRepos mavenDeps (withPrograms lbi)
-  let javaSrcs
-        | isShared  = javaSrcs'
-        | otherwise = mavenPaths ++ javaSrcs'
+      let mavenDeps = mavenDeps' ++ (extraLibs . buildInfo $ exe)
+          mavenRepos = frameworks . buildInfo $ exe
+      mavenPaths <- fetchMavenDependencies verbosity
+                      mavenRepos mavenDeps (withPrograms lbi)
+      let javaSrcs
+            | isShared  = javaSrcs'
+            | otherwise = mavenPaths ++ javaSrcs'
 
-      fullClassPath = depJars ++ mavenPaths
+          fullClassPath = depJars ++ mavenPaths
 
-      classPaths
-        | isShared  = fullClassPath
-        | otherwise = []
-      dirEnvVar = "DIR"
-      dirEnvVarRef
-        | isWindows' = "%" ++ dirEnvVar ++ "%"
-        | otherwise  = "$" ++ dirEnvVar
-      hasJavaSources = isShared && not (null javaSrcs)
-      javaSourcePath = exeDir </> extrasJar
-      maybeJavaSourceEnv
-        | hasJavaSources = [dirEnvVarRef </> exeTmpDir </> extrasJar]
-        | otherwise      =  []
-      baseOpts = (componentGhcOptions verbosity lbi exeBi clbi exeDir)
-                 `mappend` mempty {
-                   ghcOptMode         = toFlag GhcModeMake,
-                   ghcOptInputFiles   = toNubListR $ srcMainFile : javaSrcs,
-                   ghcOptInputModules = toNubListR $ exeModules exe,
-                   ghcOptNumJobs      = numJobs,
-                   ghcOptOutputFile   = toFlag exeJar,
-                   ghcOptShared       = toFlag isShared,
-                   ghcOptExtra        = toNubListR $
-                     ["-cp", mkMergedClassPath lbi fullClassPath]
-                 }
+          classPaths
+            | isShared  = fullClassPath
+            | otherwise = []
+          dirEnvVar = "DIR"
+          dirEnvVarRef
+            | isWindows' = "%" ++ dirEnvVar ++ "%"
+            | otherwise  = "$" ++ dirEnvVar
+          hasJavaSources = isShared && not (null javaSrcs)
+          javaSourcePath = exeDir </> extrasJar
+          maybeJavaSourceEnv
+            | hasJavaSources = [dirEnvVarRef </> exeTmpDir </> extrasJar]
+            | otherwise      =  []
+          baseOpts = (componentGhcOptions verbosity lbi exeBi clbi exeDir)
+                    `mappend` mempty {
+                      ghcOptMode         = toFlag GhcModeMake,
+                      ghcOptInputFiles   = toNubListR $ srcMainFile : javaSrcs,
+                      ghcOptInputModules = toNubListR $ exeModules exe,
+                      ghcOptNumJobs      = numJobs,
+                      ghcOptOutputFile   = toFlag exeJar,
+                      ghcOptShared       = toFlag isShared,
+                      ghcOptExtra        = toNubListR $
+                        ["-cp", mkMergedClassPath lbi fullClassPath]
+                    }
 
-      withVerify act = do
-        _ <- act
-        when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
-          runVerify verbosity (exeJar : javaSourcePath : classPaths) exeJar lbi
+          withVerify act = do
+            _ <- act
+            when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
+              runVerify verbosity (exeJar : javaSourcePath : classPaths) exeJar lbi
 
-  withVerify $ runEtaProg baseOpts
+      withVerify $ runEtaProg baseOpts
 
-  -- Generate command line executable file
-  let classPaths''
-        | null classPaths && not hasJavaSources = ""
-        | otherwise = mkMergedClassPath lbi (maybeJavaSourceEnv ++ classPaths)
-      exeJarEnv   = dirEnvVarRef </> exeNameReal
-      totalClassPath = exeJarEnv ++ [classPathSep] ++ classPaths''
-      -- For Windows
-      launcherJarEnv = dirEnvVarRef </> (exeName' ++ ".launcher.jar")
-      generateExeScript
-        | isWindows'
-        = "@echo off\r\n"
-       ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"
-       ++ "java -classpath \"" ++ launcherJarEnv ++ "\" eta.main %*\r\n"
-        | otherwise
-        = "#!/usr/bin/env bash\n"
-       ++ dirEnvVar ++ "=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"\n"
-       ++ "java -classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"\n"
-      scriptFile
-        | isWindows' = prefix ++ ".cmd"
-        | otherwise  = prefix
-        where prefix = targetDir </> exeName'
+      -- Generate command line executable file
+      let classPaths''
+            | null classPaths && not hasJavaSources = ""
+            | otherwise = mkMergedClassPath lbi (maybeJavaSourceEnv ++ classPaths)
+          exeJarEnv   = dirEnvVarRef </> exeNameReal
+          totalClassPath = exeJarEnv ++ [classPathSep] ++ classPaths''
+          -- For Windows
+          launcherJarEnv = dirEnvVarRef </> (exeName' ++ ".launcher.jar")
+          generateExeScript
+            | isWindows'
+            = "@echo off\r\n"
+           ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"
+           ++ "java -classpath \"" ++ launcherJarEnv ++ "\" eta.main %*\r\n"
+            | otherwise
+            = "#!/usr/bin/env bash\n"
+           ++ dirEnvVar ++ "=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"\n"
+           ++ "java -classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"\n"
+          scriptFile
+            | isWindows' = prefix ++ ".cmd"
+            | otherwise  = prefix
+            where prefix = targetDir </> exeName'
 
-  {- Windows faces the dreaded line-length limit which forces us to create a
-      launcher jar as a workaround. This places a restriction that you must
-      develop Eta on the same drive that you installed it in. -}
-  when isWindows' $ do
-    jarProg    <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
-    targetDir' <- makeAbsolute targetDir
-    let maybeJavaSourceAttr
-          | hasJavaSources = [exeTmpDir </> extrasJar]
-          | otherwise      = []
-        relativeClassPaths = map (mkRelative targetDir') classPaths
-        targetManifest = targetDir </> "MANIFEST.MF"
-        launcherJar = targetDir </> (exeName' ++ ".launcher.jar")
-    writeFile targetManifest $ unlines $
-      ["Manifest-Version: 1.0"
-      ,"Created-By: etlas-" ++ display Etlas.version
-      ,"Main-Class: eta.main"
-      ,"Class-Path: " ++ exeNameReal]
-      ++ map ((++) "  ") (maybeJavaSourceAttr ++ relativeClassPaths)
-    -- Create the launcher jar
-    runProgramInvocation verbosity
-      $ programInvocation jarProg ["cfm", launcherJar, targetManifest]
+      {- Windows faces the dreaded line-length limit which forces us to create a
+          launcher jar as a workaround. This places a restriction that you must
+          develop Eta on the same drive that you installed it in. -}
+      when isWindows' $ do
+        jarProg    <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
+        targetDir' <- makeAbsolute targetDir
+        let maybeJavaSourceAttr
+              | hasJavaSources = [exeTmpDir </> extrasJar]
+              | otherwise      = []
+            relativeClassPaths = map (mkRelative targetDir') classPaths
+            targetManifest = targetDir </> "MANIFEST.MF"
+            launcherJar = targetDir </> (exeName' ++ ".launcher.jar")
+        writeFile targetManifest $ unlines $
+          ["Manifest-Version: 1.0"
+          ,"Created-By: etlas-" ++ display Etlas.version
+          ,"Main-Class: eta.main"
+          ,"Class-Path: " ++ exeNameReal]
+          ++ map ((++) "  ") (maybeJavaSourceAttr ++ relativeClassPaths)
+        -- Create the launcher jar
+        runProgramInvocation verbosity
+          $ programInvocation jarProg ["cfm", launcherJar, targetManifest]
 
-  writeUTF8File scriptFile generateExeScript
-  p <- getPermissions scriptFile
-  setPermissions scriptFile (p { executable = True })
+      writeUTF8File scriptFile generateExeScript
+      p <- getPermissions scriptFile
+      setPermissions scriptFile (p { executable = True })
+
+    Nothing -> die' verbosity "Missing dependencies. Try `etlas install --dependencies-only`?"
   where comp         = compiler lbi
         exeBi        = buildInfo exe
         isShared     = withDynExe lbi
@@ -575,39 +582,50 @@ getDependencyClassPaths
   -> PackageDescription
   -> LocalBuildInfo
   -> ComponentLocalBuildInfo
-  -> IO ([FilePath], [String])
-getDependencyClassPaths packageIndex pkgDescr lbi clbi = do
-  libs' <- fmap concat $ mapM hsLibraryPaths packageInfos
-  return (libPaths ++ libs', libMavenDeps ++ mavenDeps)
-  where mavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
+  -> IO (Maybe ([FilePath], [String]))
+getDependencyClassPaths packageIndex pkgDescr lbi clbi
+  | Left closurePackageIndex <- closurePackageIndex'
+  = do let mavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
+
+           packageInfos = PackageIndex.allPackages closurePackageIndex
+           hsLibraryPaths pinfo = mapM (findFile (libraryDirs pinfo))
+                                       (map (<.> "jar") $ hsLibraries pinfo)
+
+       libs' <- fmap concat $ mapM hsLibraryPaths packageInfos
+
+       return $ Just (libPaths ++ libs', libMavenDeps ++ mavenDeps)
+
+  | otherwise = return Nothing
+  where (libs, packages'') = partition (isInfixOf "-inplace" . show) packages'
+        dirEnvVarRef
+          | isWindows lbi = "%DIR%"
+          | otherwise     = "$DIR"
+        libPaths
+          | null libs = []
+          | otherwise = [dirEnvVarRef ++ "/../"
+                         ++ mkJarName (fromJust mbLibUid)]
+        libMavenDeps
+          | null libs = []
+          | otherwise = extraLibs . libBuildInfo . fromJust $ library pkgDescr
+        (mbLibUid, libDeps)
+          | null libs = (Nothing, [])
+          | otherwise = (Just $ componentUnitId clbi'
+                        , map fst $ componentPackageDeps clbi')
+          where clbi' = getLibraryComponent lbi
+
         packages' = map fst $ componentPackageDeps clbi
-        (libs, packages'') = partition (isInfixOf "-inplace" . show) packages'
-        dirEnvVarRef = if isWindows lbi then "%DIR%" else "$DIR"
-        libPaths = if null libs then [] else [dirEnvVarRef ++ "/../"
-                                              ++ mkJarName (fromJust mbLibUid)]
-        libMavenDeps = if null libs
-                       then []
-                       else extraLibs . libBuildInfo . fromJust $ library pkgDescr
-        (mbLibUid, libDeps) =
-          if null libs
-          then (Nothing, [])
-          else (\(clbi':_) -> ( Just (componentUnitId clbi')
-                              , map fst $ componentPackageDeps clbi' ))
-             . fromJust
-             -- TODO: When there are multiple component dependencies (Backpack-support)
-             --       this might break. -RM
-             . Map.lookup CLibName
-             $ componentNameMap lbi
 
         packages = libDeps ++ packages''
 
-        closurePackageIndex = case PackageIndex.dependencyClosure packageIndex packages of
-          Left pkgIdx -> pkgIdx
-          Right errs -> error $ show ("deps error", errs)
+        closurePackageIndex' = PackageIndex.dependencyClosure packageIndex packages
 
-        packageInfos = PackageIndex.allPackages closurePackageIndex
-        hsLibraryPaths pinfo = mapM (findFile (libraryDirs pinfo))
-                                    (map (<.> "jar") $ hsLibraries pinfo)
+getLibraryComponent :: LocalBuildInfo -> ComponentLocalBuildInfo
+getLibraryComponent lbi = head clbis
+  where clbis = fromJust
+              -- TODO: When there are multiple component dependencies
+              --       (Backpack-support) this might break. -RM
+              . Map.lookup CLibName
+              $ componentNameMap lbi
 
 builtInMavenResolvers :: [(String, String)]
 builtInMavenResolvers =

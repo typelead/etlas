@@ -272,6 +272,7 @@ installBootLibraries verbosity mVersion repos config globalFlags programPaths = 
   paths <- getBasePackageBinaryPaths verbosity transport binaryPkgDb mVersion
   let (configFlags', configExFlags', installFlags', haddockFlags')
         = commandDefaultFlags Setup.installCommand
+      -- TODO: This seems to override the saved config flags. Fix this.
       configFlags = savedConfigureFlags config `mappend`
                     configFlags' { configDistPref = toFlag dist
                                  , configHcPath   = maybeToFlag $ nth 0 programPaths

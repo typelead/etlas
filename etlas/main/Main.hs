@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, MultiWayIf #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -60,6 +60,9 @@ import Distribution.Simple.Setup
          , TestFlags(..), BenchmarkFlags(..)
          , Flag(..), fromFlag, fromFlagOrDefault, flagToMaybe, toFlag
          , configAbsolutePaths
+         , depsCommand
+         , DepsFlags(..)
+         , defaultConfigFlags
          )
 
 import Prelude ()
@@ -139,7 +142,8 @@ import Distribution.Client.BinaryUtils
 
 import Distribution.Package (packageId)
 import Distribution.PackageDescription
-         ( BuildType(..), Executable(..), buildable )
+         ( BuildType(..), Executable(..), buildable, Library(libBuildInfo),
+           BuildInfo(extraLibs), PackageDescription(library))
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec ( readGenericPackageDescription )
 #else
@@ -152,7 +156,8 @@ import qualified Distribution.Simple as Simple
 import qualified Distribution.Make as Make
 import qualified Distribution.Types.UnqualComponentName as Make
 
-import Distribution.Simple.Eta ( findVerifyRef, findCoursierRef )
+import Distribution.Simple.Eta ( findVerifyRef, findCoursierRef, getLibraryComponent
+                               , getDependencyClassPaths, mkJarName )
 import Distribution.Simple.Build
          ( startInterpreter )
 import Distribution.Simple.Command
@@ -179,7 +184,7 @@ import Distribution.Simple.Utils
 import Distribution.Text
          ( display )
 import Distribution.Verbosity as Verbosity
-         ( Verbosity, normal, moreVerbose )
+         ( Verbosity, normal, moreVerbose, silent )
 import Distribution.Version
          ( Version, mkVersion, orLaterVersion )
 import qualified Paths_etlas (version)
@@ -194,7 +199,7 @@ import System.IO                ( BufferMode(LineBuffering), hSetBuffering
                                 , stderr
 #endif
                                 , stdout )
-import System.Directory         (doesFileExist, getCurrentDirectory)
+import System.Directory         (doesFileExist, getCurrentDirectory, makeAbsolute)
 import Data.Monoid              (Any(..))
 import Control.Exception        (SomeException(..), try)
 import Control.Monad            (mapM_)
@@ -283,6 +288,7 @@ mainWorker args = topHandler $
       , regularCmd initCommand initAction
       , regularCmd configureExCommand configureAction
       , regularCmd reconfigureCommand reconfigureAction
+      , regularCmd depsCommand depsAction
       , regularCmd buildCommand buildAction
       , regularCmd replCommand replAction
       , regularCmd sandboxCommand sandboxAction
@@ -418,6 +424,45 @@ reconfigureAction flags@(configFlags, _) _ globalFlags = do
     verbosity distPref useSandbox DontSkipAddSourceDepsCheck NoFlag
     checkFlags [] globalFlags config
   pure ()
+
+depsAction :: DepsFlags -> [String] -> Action
+depsAction depsFlags extraArgs globalFlags = do
+  let verbosity = fromFlagOrDefault silent (depsVerbosity depsFlags)
+  (useSandbox, config) <- loadConfigOrSandboxConfig verbosity globalFlags
+  distPref    <- findSavedDistPref config mempty
+  config' <-
+    reconfigure configureAction
+    verbosity distPref useSandbox DontSkipAddSourceDepsCheck mempty
+    mempty [] globalFlags config
+  lbi         <- Simple.getBuildConfig Simple.simpleUserHooks verbosity distPref
+  let pkgDescr = LBI.localPkgDescr lbi
+      go lbi tryDeps = do
+        case library pkgDescr of
+          Just lib -> do
+            let clbi = getLibraryComponent lbi
+            mResult <- getDependencyClassPaths (LBI.installedPkgs lbi) pkgDescr
+                        lbi clbi
+            case mResult of
+              Just (depJars, mavenDeps') -> do
+                if | fromFlagOrDefault False (Cabal.depsMaven depsFlags) -> do
+                      mapM_ (notice normal)
+                        $ mavenDeps' ++ extraLibs (libBuildInfo lib)
+                   | fromFlagOrDefault False (Cabal.depsClasspath depsFlags) -> do
+                       libJar <- makeAbsolute (LBI.buildDir lbi
+                                           </> mkJarName (LBI.componentUnitId clbi))
+                       mapM_ (notice normal)
+                         $ depJars ++ [libJar]
+                   | otherwise -> die' verbosity "Invalid arguments. See `etlas deps --help`."
+              Nothing
+                | tryDeps -> do
+                  installAction ((defaultConfigFlags defaultProgramDb) { configVerbosity = toFlag verbosity }
+                                ,defaultConfigExFlags
+                                ,defaultInstallFlags { installOnlyDeps = toFlag True }
+                                ,defaultHaddockFlags) [] globalFlags
+                  go lbi False
+                | otherwise -> die' verbosity "Failed to resolve dependencies."
+          Nothing -> die' verbosity "Not a library."
+  go lbi True
 
 buildAction :: (BuildFlags, BuildExFlags) -> [String] -> Action
 buildAction (buildFlags, buildExFlags) extraArgs globalFlags = do

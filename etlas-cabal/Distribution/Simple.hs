@@ -55,7 +55,8 @@ module Distribution.Simple (
         autoconfUserHooks,
         defaultUserHooks, emptyUserHooks,
         -- ** Utils
-        defaultHookedPackageDesc
+        defaultHookedPackageDesc,
+        getBuildConfig
   ) where
 
 import Prelude ()

@@ -451,7 +451,7 @@ depsAction depsFlags extraArgs globalFlags = do
                        libJar <- makeAbsolute (LBI.buildDir lbi
                                            </> mkJarName (LBI.componentUnitId clbi))
                        mapM_ (notice normal)
-                         $ depJars ++ [libJar]
+                         $ libJar : depJars
                    | otherwise -> die' verbosity "Invalid arguments. See `etlas deps --help`."
               Nothing
                 | tryDeps -> do

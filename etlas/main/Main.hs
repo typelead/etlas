@@ -202,7 +202,7 @@ import System.IO                ( BufferMode(LineBuffering), hSetBuffering
                                 , stdout )
 import System.Directory         (doesFileExist, getCurrentDirectory, makeAbsolute)
 import Data.Monoid              (Any(..))
-import Control.Exception        (SomeException(..), try, catch)
+import Control.Exception        (SomeException(..), try, catch, throwIO)
 import Control.Monad            (mapM_)
 
 -- | Entry point
@@ -427,8 +427,8 @@ reconfigureAction flags@(configFlags, _) _ globalFlags = do
   pure ()
 
 depsAction :: DepsFlags -> [String] -> Action
-depsAction depsFlags extraArgs globalFlags' = do
-  let verbosity = fromFlagOrDefault silent (depsVerbosity depsFlags)
+depsAction depsFlags _extraArgs globalFlags' = do
+  let verbosity = fromFlagOrDefault normal (depsVerbosity depsFlags)
   (useSandbox, config) <- loadConfigOrSandboxConfig verbosity globalFlags'
   let globalFlags = savedGlobalFlags config `mappend` globalFlags'
       runInstall  = installAction ((defaultConfigFlags defaultProgramDb) {
@@ -440,19 +440,22 @@ depsAction depsFlags extraArgs globalFlags' = do
                                   ,defaultConfigExFlags
                                   ,defaultInstallFlags { installOnlyDeps = toFlag True }
                                   ,defaultHaddockFlags) [] globalFlags
-  distPref    <- findSavedDistPref config mempty
+  distPref <- findSavedDistPref config (depsDistPref depsFlags)
   let confAction tryAgain = do
         installDeps <- catch (fmap (const False) $
                                 reconfigure configureAction silent distPref useSandbox
                                   DontSkipAddSourceDepsCheck mempty mempty []
                                   globalFlags config)
-                             (\(e :: SomeException) -> return True)
+                             (\(e :: SomeException) -> do
+                                if tryAgain
+                                then return True
+                                else throwIO e)
         when (installDeps && tryAgain) $ do
           runInstall
           confAction False
   confAction True
 
-  lbi <- Simple.getBuildConfig Simple.simpleUserHooks verbosity distPref
+  lbi <- Simple.getBuildConfig Simple.simpleUserHooks silent distPref
   let pkgDescr = LBI.localPkgDescr lbi
       go lbi tryDeps = do
         case library pkgDescr of

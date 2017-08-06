@@ -1715,14 +1715,16 @@ instance Semigroup CleanFlags where
 data DepsFlags = DepsFlags {
   depsVerbosity :: Flag Verbosity,
   depsClasspath :: Flag Bool,
-  depsMaven     :: Flag Bool
+  depsMaven     :: Flag Bool,
+  depsDistPref  :: Flag FilePath
   } deriving Generic
 
 defaultDepsFlags :: DepsFlags
 defaultDepsFlags =
   DepsFlags { depsVerbosity = toFlag normal
             , depsClasspath = mempty
-            , depsMaven     = mempty }
+            , depsMaven     = mempty
+            , depsDistPref  = mempty }
 
 depsCommand :: CommandUI DepsFlags
 depsCommand = CommandUI
@@ -1740,6 +1742,8 @@ depsCommand = CommandUI
   , commandDefaultFlags = defaultDepsFlags
   , commandOptions      = \showOrParseArgs ->
       [ optionVerbosity depsVerbosity (\v flags -> flags { depsVerbosity = v })
+      , optionDistPref
+        depsDistPref (\d flags -> flags { depsDistPref = d }) showOrParseArgs
       , option [] ["classpath"]
           "List the absolute paths of all the dependency jars."
           depsClasspath (\v flags -> flags { depsClasspath = v })
@@ -2289,7 +2293,7 @@ optionDistPref :: (flags -> Flag FilePath)
                -> OptionField flags
 optionDistPref get set = \showOrParseArgs ->
   option "" (distPrefFlagName showOrParseArgs)
-    (   "The directory where Cabal puts generated build files "
+    (   "The directory where Etlas puts generated build files "
      ++ "(default " ++ defaultDistPref ++ ")")
     get set
     (reqArgFlag "DIR")

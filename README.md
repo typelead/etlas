@@ -12,7 +12,10 @@ You can download the binaries from [here](http://eta-lang.org/docs/html/getting-
 
 ### Source
 
-Alternatively, you can install from source as follows:
+If you have not installed Eta yet, you can find the source installation instructions
+[here](http://eta-lang.org/docs/html/getting-started.html#method-2-source-installation). If you're looking for Etlas 1.0.2.0, make sure you clone the `etlas-1.0.2.0` tag.
+
+If you have already installed Eta, and you want upgrade your version of Etlas:
 
 1. Install [Stack](https://docs.haskellstack.org/en/stable/README/).
 

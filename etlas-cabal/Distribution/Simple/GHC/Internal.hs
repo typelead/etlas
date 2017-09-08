@@ -356,10 +356,11 @@ componentGhcOptions verbosity implInfo lbi bi clbi odir =
     toGhcOptimisation MaximumOptimisation = toFlag GhcMaximumOptimisation
 
     -- GHC doesn't support debug info levels yet.
-    toGhcDebugInfo NoDebugInfo      = mempty
-    toGhcDebugInfo MinimalDebugInfo = toFlag True
-    toGhcDebugInfo NormalDebugInfo  = toFlag True
-    toGhcDebugInfo MaximalDebugInfo = toFlag True
+    -- But eta currently does it, mimic ghc 8 debug levels  
+    toGhcDebugInfo NoDebugInfo      = toFlag GhcNoDebugInfo
+    toGhcDebugInfo MinimalDebugInfo = toFlag GhcMinimalDebugInfo
+    toGhcDebugInfo NormalDebugInfo  = toFlag GhcNormalDebugInfo
+    toGhcDebugInfo MaximalDebugInfo = toFlag GhcNormalDebugInfo
 
     exe_paths = [ componentBuildDir lbi (targetCLBI exe_tgt)
                 | uid <- componentExeDeps clbi

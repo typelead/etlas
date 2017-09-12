@@ -384,12 +384,11 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
       when isWindows' $ do
         jarProg    <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
         targetDir' <- makeAbsolute targetDir
-        let maybeJavaSourceAttr
-              | hasJavaSources = [exeTmpDir </> extrasJar]
-              | otherwise      = []
-            relativeClassPaths = map (mkRelative targetDir') classPaths
-            withStartingPathSeparatorCPs = map (addStartingPathSeparator)
-                                           relativeClassPaths 
+        let addStartingPathSep path | hasDrive path  = pathSeparator : path
+                                    | otherwise      = path
+            maybeJavaSourceAttr | hasJavaSources = [exeTmpDir </> extrasJar]
+                                | otherwise      = []
+            classPaths' = map (addStartingPathSep . mkRelative targetDir') classPaths
             targetManifest = targetDir </> "MANIFEST.MF"
             launcherJar = targetDir </> (exeName' ++ ".launcher.jar")
         writeFile targetManifest $ unlines $
@@ -397,7 +396,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
           ,"Created-By: etlas-" ++ display Etlas.version
           ,"Main-Class: eta.main"
           ,"Class-Path: " ++ exeNameReal]
-          ++ map ((++) "  ") (maybeJavaSourceAttr ++ withStartingPathSeparatorCPs)
+          ++ map ((++) "  ") (maybeJavaSourceAttr ++ classPaths')
         -- Create the launcher jar
         runProgramInvocation verbosity
           $ programInvocation jarProg ["cfm", launcherJar, targetManifest]
@@ -427,10 +426,6 @@ mkRelative base target = intercalate [pathSeparator]
         numDots = length $ drop numEqualParts baseSplit
         baseSplit   = splitPath base
         targetSplit = splitPath target
-
-addStartingPathSeparator :: FilePath -> FilePath
-addStartingPathSeparator path | isAbsolute path = pathSeparator : path
-                              | otherwise       = path
 
 -- |Install for ghc, .hi, .a and, if --with-ghci given, .o
 installLib    :: Verbosity

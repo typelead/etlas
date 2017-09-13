@@ -550,7 +550,7 @@ defaultConfigFlags progDb = emptyConfigFlags {
     configExactConfiguration = Flag False,
     configFlagError    = NoFlag,
     configRelocatable  = Flag False,
-    configDebugInfo    = Flag NoDebugInfo,
+    configDebugInfo    = Flag NormalDebugInfo,
     configAllowNewer   = Nothing,
     configVerifyMode   = Flag False
   }
@@ -712,7 +712,7 @@ configureOptions showOrParseArgs =
                               Flag MaximalDebugInfo -> [Just "3"]
                               _                     -> [])
                  "" ["enable-debug-info"]
-                 "Emit debug info (n is 0--3, default is 0)",
+                 "Emit debug info (n is 0--3, default is 2)",
           noArg (Flag NoDebugInfo) []
                 ["disable-debug-info"]
                 "Don't emit debug info"

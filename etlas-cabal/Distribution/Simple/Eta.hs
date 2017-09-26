@@ -371,7 +371,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
            ++ "set ETA_JAVA_CMD=java.exe\r\n"
            ++ "if defined JAVA_HOME (\r\n"
            ++ "    set JAVA_HOME=%JAVA_HOME:\"=%\r\n"
-           ++ "    set ETA_JAVA_CMD=%JAVA_HOME%\bin\%ETA_JAVA_CMD%\r\n"
+           ++ "    set ETA_JAVA_CMD=%JAVA_HOME%\\bin\\%ETA_JAVA_CMD%\r\n"
            ++ ")\r\n"
            ++ "\"%ETA_JAVA_CMD%\"  %JAVA_ARGS% %JAVA_OPTS% %ETA_JAVA_ARGS% "
               ++ "-classpath \"" ++ launcherJarEnv ++ "\" eta.main %*\r\n"

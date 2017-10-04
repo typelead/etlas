@@ -361,14 +361,17 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
             | null classPaths && not hasJavaSources = ""
             | otherwise = mkMergedClassPath lbi (maybeJavaSourceEnv ++ classPaths)
           exeJarEnv   = dirEnvVarRef </> exeNameReal
-          totalClassPath =
-            exeJarEnv ++ [classPathSep] ++ classPaths'' ++ "$ETA_CLASSPATH"
+          totalClassPath = exeJarEnv ++ [classPathSep] ++
+                           classPaths'' ++ [classPathSep] ++ "$ETA_CLASSPATH"
           -- For Windows
           launcherJarEnv = dirEnvVarRef </> (exeName' ++ ".launcher.jar")
+          winClassPath = "\"" ++ launcherJarEnv ++ "\"" ++ [classPathSep] ++
+                         "%ETA_CLASSPATH%"
           generateExeScript
             | isWindows'
             = "@echo off\r\n"
            ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"
+           ++ "if defined ETA_JAVA_CMD goto execute\r\n"
            ++ "if defined JAVA_HOME goto findJavaFromJavaHome\r\n"
            ++ "set ETA_JAVA_CMD=java.exe\r\n"
            ++ "goto execute\r\n"
@@ -377,7 +380,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
            ++ "set ETA_JAVA_CMD=%ETA_JAVA_HOME%\\bin\\java.exe\r\n"
            ++ ":execute\r\n"
            ++ "\"%ETA_JAVA_CMD%\" %JAVA_ARGS% %JAVA_OPTS% %ETA_JAVA_ARGS% "
-              ++ "-classpath \"" ++ launcherJarEnv ++ "\" eta.main %*\r\n"
+              ++ "-classpath " ++ winClassPath ++ " eta.main %*\r\n"
             | otherwise
             = "#!/usr/bin/env bash\n"
            ++ dirEnvVar ++ "=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"\n"
@@ -391,9 +394,6 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
            ++ "    else\n"
            ++ "        ETA_JAVA_CMD=\"java\"\n"
            ++ "    fi\n"
-           ++ "fi\n"
-           ++ "if [ -n \"$ETA_CLASSPATH\" ] ; then\n"
-           ++ "    ETA_CLASSPATH=\":$ETA_CLASSPATH\"\n"
            ++ "fi\n"
            ++ "$ETA_JAVA_CMD $JAVA_ARGS $JAVA_OPTS $ETA_JAVA_ARGS "
               ++ "-classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"\n"

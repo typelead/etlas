@@ -361,7 +361,8 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
             | null classPaths && not hasJavaSources = ""
             | otherwise = mkMergedClassPath lbi (maybeJavaSourceEnv ++ classPaths)
           exeJarEnv   = dirEnvVarRef </> exeNameReal
-          totalClassPath = exeJarEnv ++ [classPathSep] ++ classPaths''
+          totalClassPath =
+            exeJarEnv ++ [classPathSep] ++ classPaths'' ++ "$ETA_CLASSPATH"
           -- For Windows
           launcherJarEnv = dirEnvVarRef </> (exeName' ++ ".launcher.jar")
           generateExeScript
@@ -380,14 +381,19 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
             | otherwise
             = "#!/usr/bin/env bash\n"
            ++ dirEnvVar ++ "=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"\n"
-           ++ "if [ -n \"$JAVA_HOME\" ] ; then\n"
-           ++ "    if [ -x \"$JAVA_HOME/jre/sh/java\" ] ; then\n"
-           ++ "        ETA_JAVA_CMD=\"$JAVA_HOME/jre/sh/java\"\n"
+           ++ "if [ -z \"$ETA_JAVA_CMD\" ]; then\n"
+           ++ "    if [ -n \"$JAVA_HOME\" ] ; then\n"
+           ++ "        if [ -x \"$JAVA_HOME/jre/sh/java\" ] ; then\n"
+           ++ "            ETA_JAVA_CMD=\"$JAVA_HOME/jre/sh/java\"\n"
+           ++ "        else\n"
+           ++ "            ETA_JAVA_CMD=\"$JAVA_HOME/bin/java\"\n"
+           ++ "        fi\n"
            ++ "    else\n"
-           ++ "        ETA_JAVA_CMD=\"$JAVA_HOME/bin/java\"\n"
+           ++ "        ETA_JAVA_CMD=\"java\"\n"
            ++ "    fi\n"
-           ++ "else\n"
-           ++ "    ETA_JAVA_CMD=\"java\"\n"
+           ++ "fi\n"
+           ++ "if [ -n \"$ETA_CLASSPATH\" ] ; then\n"
+           ++ "    ETA_CLASSPATH=\":$ETA_CLASSPATH\"\n"
            ++ "fi\n"
            ++ "$ETA_JAVA_CMD $JAVA_ARGS $JAVA_OPTS $ETA_JAVA_ARGS "
               ++ "-classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"\n"

@@ -39,15 +39,12 @@ import Distribution.System                   (Platform (..), OS(..))
 import Distribution.Verbosity                (Verbosity)
 import Distribution.Text                     (display)
 
-import Distribution.Simple.Program
-import Distribution.Client.Config
-
 import qualified Distribution.Simple.Eta as Eta
 import qualified Distribution.Simple.GHCJS as GHCJS
 
 import System.Directory                      (getCurrentDirectory)
 import Distribution.Compat.Environment       (getEnvironment)
-import System.FilePath                       ((<.>), (</>), takeDirectory)
+import System.FilePath                       ((<.>), (</>))
 
 
 -- | Return the executable to run and any extra arguments that should be
@@ -120,72 +117,48 @@ run verbosity debug trace lbi exe exeArgs = do
       dataDirEnvVar = (pkgPathEnvVar pkg_descr "datadir",
                        curDir </> dataDir pkg_descr)
 
-  (path, runArgs) <-
+  (path, runArgs, extraEnv) <-
     let exeName' = display $ exeName exe
     in case compilerFlavor (compiler lbi) of
       Eta -> do
          let exeFileExt  = if isWindows lbi then ".cmd" else ""
              exeFileName = exeName' ++ exeFileExt
-         let dirEnvVarRef = if isWindows lbi then "%DIR%" else "$DIR"
-             allArgs = if isWindows lbi then "%*" else "\"$@\""
-             replace from to string
-               | from `isPrefixOf` string
-               = to ++ replace from to (drop (length from) string)
-               | c:rest <- string
-               = c : replace from to rest
-               | otherwise = []
-             replaceDir dir cmd = replace dirEnvVarRef dir cmd
-             replaceArgs cmd = replace allArgs "" cmd
          p <- tryCanonicalizePath $
             buildPref </> exeName' </> exeFileName
 
-         let exeDir = takeDirectory p
-             getJavaCmd = fmap (head . drop 2 . lines) $ readFile p
-         if | debug -> do
-                javaCmd' <- getJavaCmd
-                let javaCmd = replaceArgs $ replaceDir exeDir javaCmd'
-                    (_, cmdArgs) = break (== ' ') javaCmd
-                -- TODO: Does this work with spaces in cmdArgs classpath?
-                return ("jdb", words cmdArgs)
-            | trace -> do
-                javaCmd'' <- getJavaCmd
-                let javaCmd' = replaceArgs $ replaceDir exeDir javaCmd''
-                    getTracePaths = do
-                      mavenDeps <- Eta.fetchMavenDependencies verbosity []
-                                      [ "org.slf4j:slf4j-ext:1.7.21"
-                                      , "org.slf4j:slf4j-simple:1.7.21"
-                                      , "org.slf4j:slf4j-api:1.7.21"
-                                      , "org.javassist:javassist:3.20.0-GA"]
-                                      (withPrograms lbi)
-                      let (agent:[], classpaths) = partition ("slf4j-ext" `isInfixOf`) $
-                                                   mavenDeps
-                      return (agent, classpaths)
-                (agent, classpaths) <- getTracePaths
-                let javaCmd =
-                        replace "\" eta.main" " eta.main"
-                      . replace "-classpath \""
-                      ( "-Djava.compiler=NONE "
-                     ++ "-javaagent:" ++ agent
-                     ++ "=ignore=org/slf4j/:ch/qos/logback/:org/apache/log4j/:cern/colt/ "
-                     ++ "-classpath "
-                     ++ Eta.mkMergedClassPath lbi classpaths
-                     ++ Eta.classPathSeparator lbi )
-                      $ javaCmd'
-                    cmd:args = words javaCmd
-                return (cmd, args)
-            | otherwise -> return (p, [])
+         let envMod
+               | debug = return [("ETA_JAVA_CMD", "jdb")]
+               | trace = do
+                 mavenDeps <- Eta.fetchMavenDependencies verbosity []
+                                [ "org.slf4j:slf4j-ext:1.7.21"
+                                , "org.slf4j:slf4j-simple:1.7.21"
+                                , "org.slf4j:slf4j-api:1.7.21"
+                                , "org.javassist:javassist:3.20.0-GA"]
+                              (withPrograms lbi)
+                 let (agent:[], classpaths) =
+                       partition ("slf4j-ext" `isInfixOf`) mavenDeps
+                     javaArgs =
+                       "-Djava.compiler=NONE -javaagent:"
+                       ++ agent
+                       ++ "=ignore=org/slf4j/:ch/qos/logback/:org/apache/log4j/"
+                     etaClasspath = Eta.mkMergedClassPath lbi classpaths
+                 return [("JAVA_ARGS", javaArgs), ("ETA_CLASSPATH", etaClasspath)]
+               | otherwise = return []
+         envVals <- envMod
+         return (p, [], envVals)
       GHCJS -> do
         let (script, cmd, cmdArgs) =
               GHCJS.runCmd (withPrograms lbi)
                            (buildPref </> exeName' </> exeName')
         script' <- tryCanonicalizePath script
-        return (cmd, cmdArgs ++ [script'])
+        return (cmd, cmdArgs ++ [script'], [])
       _     -> do
          p <- tryCanonicalizePath $
             buildPref </> exeName' </> (exeName' <.> exeExtension)
-         return (p, [])
+         return (p, [], [])
 
-  env  <- (dataDirEnvVar:) <$> getEnvironment
+  env0  <- (dataDirEnvVar:) <$> getEnvironment
+  let env = env0 ++ extraEnv
   -- Add (DY)LD_LIBRARY_PATH if needed
   env' <- if withDynExe lbi
              then do let (Platform _ os) = hostPlatform lbi

@@ -1081,7 +1081,8 @@ parseGenericPackageDescription file = do
             (repos, flags, csetup0, mlib, sub_libs, flibs, exes, tests, bms) <- getBody pkg
             when (isJust csetup0) $ lift $ syntaxError line_no
               "There can only be one 'custom-setup' section in a package description."
-            return (repos, flags, Just flds, mlib, sub_libs, flibs, exes, tests, bms)
+            -- TODO: Replace this once Custom setups are supported.
+            return (repos, flags, Nothing, mlib, sub_libs, flibs, exes, tests, bms)
 
         | otherwise -> do
             lift $ warning $ "Ignoring unknown section type: " ++ sec_type

@@ -280,10 +280,11 @@ instance Parsec BuildType where
   parsec = do
     name <- P.munch1 isAlphaNum
     return $ case name of
+      -- TODO: Replace this once Custom build types are supported
       "Simple"    -> Simple
-      "Configure" -> Configure
-      "Custom"    -> Custom
-      "Make"      -> Make
+      "Configure" -> Simple -- Configure
+      "Custom"    -> Simple -- Custom
+      "Make"      -> Simple -- Make
       _           -> UnknownBuildType name
 
 instance Parsec TestType where

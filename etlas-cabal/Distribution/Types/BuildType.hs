@@ -41,8 +41,9 @@ instance Text BuildType where
   parse = do
     name <- Parse.munch1 isAlphaNum
     return $ case name of
+      -- TODO: Replace this once Custom build types are supported
       "Simple"    -> Simple
-      "Configure" -> Configure
-      "Custom"    -> Custom
-      "Make"      -> Make
+      "Configure" -> Simple -- Configure
+      "Custom"    -> Simple -- Custom
+      "Make"      -> Simple -- Make
       _           -> UnknownBuildType name

@@ -1734,23 +1734,23 @@ depsCommand = CommandUI
       "Affected by configuration options, see `configure`.\n"
   , commandNotes        = Just $ \pname ->
        "Examples:\n"
-        ++ "  " ++ pname ++ " deps --classpath"
+        ++ "  " ++ pname ++ " deps --classpath lib:somelib   "
         ++ "    Lists the absolute paths of all the dependency jars\n"
-        ++ "  " ++ pname ++ " deps --maven"
+        ++ "  " ++ pname ++ " deps --maven exe:some-maven-exe"
         ++ "    Lists the transitive Maven dependencies\n"
-  , commandUsage        = usageAlternatives "deps" ["[FLAGS]"]
+  , commandUsage        = usageAlternatives "deps" ["[FLAG] COMPONENT"]
   , commandDefaultFlags = defaultDepsFlags
   , commandOptions      = \showOrParseArgs ->
       [ optionVerbosity depsVerbosity (\v flags -> flags { depsVerbosity = v })
       , optionDistPref
         depsDistPref (\d flags -> flags { depsDistPref = d }) showOrParseArgs
       , option [] ["classpath"]
-          "List the absolute paths of all the dependency jars."
+          "List the absolute paths of all the dependent jars including the specified component."
           depsClasspath (\v flags -> flags { depsClasspath = v })
           trueArg
 
       , option [] ["maven"]
-          "List the transitive Maven dependencies."
+          "List the transitive Maven dependencies of the specified component."
           depsMaven (\v flags -> flags { depsMaven = v })
           trueArg
       ]

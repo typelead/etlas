@@ -156,11 +156,16 @@ import Distribution.PackageDescription.PrettyPrint
 import qualified Distribution.Simple as Simple
 import qualified Distribution.Make as Make
 import qualified Distribution.Types.UnqualComponentName as Make
+import Distribution.Types.TestSuite
+import Distribution.Types.Benchmark
+import Distribution.Types.TargetInfo
 
 import Distribution.Simple.Eta ( findVerifyRef, findCoursierRef, getLibraryComponent
-                               , getDependencyClassPaths, mkJarName )
+                               , getDependencyClassPaths, mkJarName, exeJarPath
+                               , libJarPath )
 import Distribution.Simple.Build
          ( startInterpreter )
+import Distribution.Simple.BuildTarget
 import Distribution.Simple.Command
          ( CommandParse(..), CommandUI(..), Command, CommandSpec(..)
          , CommandType(..), commandsRun, commandAddAction, hiddenCommand
@@ -185,7 +190,7 @@ import Distribution.Simple.Utils
 import Distribution.Text
          ( display )
 import Distribution.Verbosity as Verbosity
-         ( Verbosity, normal, moreVerbose, silent )
+         ( Verbosity, normal, moreVerbose, lessVerbose, silent )
 import Distribution.Version
          ( Version, mkVersion, orLaterVersion )
 import qualified Paths_etlas (version)
@@ -427,60 +432,46 @@ reconfigureAction flags@(configFlags, _) _ globalFlags = do
   pure ()
 
 depsAction :: DepsFlags -> [String] -> Action
-depsAction depsFlags _extraArgs globalFlags' = do
-  let verbosity = fromFlagOrDefault normal (depsVerbosity depsFlags)
-  (useSandbox, config) <- loadConfigOrSandboxConfig verbosity globalFlags'
+depsAction depsFlags extraArgs globalFlags' = do
+  let verbosity         = fromFlagOrDefault normal (depsVerbosity depsFlags)
+      verbosity'        = Verbosity.lessVerbose verbosity
+      depsMavenFlag     = fromFlagOrDefault False (Cabal.depsMaven depsFlags)
+      depsClasspathFlag = fromFlagOrDefault False (Cabal.depsClasspath depsFlags)
+  when (not (depsMavenFlag || depsClasspathFlag)) $ do
+    die' verbosity $ "Expected exactly one flag as an argument, see `etlas deps --help`."
+  when (length extraArgs /= 1) $ do
+    die' verbosity $ "Expected exactly one target as an argument, see `etlas deps --help`."
+                  ++ unwords extraArgs
+  (useSandbox, config) <- loadConfigOrSandboxConfig verbosity' globalFlags'
   let globalFlags = savedGlobalFlags config `mappend` globalFlags'
-      runInstall  = installAction ((defaultConfigFlags defaultProgramDb) {
-                                      configVerbosity   = toFlag verbosity,
-                                      configAllowNewer  = Just
-                                        (Cabal.AllowNewer RelaxDepsAll),
-                                      configUserInstall = toFlag True
-                                      }
-                                  ,defaultConfigExFlags
-                                  ,defaultInstallFlags { installOnlyDeps = toFlag True }
-                                  ,defaultHaddockFlags) [] globalFlags
   distPref <- findSavedDistPref config (depsDistPref depsFlags)
-  let confAction tryAgain = do
-        installDeps <- catch (fmap (const False) $
-                                reconfigure configureAction silent distPref useSandbox
-                                  DontSkipAddSourceDepsCheck mempty mempty []
-                                  globalFlags config)
-                             (\(e :: SomeException) -> do
-                                if tryAgain
-                                then return True
-                                else throwIO e)
-        when (installDeps && tryAgain) $ do
-          runInstall
-          confAction False
-  confAction True
+  config' <- reconfigure configureAction verbosity' distPref useSandbox
+               DontSkipAddSourceDepsCheck mempty mempty []
+               globalFlags config
 
-  lbi <- Simple.getBuildConfig Simple.simpleUserHooks silent distPref
+  lbi <- Simple.getBuildConfig Simple.simpleUserHooks verbosity' distPref
   let pkgDescr = LBI.localPkgDescr lbi
-      go lbi tryDeps = do
-        case library pkgDescr of
-          Just lib -> do
-            let clbi = getLibraryComponent lbi
-            mResult <- getDependencyClassPaths (LBI.installedPkgs lbi) pkgDescr
-                        lbi clbi
-            case mResult of
-              Just (depJars, mavenDeps') -> do
-                if | fromFlagOrDefault False (Cabal.depsMaven depsFlags) -> do
-                      mapM_ (notice normal)
-                        $ mavenDeps' ++ extraLibs (libBuildInfo lib)
-                   | fromFlagOrDefault False (Cabal.depsClasspath depsFlags) -> do
-                       libJar <- makeAbsolute (LBI.buildDir lbi
-                                           </> mkJarName (LBI.componentUnitId clbi))
-                       mapM_ (notice normal)
-                         $ libJar : depJars
-                   | otherwise -> die' verbosity "Invalid arguments. See `etlas deps --help`."
-              Nothing
-                | tryDeps -> do
-                  runInstall
-                  go lbi False
-                | otherwise -> die' verbosity "Failed to resolve dependencies."
-          Nothing -> die' verbosity "Not a library."
-  go lbi True
+  [target] <- readTargetInfos verbosity pkgDescr lbi extraArgs
+  let clbi = targetCLBI target
+      comp = targetComponent target
+      cbi  = LBI.componentBuildInfo comp
+  mResult <- getDependencyClassPaths (LBI.installedPkgs lbi) pkgDescr lbi clbi cbi False
+  case mResult of
+    Just (depJars, mavenDeps) ->
+      if | depsMavenFlag -> mapM_ (notice normal) mavenDeps
+         | depsClasspathFlag -> do
+             let exeLikePath = exeJarPath lbi
+                 path =
+                   LBI.foldComponent (const (libJarPath lbi clbi))
+                                     (error "ForeignLibs not supported.")
+                                     (exeLikePath . exeName)
+                                     (exeLikePath . testName)
+                                     (exeLikePath . benchmarkName)
+                                     comp
+             compJar <- makeAbsolute path
+             mapM_ (notice normal) $ compJar : depJars
+         | otherwise -> die' verbosity "Invalid arguments. See `etlas deps --help`."
+    Nothing -> die' verbosity "Missing or broken packages."
 
 buildAction :: (BuildFlags, BuildExFlags) -> [String] -> Action
 buildAction (buildFlags, buildExFlags) extraArgs globalFlags = do

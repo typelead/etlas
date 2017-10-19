@@ -25,7 +25,9 @@ module Distribution.Simple.Eta (
         findCoursierRef,
         findVerifyRef,
         getLibraryComponent,
-        getDependencyClassPaths
+        getDependencyClassPaths,
+        exeJarPath,
+        libJarPath
   ) where
 
 import Prelude ()
@@ -55,6 +57,7 @@ import Distribution.Verbosity
 import Distribution.Utils.NubList
 import Distribution.Text
 import Distribution.Types.UnitId
+import Distribution.Types.UnqualComponentName
 import qualified Paths_etlas_cabal as Etlas (version)
 
 import qualified Data.Map as Map
@@ -204,6 +207,9 @@ buildLib, replLib :: Verbosity -> Cabal.Flag (Maybe Int) -> PackageDescription
 buildLib = buildOrReplLib False
 replLib  = buildOrReplLib True
 
+libJarPath :: LocalBuildInfo -> ComponentLocalBuildInfo -> FilePath
+libJarPath lbi clbi = buildDir lbi </> mkJarName (componentUnitId clbi)
+
 buildOrReplLib :: Bool -> Verbosity  -> Cabal.Flag (Maybe Int)
                -> PackageDescription -> LocalBuildInfo
                -> Library            -> ComponentLocalBuildInfo -> IO ()
@@ -218,12 +224,11 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
   let runEtaProg          = runGHC verbosity etaProg comp (hostPlatform lbi)
       libBi               = libBuildInfo lib
 
-  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi
+  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi libBi True
   case mDeps of
-    Just (depJars, mavenDeps') -> do
+    Just (depJars, mavenDeps) -> do
 
-      let mavenDeps = mavenDeps' ++ extraLibs libBi
-          mavenRepos = frameworks libBi
+      let mavenRepos = frameworks libBi
       mavenPaths <- fetchMavenDependencies verbosity mavenRepos mavenDeps
                       (withPrograms lbi)
       let fullClassPath = depJars ++ mavenPaths
@@ -286,16 +291,23 @@ buildExe, replExe :: Verbosity          -> Cabal.Flag (Maybe Int)
 buildExe = buildOrReplExe False
 replExe  = buildOrReplExe True
 
+exeJarPath :: LocalBuildInfo -> UnqualComponentName -> FilePath
+exeJarPath lbi ucn = buildDir lbi </> exeName' </> realExeName exeName'
+  where exeName' = display ucn
+
+realExeName :: String -> FilePath
+realExeName exeName'
+  | takeExtension exeName' /= ('.':jarExtension)
+  = exeName' <.> jarExtension
+  | otherwise = exeName'
+
 buildOrReplExe :: Bool -> Verbosity  -> Cabal.Flag (Maybe Int)
                -> PackageDescription -> LocalBuildInfo
                -> Executable         -> ComponentLocalBuildInfo -> IO ()
 buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
   exe@Executable { exeName, modulePath = modPath } clbi = do
   let exeName'    = display exeName
-      exeNameReal
-        | takeExtension exeName' /= ('.':jarExtension)
-        = exeName' <.> jarExtension
-        | otherwise = exeName'
+      exeNameReal = realExeName exeName'
       targetDir   = buildDir lbi </> exeName'
       extrasJar   = "__extras.jar"
       exeTmpDir   = exeName' ++ "-tmp"
@@ -311,12 +323,11 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
 
   srcMainFile <- findFile (hsSourceDirs exeBi) modPath
 
-  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi
+  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi exeBi True
   case mDeps of
-    Just (depJars, mavenDeps') -> do
+    Just (depJars, mavenDeps) -> do
 
-      let mavenDeps = mavenDeps' ++ (extraLibs . buildInfo $ exe)
-          mavenRepos = frameworks . buildInfo $ exe
+      let mavenRepos = frameworks exeBi
       mavenPaths <- fetchMavenDependencies verbosity
                       mavenRepos mavenDeps (withPrograms lbi)
       let javaSrcs
@@ -333,7 +344,6 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
             | isWindows' = "%" ++ dirEnvVar ++ "%"
             | otherwise  = "$" ++ dirEnvVar
           hasJavaSources = isShared && not (null javaSrcs)
-          javaSourcePath = exeDir </> extrasJar
           maybeJavaSourceEnv
             | hasJavaSources = [dirEnvVarRef </> exeTmpDir </> extrasJar]
             | otherwise      =  []
@@ -352,7 +362,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
           withVerify act = do
             _ <- act
             when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
-              runVerify verbosity (exeJar : javaSourcePath : classPaths) exeJar lbi
+              runVerify verbosity (exeJar : classPaths) exeJar lbi
 
       withVerify $ runEtaProg baseOpts
 
@@ -607,8 +617,10 @@ getDependencyClassPaths
   -> PackageDescription
   -> LocalBuildInfo
   -> ComponentLocalBuildInfo
+  -> BuildInfo
+  -> Bool
   -> IO (Maybe ([FilePath], [String]))
-getDependencyClassPaths packageIndex pkgDescr lbi clbi
+getDependencyClassPaths packageIndex pkgDescr lbi clbi bi runScript
   | Left closurePackageIndex <- closurePackageIndex'
   = do let mavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
 
@@ -618,17 +630,18 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi
 
        libs' <- fmap concat $ mapM hsLibraryPaths packageInfos
 
-       return $ Just (libPaths ++ libs', libMavenDeps ++ mavenDeps)
+       return $ Just (libPaths ++ libs', extraLibs bi ++ libMavenDeps ++ mavenDeps)
 
   | otherwise = return Nothing
   where (libs, packages'') = partition (isInfixOf "-inplace" . show) packages'
-        dirEnvVarRef
-          | isWindows lbi = "%DIR%"
-          | otherwise     = "$DIR"
         libPaths
           | null libs = []
-          | otherwise = [dirEnvVarRef ++ "/../"
-                         ++ mkJarName (fromJust mbLibUid)]
+          | runScript = [dirEnvVarRef ++ "/../" ++ libJarName]
+          | otherwise = [buildDir lbi </> libJarName]
+          where dirEnvVarRef
+                  | isWindows lbi = "%DIR%"
+                  | otherwise     = "$DIR"
+                libJarName = mkJarName (fromJust mbLibUid)
         libMavenDeps
           | null libs = []
           | otherwise = extraLibs . libBuildInfo . fromJust $ library pkgDescr
@@ -636,7 +649,7 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi
           | null libs = (Nothing, [])
           | otherwise = (Just $ componentUnitId clbi'
                         , map fst $ componentPackageDeps clbi')
-          where clbi' = getLibraryComponent lbi
+          where clbi' = fromJust $ getLibraryComponent lbi
 
         packages' = map fst $ componentPackageDeps clbi
 
@@ -644,13 +657,11 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi
 
         closurePackageIndex' = PackageIndex.dependencyClosure packageIndex packages
 
-getLibraryComponent :: LocalBuildInfo -> ComponentLocalBuildInfo
-getLibraryComponent lbi = head clbis
-  where clbis = fromJust
+getLibraryComponent :: LocalBuildInfo -> Maybe ComponentLocalBuildInfo
+getLibraryComponent lbi = fmap head clbis
+  where clbis = Map.lookup CLibName $ componentNameMap lbi
               -- TODO: When there are multiple component dependencies
               --       (Backpack-support) this might break. -RM
-              . Map.lookup CLibName
-              $ componentNameMap lbi
 
 builtInMavenResolvers :: [(String, String)]
 builtInMavenResolvers =

@@ -952,6 +952,7 @@ configureFinalizedPackage verbosity cfg enabled
                      ++ (render . nest 4 . sep . punctuate comma
                                 . map (disp . simplifyDependency)
                                 $ missing)
+                     ++ "\n\nRun `etlas install --dependencies-only` to install the dependencies."
 
     -- add extra include/lib dirs as specified in cfg
     -- we do it here so that those get checked too

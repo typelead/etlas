@@ -73,7 +73,8 @@ data GlobalFlags = GlobalFlags {
     globalNix               :: Flag Bool,     -- ^ Integrate with Nix
     globalPatchesDir        :: Flag FilePath, -- ^ Patches directory
     globalAutoUpdate        :: Flag Bool, -- ^ Automatically update package listing
-    globalSendMetrics       :: Flag Bool  -- ^ Send telemetry
+    globalSendMetrics       :: Flag Bool,  -- ^ Send telemetry
+    globalEtaVersion        :: Flag String -- ^ Version of Eta to use
   } deriving Generic
 
 defaultGlobalFlags :: GlobalFlags
@@ -95,7 +96,8 @@ defaultGlobalFlags  = GlobalFlags {
     globalNix               = Flag False,
     globalPatchesDir        = mempty,
     globalAutoUpdate        = mempty,
-    globalSendMetrics       = mempty
+    globalSendMetrics       = mempty,
+    globalEtaVersion        = mempty
   }
 
 instance Monoid GlobalFlags where

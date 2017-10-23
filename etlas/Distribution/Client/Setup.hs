@@ -330,6 +330,10 @@ globalCommand commands = CommandUI {
          "Specify explicit patches directory."
          globalPatchesDir (\v flags -> flags { globalPatchesDir = v })
          (reqArgFlag "DIR")
+      ,option [] ["select-eta"]
+         "Select which version of Eta to use with this invocation."
+         globalEtaVersion (\v flags -> flags { globalEtaVersion = v })
+         (reqArgFlag "VERSION")
       ,option [] ["auto-update"]
          "This will automatically run `etlas update` on a daily basis."
          globalAutoUpdate (\v flags -> flags { globalAutoUpdate = v })

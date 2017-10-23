@@ -128,21 +128,34 @@ findEtaInBinaryIndex :: String -> Int -> GlobalFlags -> Verbosity -> ProgramSear
 findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
   savedConfig <- fmap snd $ loadConfigOrSandboxConfig verbosity globalFlags'
   let globalFlags = savedGlobalFlags savedConfig `mappend` globalFlags'
-  -- TODO: Synchronize access to this file
-  exists <- doesFileExist etaPointerFile
-  if exists
-  then do
-    pointerLines <- readLines etaPointerFile
-    case nth n pointerLines of
-      Just progPath
-        | progPath == programOnPath -> do
-          result <- defaultCodePath
-          if isNothing result
-          then initEtaPointer globalFlags savedConfig
-          else return result
-        | otherwise                 -> return $ Just (progPath, [])
-      _     -> initEtaPointer globalFlags savedConfig
-  else initEtaPointer globalFlags savedConfig
+      etaVersion = flagToMaybe $ globalEtaVersion globalFlags
+  case etaVersion of
+    Nothing -> do
+      -- TODO: Synchronize access to this file
+      exists <- doesFileExist etaPointerFile
+      if exists
+      then do
+        pointerLines <- readLines etaPointerFile
+        case nth n pointerLines of
+          Just progPath
+            | progPath == programOnPath -> do
+              result <- defaultCodePath
+              if isNothing result
+              then initEtaPointer globalFlags savedConfig
+              else return result
+            | otherwise                 -> return $ Just (progPath, [])
+          _     -> initEtaPointer globalFlags savedConfig
+      else initEtaPointer globalFlags savedConfig
+    Just version' -> do
+      let version = "eta-" ++ map (\c -> if c == 'b' then '.' else c) version'
+      mResult <- withRepoContext verbosity globalFlags $ \repoCtxt ->
+                   selectVersion globalFlags repoCtxt savedConfig version
+      case mResult of
+        ret@(Just _) -> return ret
+        Nothing -> do
+          _ <- dieWithError verbosity $
+                  "Unable to find " ++ version ++ " in any of your configured binary indices.\n"
+          return Nothing
   where initEtaPointer globalFlags savedConfig = do
           notice verbosity $
             "Discovering the installation paths for your Eta executables..."
@@ -159,26 +172,37 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
               notice verbosity $
                   "No existing installation found for '" ++ prog ++ "'.\n"
                ++ "Attempting to download binaries..."
-              withRepoContext verbosity globalFlags $
-                goSearchRepos globalFlags savedConfig
+              mResult <- withRepoContext verbosity globalFlags $ \repoCtxt ->
+                           goSearchRepos globalFlags repoCtxt savedConfig
 
-        goSearchRepos globalFlags savedConfig repoCtxt = do
-          result <- searchRepos globalFlags savedConfig
+              case mResult of
+                ret@(Just _) -> return ret
+                Nothing -> do
+                  _ <- dieWithError verbosity "Unable to find any Eta binaries for your platform."
+                  return Nothing
+
+        tryUpdateIfFailed globalFlags repoCtxt savedConfig f = do
+          result <- f globalFlags repoCtxt savedConfig
           if isNothing result
           then do
             exists <- doesDirectoryExist defaultBinariesPath
             if exists
-            then do
-              _ <- dieWithError verbosity $
-                     "Unable to find an Eta binary for your platform.\n"
-                  ++ "Either install from source or try the following:"
-              return Nothing
+            then return Nothing
             else do
               update verbosity (commandDefaultFlags updateCommand) repoCtxt True
-              goSearchRepos globalFlags savedConfig repoCtxt
+              tryUpdateIfFailed globalFlags repoCtxt savedConfig f
           else return result
-        searchRepos globalFlags savedConfig =
-          withRepoContext verbosity globalFlags $ \repoCtxt -> do
+
+        goSearchRepos globalFlags repoCtxt savedConfig = do
+          tryUpdateIfFailed globalFlags repoCtxt savedConfig searchRepos
+
+        withMaybeRepoCtxt globalFlags mRepoCtxt f
+          | Just repoCtxt <- mRepoCtxt
+          = f repoCtxt
+          | otherwise = withRepoContext verbosity globalFlags f
+
+        withVersions globalFlags mRepoCtxt savedConfig f =
+          withMaybeRepoCtxt globalFlags mRepoCtxt $ \repoCtxt ->
             first (gitIndexedRepos repoCtxt) $ \repo -> do
               uris <- remoteBinaryUris (Right repo)
               first uris $ \uri -> do
@@ -188,23 +212,58 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
                     exists <- doesFileExist indexFile
                     ifTrue exists $ do
                       versions <- readLines indexFile
-                      first (reverse versions) $ \version -> do
-                        let binaryIndexFile = etaBinariesIndexFile domain (Left version)
-                        exists <- doesFileExist binaryIndexFile
-                        ifTrue exists $ do
-                          programs <- readLines binaryIndexFile
-                          programPaths <- downloadPrograms repoCtxt domain uri version programs
-                          notice verbosity $
-                            "Selected " ++ userReadableVersion version ++ "."
-                          installBootLibraries verbosity (readVersion version)
-                            repoCtxt savedConfig globalFlags programPaths
-                          writeFile etaPointerFile $ unlines programPaths
-                          case nth n programPaths of
-                            -- TODO: Improve this for change monitoring
-                            Just path -> do
-                              return $ Just (path, [])
-                            _         -> return Nothing
+                      f globalFlags repoCtxt savedConfig uri domain versions
                   Nothing -> dieWithError verbosity "Bad uri in index file."
+
+        searchRepos globalFlags repoCtxt savedConfig =
+          withVersions globalFlags (Just repoCtxt) savedConfig $
+            \globalFlags repoCtxt savedConfig uri domain versions -> do
+              first (reverse versions) $ \version -> do
+                installVersion globalFlags repoCtxt savedConfig uri domain version True
+
+        installVersion globalFlags repoCtxt savedConfig uri domain version global = do
+          let installedFile = etaInstalledFile domain version
+              binaryIndexFile = etaBinariesIndexFile domain (Left version)
+          exists <- doesFileExist installedFile
+          if exists
+          then do
+            programPaths <- fmap lines $ readFile installedFile
+            when global $ selectedVersionMessage verbosity version
+            nthProgram n programPaths
+          else do
+            exists <- doesFileExist binaryIndexFile
+            ifTrue exists $ do
+              programs <- readLines binaryIndexFile
+              programPaths <- downloadPrograms repoCtxt domain uri version programs
+              selectedVersionMessage verbosity version
+              installBootLibraries verbosity (readVersion version)
+                repoCtxt savedConfig globalFlags programPaths
+              let pathsFile = unlines programPaths
+              writeFile installedFile $ pathsFile
+              when global $ writeFile etaPointerFile $ pathsFile
+              nthProgram n programPaths
+
+        selectVersion globalFlags repoCtxt savedConfig version =
+          tryUpdateIfFailed globalFlags repoCtxt savedConfig $
+            \globalFlags repoCtxt savedConfig ->
+            withVersions globalFlags (Just repoCtxt) savedConfig $
+              \globalFlags repoCtxt savedConfig uri domain versions -> do
+              if version `elem` versions
+              then installVersion globalFlags repoCtxt savedConfig uri domain version False
+              else return Nothing
+
+        selectedVersionMessage verbosity version =
+          notice verbosity $
+            "Selected " ++ userReadableVersion version ++ "."
+
+        nthProgram :: (Monad m) => Int -> [FilePath] -> m (Maybe (FilePath, [FilePath]))
+        nthProgram n programPaths =
+          case nth n programPaths of
+            -- TODO: Improve this for change monitoring
+            Just path -> do
+              return $ Just (path, [])
+            _         -> return Nothing
+
         downloadPrograms repoCtxt domain uri version programs = do
           transport <- repoContextGetTransport repoCtxt
           forM programs $ \prog -> do
@@ -215,6 +274,7 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
                    (uriWithPath uri (etaProgPath prog (Left version))) progFile
             setFileExecutable progFile
             return progFile
+
         defaultCodePath = findProgramOnSearchPath verbosity searchPath prog
 
 ifTrue :: Monad m => Bool -> m (Maybe a) -> m (Maybe a)

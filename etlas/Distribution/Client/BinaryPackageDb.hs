@@ -136,6 +136,10 @@ etaProgFile :: URIDomain -> String -> Either String Version -> FilePath
 etaProgFile uriName prog version
   = defaultBinariesPath </> uriName </> etaProgPath prog version
 
+etaInstalledFile :: URIDomain -> String -> FilePath
+etaInstalledFile uriName version
+  = defaultBinariesPath </> uriName </> version </> "installed"
+
 readBinaryIndexFile :: (PackageName -> URI) -> FilePath -> IO BinaryPackageDb
 readBinaryIndexFile mkUri indexFilePath = do
   packageLines <- readLines indexFilePath

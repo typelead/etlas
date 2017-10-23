@@ -479,7 +479,8 @@ convertToLegacySharedConfig
       globalNix               = mempty,
       globalPatchesDir        = mempty,
       globalAutoUpdate        = mempty,
-      globalSendMetrics       = mempty
+      globalSendMetrics       = mempty,
+      globalEtaVersion        = mempty
     }
 
     configFlags = mempty {

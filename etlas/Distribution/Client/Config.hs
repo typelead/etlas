@@ -236,7 +236,8 @@ instance Semigroup SavedConfig where
         globalNix               = combine globalNix,
         globalPatchesDir        = combine globalPatchesDir,
         globalAutoUpdate        = combine globalAutoUpdate,
-        globalSendMetrics       = combine globalSendMetrics
+        globalSendMetrics       = combine globalSendMetrics,
+        globalEtaVersion        = combine globalEtaVersion
         }
         where
           combine        = combine'        savedGlobalFlags

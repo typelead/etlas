@@ -49,6 +49,7 @@ module Distribution.Client.Setup
     , execCommand, ExecFlags(..)
     , userConfigCommand, UserConfigFlags(..)
     , manpageCommand
+    , selectCommand, SelectFlags(..)
 
     , parsePackageArgs
     --TODO: stop exporting these:
@@ -2358,6 +2359,52 @@ instance Monoid SandboxFlags where
 
 instance Semigroup SandboxFlags where
   (<>) = gmappend
+
+-- ------------------------------------------------------------
+-- * Select flags
+-- ------------------------------------------------------------
+
+data SelectFlags = SelectFlags {
+  selectVerbosity :: Flag Verbosity,
+  selectList      :: Flag Bool
+  } deriving Generic
+
+defaultSelectFlags :: SelectFlags
+defaultSelectFlags =
+  SelectFlags { selectVerbosity = toFlag normal
+              , selectList      = mempty }
+
+selectCommand :: CommandUI SelectFlags
+selectCommand = CommandUI
+  { commandName         = "select"
+  , commandSynopsis     = "Select the version of Eta to be used globally."
+  , commandDescription  = Just $ \_ -> wrapText ""
+  , commandNotes        = Just $ \pname ->
+       "Examples:\n"
+        ++ "  " ++ pname ++ " select --list"
+        ++ "    Lists the available Eta versions\n"
+        ++ "  " ++ pname ++ " select 0.0.9b1"
+        ++ "    Selects a specific Eta version to use globally\n"
+  , commandUsage        = usageAlternatives "select" ["[FLAG]", "[VERSION]"]
+  , commandDefaultFlags = defaultSelectFlags
+  , commandOptions      = \showOrParseArgs ->
+      [ optionVerbosity selectVerbosity (\v flags -> flags { selectVerbosity = v })
+      , option [] ["list"]
+          "Lists the available Eta versions."
+          selectList (\v flags -> flags { selectList = v })
+          trueArg
+      ]
+  }
+
+instance Monoid SelectFlags where
+  mempty = gmempty
+  mappend = (<>)
+
+instance Semigroup SelectFlags where
+  (<>) = gmappend
+
+emptySelectFlags :: SelectFlags
+emptySelectFlags = mempty
 
 -- ------------------------------------------------------------
 -- * Exec Flags

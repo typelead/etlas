@@ -48,6 +48,7 @@ import Distribution.Client.Setup
          , UserConfigFlags(..), userConfigCommand
          , reportCommand
          , manpageCommand
+         , SelectFlags(..), selectCommand
          )
 import Distribution.Simple.Setup
          ( HaddockTarget(..)
@@ -295,6 +296,7 @@ mainWorker args = topHandler $
       , regularCmd configureExCommand configureAction
       , regularCmd reconfigureCommand reconfigureAction
       , regularCmd depsCommand depsAction
+      , regularCmd selectCommand selectAction
       , regularCmd buildCommand buildAction
       , regularCmd replCommand replAction
       , regularCmd sandboxCommand sandboxAction
@@ -472,6 +474,29 @@ depsAction depsFlags extraArgs globalFlags' = do
              mapM_ (notice normal) $ compJar : depJars
          | otherwise -> die' verbosity "Invalid arguments. See `etlas deps --help`."
     Nothing -> die' verbosity "Missing or broken packages."
+
+selectAction :: SelectFlags -> [String] -> Action
+selectAction selectFlags extraArgs globalFlags' = do
+  -- TODO: Make this respect sandboxes?
+  savedConfig <- fmap snd $ loadConfigOrSandboxConfig verbosity globalFlags'
+  let globalFlags = savedGlobalFlags savedConfig `mappend` globalFlags'
+  if list
+  then do
+    mResult <- listVersions verbosity globalFlags savedConfig
+    case mResult of
+      Just versions -> notice verbosity $ unlines $ map (drop 4) versions
+      Nothing -> die' verbosity "Unable to list versions."
+  else do
+    when (null extraArgs) $ die' verbosity "Expected a version identifier."
+    case version of
+      "local"  -> do
+        setLocalEtaPointerFile
+        notice verbosity "Will select the version of Eta available on the PATH."
+      "latest" -> selectLatest verbosity globalFlags savedConfig >> return ()
+      _ -> selectVersion verbosity globalFlags savedConfig version True >> return ()
+  where list      = fromFlagOrDefault False  (selectList      selectFlags)
+        verbosity = fromFlagOrDefault normal (selectVerbosity selectFlags)
+        version   = head extraArgs
 
 buildAction :: (BuildFlags, BuildExFlags) -> [String] -> Action
 buildAction (buildFlags, buildExFlags) extraArgs globalFlags = do

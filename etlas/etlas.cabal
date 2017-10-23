@@ -1,5 +1,6 @@
 name:               etlas
-version:            1.0.2.0
+-- @VERSION
+version:            1.1.0.0
 synopsis:           The package manager for Eta.
 description:
     The package manager for Eta.

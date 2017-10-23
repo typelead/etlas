@@ -1,6 +1,6 @@
 # Etlas - Build Tool for Eta
 
-**Version:** 1.0.2.0
+**Version:** 1.1.0.0
 
 **Synced with Cabal:** 110d522f6c6c9bce61f6a847d1d6caa6fdb262e7
 

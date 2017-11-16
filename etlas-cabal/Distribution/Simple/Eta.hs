@@ -633,7 +633,9 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi bi runScript
        return $ Just (libPaths ++ libs', extraLibs bi ++ libMavenDeps ++ mavenDeps)
 
   | otherwise = return Nothing
-  where (libs, packages'') = partition (isInfixOf "-inplace" . show) packages'
+  where (libs, packages'') = maybe ([], packages')
+                                   (\lc -> partition (== lc) packages')
+                                   $ fmap componentUnitId libComponent
         libPaths
           | null libs = []
           | runScript = [dirEnvVarRef ++ "/../" ++ libJarName]
@@ -649,7 +651,8 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi bi runScript
           | null libs = (Nothing, [])
           | otherwise = (Just $ componentUnitId clbi'
                         , map fst $ componentPackageDeps clbi')
-          where clbi' = fromJust $ getLibraryComponent lbi
+          where clbi' = fromJust libComponent
+        libComponent = getLibraryComponent lbi
 
         packages' = map fst $ componentPackageDeps clbi
 

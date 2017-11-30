@@ -473,16 +473,18 @@ installLib    :: Verbosity
               -> IO ()
 installLib verbosity lbi targetDir _dynlibTargetDir builtDir _pkg lib clbi = do
   copyModuleFiles "hi"
-  when hasLib $ mapM_ (installOrdinary builtDir targetDir) jarLibNames
+  when hasLib $ do
+    mapM_ (installOrdinary builtDir targetDir) jarLibNames
+    mapM_ (installOrdinaryIfExists builtDir targetDir) ffiMapNames
   where
-    install _isShared srcDir dstDir name = do
+    installOrdinaryIfExists srcDir dstDir name = do
+      exists <- doesFileExist $ srcDir </> name
+      when exists $ installOrdinary srcDir dstDir name
+    installOrdinary srcDir dstDir name = do
       createDirectoryIfMissingVerbose verbosity True dstDir
-      installOrdinaryFile   verbosity src dst
+      installOrdinaryFile verbosity src dst
       where src = srcDir </> name
             dst = dstDir </> name
-
-    installOrdinary = install False
-    _installShared   = install True
 
     copyModuleFiles ext =
       findModuleFiles [builtDir] [ext] (allLibModules lib clbi)
@@ -491,12 +493,16 @@ installLib verbosity lbi targetDir _dynlibTargetDir builtDir _pkg lib clbi = do
     _cid = compilerId (compiler lbi)
     libUids = [componentUnitId clbi]
     jarLibNames = map mkJarName libUids
+    ffiMapNames = map mkFFIMapName libUids
 
     hasLib    = not $ null (allLibModules lib clbi)
                    && null (javaSources (libBuildInfo lib))
 
 mkJarName :: UnitId -> String
 mkJarName uid = getHSLibraryName uid <.> "jar"
+
+mkFFIMapName :: UnitId -> String
+mkFFIMapName uid = getHSLibraryName uid <.> "ffimap"
 
 installExe :: Verbosity
               -> LocalBuildInfo

@@ -21,10 +21,14 @@ import System.IO.Error        (isAlreadyExistsError)
 import GHC.IO.Handle.FD       (fdToHandle)
 import Control.Exception      (onException)
 
-#if defined(mingw32_HOST_OS) || defined(ghcjs_HOST_OS)
+#if defined(mingw32_HOST_OS) || defined(ghcjs_HOST_OS) || defined(ETA_VERSION)
 import System.Directory       ( createDirectory )
 #else
 import qualified System.Posix
+#endif
+
+#if defined(ETA_VERSION)
+import System.IO              (openTempFile')
 #endif
 
 -- ------------------------------------------------------------
@@ -39,6 +43,11 @@ import qualified System.Posix
 -- This is a copy/paste of the openBinaryTempFile definition, but
 -- if uses 666 rather than 600 for the permissions. The base library
 -- needs to be changed to make this better.
+#ifdef ETA_VERSION
+openNewBinaryFile :: FilePath -> String -> IO (FilePath, Handle)
+openNewBinaryFile dir template =
+  openTempFile' "openNewBinaryFile" dir template True 0o666
+#else
 openNewBinaryFile :: FilePath -> String -> IO (FilePath, Handle)
 openNewBinaryFile dir template = do
   pid <- c_getpid
@@ -88,6 +97,7 @@ openNewBinaryFile dir template = do
                   | null a = b
                   | last a == pathSeparator = a ++ b
                   | otherwise = a ++ [pathSeparator] ++ b
+#endif
 
 -- FIXME: Should use System.FilePath library
 pathSeparator :: Char
@@ -117,7 +127,7 @@ createTempDirectory dir template = do
                 | otherwise              -> ioError e
 
 mkPrivateDir :: String -> IO ()
-#if defined(mingw32_HOST_OS) || defined(ghcjs_HOST_OS)
+#if defined(mingw32_HOST_OS) || defined(ghcjs_HOST_OS) || defined(ETA_VERSION)
 mkPrivateDir s = createDirectory s
 #else
 mkPrivateDir s = System.Posix.createDirectory s 0o700

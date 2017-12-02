@@ -3,6 +3,9 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+#ifdef ETA_VERSION
+{-# LANGUAGE MagicHash #-}
+#endif
 
 module Distribution.Compat.Time
        ( ModTime(..) -- Needed for testing
@@ -44,6 +47,9 @@ import Foreign            ( allocaBytes, peekByteOff )
 import System.IO.Error    ( mkIOError, doesNotExistErrorType )
 import System.Win32.Types ( BOOL, DWORD, LPCTSTR, LPVOID, withTString )
 
+#elif defined(ETA_VERSION)
+import qualified Prelude
+import Java
 #else
 
 import System.Posix.Files ( FileStatus, getFileStatus )
@@ -127,6 +133,18 @@ index_WIN32_FILE_ATTRIBUTE_DATA_ftLastWriteTime_dwLowDateTime = 20
 index_WIN32_FILE_ATTRIBUTE_DATA_ftLastWriteTime_dwHighDateTime :: Int
 index_WIN32_FILE_ATTRIBUTE_DATA_ftLastWriteTime_dwHighDateTime = 24
 
+#elif defined(ETA_VERSION)
+
+getModTime path = do
+  t <- newFile path >>= lastModified
+  return $ posixMilliSecondsToModTime t
+
+data {-# CLASS "java.io.File" #-} File = File (Object# File)
+
+foreign import java unsafe "@new" newFile :: String -> Prelude.IO File
+
+foreign import java unsafe "lastModified" lastModified :: File -> Prelude.IO Int64
+
 #else
 
 -- Directly against the unix library.
@@ -147,6 +165,11 @@ extractFileTime x = posixSecondsToModTime $ fromIntegral $ fromEnum $
 windowsTick, secToUnixEpoch :: Word64
 windowsTick    = 10000000
 secToUnixEpoch = 11644473600
+
+-- | Convert POSIX milliseconds to ModTime.
+posixMilliSecondsToModTime :: Int64 -> ModTime
+posixMilliSecondsToModTime s =
+  ModTime $ ((fromIntegral s :: Word64) + (secToUnixEpoch * 1000)) * (windowsTick `div` 1000)
 
 -- | Convert POSIX seconds to ModTime.
 posixSecondsToModTime :: Int64 -> ModTime

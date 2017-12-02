@@ -73,7 +73,10 @@ setEnv key value_ = setEnv_ key value
 
 setEnv_ :: String -> String -> IO ()
 
-#ifdef mingw32_HOST_OS
+#ifdef ETA_VERSION
+setEnv_ _ _ = error "setEnv_ is currently not implemented."
+
+#elif defined(mingw32_HOST_OS)
 
 setEnv_ key value = withCWString key $ \k -> withCWString value $ \v -> do
   success <- c_SetEnvironmentVariable k v

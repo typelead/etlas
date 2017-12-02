@@ -1,6 +1,11 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
+#ifdef ETA_VERSION
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+#endif
 
 module Distribution.Compat.CreatePipe (createPipe) where
 
@@ -24,6 +29,10 @@ import GHC.IO.Device (IODeviceType(Stream))
 import GHC.IO.Handle.FD (mkHandleFromFD)
 import System.IO (IOMode(ReadMode, WriteMode))
 #elif defined ghcjs_HOST_OS
+#elif defined(ETA_VERSION)
+import System.Posix.Types (Channel)
+import GHC.IO.Handle.FD (fdToHandle)
+import Java
 #else
 import System.Posix.IO (fdToHandle)
 import qualified System.Posix.IO as Posix
@@ -64,6 +73,37 @@ foreign import ccall "io.h _close" c__close ::
 createPipe = error "createPipe"
   where
     _ = callStack
+#elif defined(ETA_VERSION)
+createPipe = do
+    p <- createPipe'
+    let readfd  = superCast (pipeSource p)
+        writefd = superCast (pipeSink   p)
+    readh  <- fdToHandle readfd
+    writeh <- fdToHandle writefd
+    hSetEncoding readh localeEncoding
+    hSetEncoding writeh localeEncoding
+    return (readh, writeh)
+
+data {-# CLASS "java.nio.channels.Pipe" #-} Pipe = Pipe (Object# Pipe)
+
+data {-# CLASS "java.nio.channels.Pipe$SourceChannel" #-} SourceChannel = SourceChannel (Object# SourceChannel)
+  deriving Class
+
+type instance Inherits SourceChannel = '[Channel]
+
+data {-# CLASS "java.nio.channels.Pipe$SinkChannel" #-} SinkChannel = SinkChannel (Object# SinkChannel)
+  deriving Class
+
+type instance Inherits SinkChannel = '[Channel]
+
+foreign import java unsafe "@static java.nio.channels.Pipe.open" createPipe'
+  :: IO Pipe
+
+foreign import java unsafe "source" pipeSource
+  :: Pipe -> SourceChannel
+
+foreign import java unsafe "sink" pipeSink
+  :: Pipe -> SinkChannel
 #else
 createPipe = do
     (readfd, writefd) <- Posix.createPipe

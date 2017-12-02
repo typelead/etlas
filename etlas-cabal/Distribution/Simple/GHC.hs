@@ -111,9 +111,9 @@ import System.FilePath          ( (</>), (<.>), takeExtension
                                 , takeDirectory, replaceExtension
                                 ,isRelative )
 import qualified System.Info
-#ifndef mingw32_HOST_OS
-import System.Posix (createSymbolicLink)
-#endif /* mingw32_HOST_OS */
+-- #ifndef mingw32_HOST_OS
+-- import System.Posix (createSymbolicLink)
+-- #endif /* mingw32_HOST_OS */
 
 -- -----------------------------------------------------------------------------
 -- Configuring
@@ -1520,28 +1520,29 @@ installFLib verbosity lbi targetDir builtDir _pkg flib =
       -- Now install appropriate symlinks if library is versioned
       let (Platform _ os) = hostPlatform lbi
       when (not (null (foreignLibVersion flib os))) $ do
-          when (os /= Linux) $ die' verbosity
+          -- when (os /= Linux) $
+          die' verbosity
             -- It should be impossible to get here.
-            "Can't install foreign-library symlink on non-Linux OS"
-#ifndef mingw32_HOST_OS
-          -- 'createSymbolicLink file1 file2' creates a symbolic link
-          -- named 'file2' which points to the file 'file1'.
-          -- Note that we do want a symlink to 'name' rather than
-          -- 'dst', because the symlink will be relative to the
-          -- directory it's created in.
-          -- Finally, we first create the symlinks in a temporary
-          -- directory and then rename to simulate 'ln --force'.
-          withTempDirectory verbosity dstDir nm $ \tmpDir -> do
-              let link1 = flibBuildName lbi flib
-                  link2 = "lib" ++ nm <.> "so"
-              createSymbolicLink name (tmpDir </> link1)
-              renameFile (tmpDir </> link1) (dstDir </> link1)
-              createSymbolicLink name (tmpDir </> link2)
-              renameFile (tmpDir </> link2) (dstDir </> link2)
-        where
-          nm :: String
-          nm = unUnqualComponentName $ foreignLibName flib
-#endif /* mingw32_HOST_OS */
+            "Can't install foreign-library symlink on eta."
+-- #ifndef mingw32_HOST_OS
+--           -- 'createSymbolicLink file1 file2' creates a symbolic link
+--           -- named 'file2' which points to the file 'file1'.
+--           -- Note that we do want a symlink to 'name' rather than
+--           -- 'dst', because the symlink will be relative to the
+--           -- directory it's created in.
+--           -- Finally, we first create the symlinks in a temporary
+--           -- directory and then rename to simulate 'ln --force'.
+--           withTempDirectory verbosity dstDir nm $ \tmpDir -> do
+--               let link1 = flibBuildName lbi flib
+--                   link2 = "lib" ++ nm <.> "so"
+--               createSymbolicLink name (tmpDir </> link1)
+--               renameFile (tmpDir </> link1) (dstDir </> link1)
+--               createSymbolicLink name (tmpDir </> link2)
+--               renameFile (tmpDir </> link2) (dstDir </> link2)
+--         where
+--           nm :: String
+--           nm = unUnqualComponentName $ foreignLibName flib
+-- #endif /* mingw32_HOST_OS */
 
 
 -- |Install for ghc, .hi, .a and, if --with-ghci given, .o

@@ -1427,15 +1427,15 @@ installUnpackedPackage verbosity installLock numJobs
                        configFlags installFlags haddockFlags comp progdb
                        platform pkg rpkg pkgoverride workingDir useLogFile isBinary = do
   -- Override the .cabal file if necessary
-  case pkgoverride of
-    Nothing     -> return ()
-    Just pkgtxt -> do
-      let descFilePath = fromMaybe "." workingDir
-                     </> display (packageName pkgid) <.> "cabal"
-      info verbosity $
-        "Updating " ++ display (packageName pkgid) <.> "cabal"
-                    ++ " with the latest revision from the index."
-      writeFileAtomic descFilePath pkgtxt
+  -- case pkgoverride of
+  --   Nothing     -> return ()
+  --   Just pkgtxt -> do
+  --     let descFilePath = fromMaybe "." workingDir
+  --                    </> display (packageName pkgid) <.> "cabal"
+  --     info verbosity $
+  --       "Updating " ++ display (packageName pkgid) <.> "cabal"
+  --                   ++ " with the latest revision from the index."
+  --     writeFileAtomic descFilePath pkgtxt
 
   -- Make sure that we pass --libsubdir etc to 'setup configure' (necessary if
   -- the setup script was compiled against an old version of the Cabal lib).

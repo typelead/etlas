@@ -165,11 +165,11 @@ unpackPackage verbosity prefix pkgid descOverride pkgPath isGit patchesDir = do
     notice verbosity $ "Unpacking to " ++ pkgdir'
     patchedExtractTarGzFile verbosity True prefix pkgdirname pkgPath patchesDir isGit False
 
-    case descOverride of
-      Nothing     -> return ()
-      Just pkgtxt -> do
-        let descFilePath = pkgdir </> display (packageName pkgid) <.> "cabal"
-        info verbosity $
-          "Updating " ++ descFilePath
-                      ++ " with the latest revision from the index."
-        writeFileAtomic descFilePath pkgtxt
+    -- case descOverride of
+    --   Nothing     -> return ()
+    --   Just pkgtxt -> do
+    --     let descFilePath = pkgdir </> display (packageName pkgid) <.> "cabal"
+    --     info verbosity $
+    --       "Updating " ++ descFilePath
+    --                   ++ " with the latest revision from the index."
+    --     writeFileAtomic descFilePath pkgtxt

@@ -212,10 +212,7 @@ findImportsAndExts projectRoot sf = do
 -- Unfortunately we cannot use the version exported by Distribution.Simple.Program
 knownSuffixHandlers :: [(String,String)]
 knownSuffixHandlers =
-  [ ("gc",     "greencard")
-  , ("chs",    "chs")
-  , ("hsc",    "hsc2hs")
-  , ("x",      "alex")
+  [ ("x",      "alex")
   , ("y",      "happy")
   , ("ly",     "happy")
   , ("cpphs",  "cpp")

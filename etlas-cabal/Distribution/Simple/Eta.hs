@@ -527,6 +527,7 @@ installExe verbosity lbi installDirs buildPref
   createDirectoryIfMissingVerbose verbosity True binDir
   copy (exeNameExt launchExt)
   copy (exeNameExt "jar")
+  when (isWindows lbi) $ copy (exeNameExt "launcher.jar")
   --copyFile (fromDir (exeNameExt "jar")) (toDir (progprefix ++ exeName exe ++ progsuffix))
 
 libAbiHash :: Verbosity -> PackageDescription -> LocalBuildInfo

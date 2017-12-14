@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 -----------------------------------------------------------------------------
@@ -124,6 +125,12 @@ import System.FilePath
          ( (<.>), (</>), takeDirectory )
 import System.IO.Error
          ( isDoesNotExistError )
+#ifdef MIN_VERSION_unix
+import System.Posix.IO
+         ( stdInput )
+import System.Posix.Terminal
+         ( queryTerminal )
+#endif
 import Distribution.Compat.Environment
          ( getEnvironment )
 import Distribution.Compat.Exception
@@ -1269,7 +1276,13 @@ promptUserForTelemetry = do
     "",
     "Would you like to help us make Eta the fastest growing programming language,",
     "and help pure functional programming become mainstream? (y/n)" ]
+#ifdef MIN_VERSION_unix
+  isTTY <- queryTerminal stdInput
+  c <- if isTTY then getChar else return 'n'
+#else
   c <- getChar
+#endif
+
   putStrLn $ unlines [
     "Thank you for trying out Eta.",
     "",

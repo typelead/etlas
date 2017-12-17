@@ -417,12 +417,12 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
           develop Eta on the same drive that you installed it in. -}
       when isWindows' $ do
         jarProg    <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
-        targetDir' <- makeAbsolute targetDir
         let addStartingPathSep path | hasDrive path  = pathSeparator : path
                                     | otherwise      = path
             maybeJavaSourceAttr | hasJavaSources = [exeTmpDir </> extrasJar]
                                 | otherwise      = []
-            classPaths' = map (addStartingPathSep . mkRelative targetDir') classPaths
+            replaceEnvVar = replacePrefix dirEnvVarRef "."
+            classPaths' = map (addStartingPathSep . replaceEnvVar) classPaths
             targetManifest = targetDir </> "MANIFEST.MF"
             launcherJar = targetDir </> (exeName' ++ ".launcher.jar")
         writeFile targetManifest $ unlines $
@@ -451,15 +451,10 @@ isWindows :: LocalBuildInfo -> Bool
 isWindows lbi | Platform _ Windows <- hostPlatform lbi = True
               | otherwise = False
 
-mkRelative :: FilePath -> FilePath -> FilePath
-mkRelative base target = intercalate [pathSeparator]
-                         (replicate numDots "..")
-                     </> joinPath (drop numEqualParts targetSplit)
-  where numEqualParts  =
-          length $ takeWhile (\(a,b) -> a == b) $ zip baseSplit targetSplit
-        numDots = length $ drop numEqualParts baseSplit
-        baseSplit   = splitPath base
-        targetSplit = splitPath target
+replacePrefix :: Eq a => [a] -> [a] -> [a] -> [a]
+replacePrefix old new s
+  | isPrefixOf old s = new ++ drop (length old) s
+  | otherwise = s
 
 -- |Install for ghc, .hi, .a and, if --with-ghci given, .o
 installLib    :: Verbosity
@@ -629,20 +624,17 @@ getDependencyClassPaths
   -> IO (Maybe ([FilePath], [String]))
 getDependencyClassPaths packageIndex pkgDescr lbi clbi bi runScript
   | Left closurePackageIndex <- closurePackageIndex'
-  = do let mavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
-
-           packageInfos = PackageIndex.allPackages closurePackageIndex
+  = do let packageInfos = PackageIndex.allPackages closurePackageIndex
+           mavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
            hsLibraryPaths pinfo = mapM (findFile (libraryDirs pinfo))
                                        (map (<.> "jar") $ hsLibraries pinfo)
 
        libs' <- fmap concat $ mapM hsLibraryPaths packageInfos
-
        return $ Just (libPaths ++ libs', extraLibs bi ++ libMavenDeps ++ mavenDeps)
 
   | otherwise = return Nothing
-  where (libs, packages'') = maybe ([], packages')
-                                   (\lc -> partition (== lc) packages')
-                                   $ fmap componentUnitId libComponent
+  where closurePackageIndex' = PackageIndex.dependencyClosure packageIndex packages
+          where packages  = libDeps ++ packages''
         libPaths
           | null libs = []
           | runScript = [dirEnvVarRef ++ "/../" ++ libJarName]
@@ -659,13 +651,12 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi bi runScript
           | otherwise = (Just $ componentUnitId clbi'
                         , map fst $ componentPackageDeps clbi')
           where clbi' = fromJust libComponent
+        (libs, packages'') = maybe ([], packages')
+                                   (\lc -> partition (== lc) packages')
+                                   $ fmap componentUnitId libComponent
+          where packages' = map fst $ componentPackageDeps clbi
         libComponent = getLibraryComponent lbi
-
-        packages' = map fst $ componentPackageDeps clbi
-
-        packages = libDeps ++ packages''
-
-        closurePackageIndex' = PackageIndex.dependencyClosure packageIndex packages
+        
 
 getLibraryComponent :: LocalBuildInfo -> Maybe ComponentLocalBuildInfo
 getLibraryComponent lbi = fmap head clbis

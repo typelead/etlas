@@ -637,17 +637,18 @@ getDependencyClassPaths
 getDependencyClassPaths packageIndex pkgDescr lbi clbi bi runScript
   | Left closurePackageIndex <- closurePackageIndex'
   = do let packageInfos = PackageIndex.allPackages closurePackageIndex
-           mavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
+           packageMavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
            hsLibraryPaths pinfo = mapM (findFile (libraryDirs pinfo))
                                        (map (<.> "jar") $ hsLibraries pinfo)
-
-       libs' <- fmap concat $ mapM hsLibraryPaths packageInfos
-       return $ Just (libPaths ++ libs', extraLibs bi ++ libMavenDeps ++ mavenDeps)
+       
+       packagesPaths <- fmap concat $ mapM hsLibraryPaths packageInfos
+       return $ Just (libPath ++ packagesPaths, mavenDeps ++ libMavenDeps ++ packageMavenDeps)
 
   | otherwise = return Nothing
   where closurePackageIndex' = PackageIndex.dependencyClosure packageIndex packages
           where packages  = libDeps ++ packages''
-        libPaths
+        mavenDeps = extraLibs bi
+        libPath
           | null libs = []
           | runScript = [dirEnvVarRef ++ "/../" ++ libJarName]
           | otherwise = [buildDir lbi </> libJarName]

@@ -376,7 +376,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
           -- For Windows
           launcherJarEnv = dirEnvVarRef </> (exeName' ++ ".launcher.jar")
           winClassPath = "\"" ++ launcherJarEnv ++ "\"" ++ [classPathSep] ++
-                         "%ETA_CLASSPATH%"
+                         "%ETA_CLASSPATH%" 
           generateExeScript
             | isWindows'
             = "@echo off\r\n"
@@ -416,7 +416,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
           launcher jar as a workaround. This places a restriction that you must
           develop Eta on the same drive that you installed it in. -}
       when isWindows' $ do
-        jarProg    <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
+        jarProg  <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
         let addStartingPathSep path | hasDrive path  = pathSeparator : path
                                     | otherwise      = path
             maybeJavaSourceAttr | hasJavaSources = [exeTmpDir </> extrasJar]
@@ -446,6 +446,48 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
         javaSrcs'    = javaSources exeBi
         isWindows'   = isWindows lbi
         classPathSep = head (classPathSeparator lbi)
+
+generateExeScript :: String -> [String] -> Bool -> String
+generateExeScript exeName classPaths isWindows
+  | isWindows
+  = "@echo off\r\n"
+    ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"
+    ++ "if defined ETA_JAVA_CMD goto execute\r\n"
+    ++ "if defined JAVA_HOME goto findJavaFromJavaHome\r\n"
+    ++ "set ETA_JAVA_CMD=java.exe\r\n"
+    ++ "goto execute\r\n"
+    ++ ":findJavaFromJavaHome\r\n"
+    ++ "set ETA_JAVA_HOME=%JAVA_HOME:\"=%\r\n"
+    ++ "set ETA_JAVA_CMD=%ETA_JAVA_HOME%\\bin\\java.exe\r\n"
+    ++ ":execute\r\n"
+    ++ "\"%ETA_JAVA_CMD%\" %JAVA_ARGS% %JAVA_OPTS% %ETA_JAVA_ARGS% "
+    ++ "-classpath " ++ winClassPath ++ " eta.main %*\r\n"
+  | otherwise
+  = "#!/usr/bin/env bash\n"
+    ++ dirEnvVar ++ "=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"\n"
+    ++ "if [ -z \"$ETA_JAVA_CMD\" ]; then\n"
+    ++ "    if [ -n \"$JAVA_HOME\" ] ; then\n"
+    ++ "        if [ -x \"$JAVA_HOME/jre/sh/java\" ] ; then\n"
+    ++ "            ETA_JAVA_CMD=\"$JAVA_HOME/jre/sh/java\"\n"
+    ++ "        else\n"
+    ++ "            ETA_JAVA_CMD=\"$JAVA_HOME/bin/java\"\n"
+    ++ "        fi\n"
+    ++ "    else\n"
+    ++ "        ETA_JAVA_CMD=\"java\"\n"
+    ++ "    fi\n"
+    ++ "fi\n"
+    ++ "$ETA_JAVA_CMD $JAVA_ARGS $JAVA_OPTS $ETA_JAVA_ARGS "
+       ++ "-classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"\n"
+  where dirEnvVar = "DIR"
+        dirEnvVarRef | isWindows = "%" ++ dirEnvVar ++ "%"
+                     | otherwise  = "$" ++ dirEnvVar 
+        exeJarEnv   = dirEnvVarRef </> realExeName exeName
+        totalClassPath = exeJarEnv ++ [classPathSep] ++
+                         classPaths ++ [classPathSep] ++ "$ETA_CLASSPATH"
+        -- For Windows
+        launcherJarEnv = dirEnvVarRef </> (exeName' ++ ".launcher.jar")
+        winClassPath = "\"" ++ launcherJarEnv ++ "\"" ++ [classPathSep] ++
+                         "%ETA_CLASSPATH%" 
 
 isWindows :: LocalBuildInfo -> Bool
 isWindows lbi | Platform _ Windows <- hostPlatform lbi = True
@@ -513,16 +555,19 @@ installExe verbosity lbi installDirs buildPref
       toDir x = binDir </> x
       exeName' = display (exeName exe)
       buildDir = buildPref </> exeName'
-      fromDir x = buildDir </> x
-      exeNameExt ext = if null ext
-                       then exeName'
+      exeNameExt ext = if null ext then exeName'
                        else exeName' <.> ext
       launchExt = if isWindows lbi then "cmd" else ""
-      copy x = copyFile (fromDir x) (toDir x)
+      copy fromDir x = copyFile (fromDir </> x) (toDir x)
   createDirectoryIfMissingVerbose verbosity True binDir
-  copy (exeNameExt launchExt)
-  copy (exeNameExt "jar")
+  copy buildDir (exeNameExt "jar")
   when (isWindows lbi) $ copy (exeNameExt "launcher.jar")
+  withTempDirectory verbosity buildDir "install" $ \tmpDir -> do
+    generateExeLaunchScript
+    copy tmpDir (exeNameExt launchExt) 
+    when (isWindows lbi) $ do
+      generateExeLaunchJar
+      copy tmpDir (exeNameExt "jar")
   --copyFile (fromDir (exeNameExt "jar")) (toDir (progprefix ++ exeName exe ++ progsuffix))
 
 libAbiHash :: Verbosity -> PackageDescription -> LocalBuildInfo

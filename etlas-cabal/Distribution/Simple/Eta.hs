@@ -317,7 +317,6 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
   (etaProg, _)  <- requireProgram verbosity etaProgram  (withPrograms lbi)
   (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
   etlasDir <- defaultEtlasDir
-  let runEtaProg  = runGHC verbosity etaProg comp (hostPlatform lbi)
 
   createDirectoryIfMissingVerbose verbosity True exeDir
 
@@ -330,23 +329,21 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
       let mavenRepos = frameworks exeBi
       mavenPaths <- fetchMavenDependencies verbosity
                       mavenRepos mavenDeps (withPrograms lbi)
-      let javaSrcs
-            | isShared  = javaSrcs'
-            | otherwise = mavenPaths ++ javaSrcs'
 
-          fullClassPath = depJars ++ mavenPaths
-
+      let fullClassPath = depJars ++ mavenPaths
           classPaths
             | isShared  = fullClassPath
             | otherwise = []
-          dirEnvVar = "DIR"
-          dirEnvVarRef
-            | isWindows' = "%" ++ dirEnvVar ++ "%"
-            | otherwise  = "$" ++ dirEnvVar
+          (dirEnvVar, dirEnvVarRef) = dirEnvVarAndRef isWindows'
+          -- Handle java sources
+          javaSrcs
+            | isShared  = javaSrcs'
+            | otherwise = mavenPaths ++ javaSrcs'
           hasJavaSources = isShared && not (null javaSrcs)
-          maybeJavaSourceEnv
-            | hasJavaSources = [dirEnvVarRef </> exeTmpDir </> extrasJar]
-            | otherwise      =  []
+          maybeJavaSourceAttr | hasJavaSources = [exeTmpDir </> extrasJar]
+                              | otherwise      = []
+
+          runEtaProg  = runGHC verbosity etaProg comp (hostPlatform lbi)
           baseOpts = (componentGhcOptions verbosity lbi exeBi clbi exeDir)
                     `mappend` mempty {
                       ghcOptMode         = toFlag GhcModeMake,
@@ -358,7 +355,6 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
                       ghcOptExtra        = toNubListR $
                         ["-cp", mkMergedClassPath lbi fullClassPath]
                     }
-
           withVerify act = do
             _ <- act
             when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
@@ -367,77 +363,25 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
       withVerify $ runEtaProg baseOpts
 
       -- Generate command line executable file
-      let classPaths''
+      let maybeJavaSourceEnv = map (dirEnvVarRef </>) maybeJavaSourceAttr
+          scriptClassPaths
             | null classPaths && not hasJavaSources = ""
             | otherwise = mkMergedClassPath lbi (maybeJavaSourceEnv ++ classPaths)
-          exeJarEnv   = dirEnvVarRef </> exeNameReal
-          totalClassPath = exeJarEnv ++ [classPathSep] ++
-                           classPaths'' ++ [classPathSep] ++ "$ETA_CLASSPATH"
-          -- For Windows
-          launcherJarEnv = dirEnvVarRef </> (exeName' ++ ".launcher.jar")
-          winClassPath = "\"" ++ launcherJarEnv ++ "\"" ++ [classPathSep] ++
-                         "%ETA_CLASSPATH%" 
-          generateExeScript
-            | isWindows'
-            = "@echo off\r\n"
-           ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"
-           ++ "if defined ETA_JAVA_CMD goto execute\r\n"
-           ++ "if defined JAVA_HOME goto findJavaFromJavaHome\r\n"
-           ++ "set ETA_JAVA_CMD=java.exe\r\n"
-           ++ "goto execute\r\n"
-           ++ ":findJavaFromJavaHome\r\n"
-           ++ "set ETA_JAVA_HOME=%JAVA_HOME:\"=%\r\n"
-           ++ "set ETA_JAVA_CMD=%ETA_JAVA_HOME%\\bin\\java.exe\r\n"
-           ++ ":execute\r\n"
-           ++ "\"%ETA_JAVA_CMD%\" %JAVA_ARGS% %JAVA_OPTS% %ETA_JAVA_ARGS% "
-              ++ "-classpath " ++ winClassPath ++ " eta.main %*\r\n"
-            | otherwise
-            = "#!/usr/bin/env bash\n"
-           ++ dirEnvVar ++ "=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"\n"
-           ++ "if [ -z \"$ETA_JAVA_CMD\" ]; then\n"
-           ++ "    if [ -n \"$JAVA_HOME\" ] ; then\n"
-           ++ "        if [ -x \"$JAVA_HOME/jre/sh/java\" ] ; then\n"
-           ++ "            ETA_JAVA_CMD=\"$JAVA_HOME/jre/sh/java\"\n"
-           ++ "        else\n"
-           ++ "            ETA_JAVA_CMD=\"$JAVA_HOME/bin/java\"\n"
-           ++ "        fi\n"
-           ++ "    else\n"
-           ++ "        ETA_JAVA_CMD=\"java\"\n"
-           ++ "    fi\n"
-           ++ "fi\n"
-           ++ "$ETA_JAVA_CMD $JAVA_ARGS $JAVA_OPTS $ETA_JAVA_ARGS "
-              ++ "-classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"\n"
-          scriptFile
-            | isWindows' = prefix ++ ".cmd"
-            | otherwise  = prefix
+          exeScript = generateExeLaunchScript classPathSep exeName'
+                              scriptClassPaths isWindows'
+          scriptFile | isWindows' = prefix ++ ".cmd"
+                     | otherwise  = prefix
             where prefix = targetDir </> exeName'
 
-      {- Windows faces the dreaded line-length limit which forces us to create a
-          launcher jar as a workaround. This places a restriction that you must
-          develop Eta on the same drive that you installed it in. -}
-      when isWindows' $ do
-        jarProg  <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
-        let addStartingPathSep path | hasDrive path  = pathSeparator : path
-                                    | otherwise      = path
-            maybeJavaSourceAttr | hasJavaSources = [exeTmpDir </> extrasJar]
-                                | otherwise      = []
-            replaceEnvVar = replacePrefix dirEnvVarRef "."
-            classPaths' = map (addStartingPathSep . replaceEnvVar) classPaths
-            targetManifest = targetDir </> "MANIFEST.MF"
-            launcherJar = targetDir </> (exeName' ++ ".launcher.jar")
-        writeFile targetManifest $ unlines $
-          ["Manifest-Version: 1.0"
-          ,"Created-By: etlas-" ++ display Etlas.version
-          ,"Main-Class: eta.main"
-          ,"Class-Path: " ++ exeNameReal]
-          ++ map ((++) "  ") (maybeJavaSourceAttr ++ classPaths')
-        -- Create the launcher jar
-        runProgramInvocation verbosity
-          $ programInvocation jarProg ["cfm", launcherJar, targetManifest]
-
-      writeUTF8File scriptFile generateExeScript
+      writeUTF8File scriptFile exeScript
       p <- getPermissions scriptFile
       setPermissions scriptFile (p { executable = True })
+
+      {- Windows faces the dreaded line-length limit which forces us to create a
+          launcher jar as a workaround. -}
+      when isWindows' $ do
+        let jarClassPaths =  maybeJavaSourceAttr ++ classPaths
+        generateExeLaunchJar verbosity lbi exeName' jarClassPaths targetDir
 
     Nothing -> die' verbosity "Missing dependencies. Try `etlas install --dependencies-only`?"
   where comp         = compiler lbi
@@ -447,8 +391,14 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
         isWindows'   = isWindows lbi
         classPathSep = head (classPathSeparator lbi)
 
-generateExeScript :: String -> [String] -> Bool -> String
-generateExeScript exeName classPaths isWindows
+dirEnvVarAndRef :: Bool -> (String,String)
+dirEnvVarAndRef isWindows = (var,ref)
+  where var = "DIR"
+        ref | isWindows = "%" ++ var ++ "%"
+            | otherwise  = "$" ++ var 
+
+generateExeLaunchScript :: Char -> String -> String -> Bool -> String
+generateExeLaunchScript classPathSep exeName classPaths isWindows
   | isWindows
   = "@echo off\r\n"
     ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"
@@ -478,16 +428,34 @@ generateExeScript exeName classPaths isWindows
     ++ "fi\n"
     ++ "$ETA_JAVA_CMD $JAVA_ARGS $JAVA_OPTS $ETA_JAVA_ARGS "
        ++ "-classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"\n"
-  where dirEnvVar = "DIR"
-        dirEnvVarRef | isWindows = "%" ++ dirEnvVar ++ "%"
-                     | otherwise  = "$" ++ dirEnvVar 
+  where (dirEnvVar, dirEnvVarRef) = dirEnvVarAndRef isWindows 
         exeJarEnv   = dirEnvVarRef </> realExeName exeName
         totalClassPath = exeJarEnv ++ [classPathSep] ++
                          classPaths ++ [classPathSep] ++ "$ETA_CLASSPATH"
         -- For Windows
-        launcherJarEnv = dirEnvVarRef </> (exeName' ++ ".launcher.jar")
+        launcherJarEnv = dirEnvVarRef </> (exeName ++ ".launcher.jar")
         winClassPath = "\"" ++ launcherJarEnv ++ "\"" ++ [classPathSep] ++
                          "%ETA_CLASSPATH%" 
+generateExeLaunchJar :: Verbosity -> LocalBuildInfo -> String -> [String] -> FilePath -> IO ()
+generateExeLaunchJar verbosity lbi exeName classPaths targetDir = do
+  jarProg  <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
+  writeFile targetManifest $ unlines $
+    ["Manifest-Version: 1.0"
+    ,"Created-By: etlas-" ++ display Etlas.version
+    ,"Main-Class: eta.main"
+    ,"Class-Path: " ++ realExeName exeName]
+    ++ map ((++) "  ") classPaths'
+  -- Create the launcher jar
+  runProgramInvocation verbosity
+    $ programInvocation jarProg ["cfm", launcherJar, targetManifest]
+  where classPathSep = head (classPathSeparator lbi)
+        addStartingPathSep path | hasDrive path  = pathSeparator : path
+                                | otherwise      = path
+        (_, dirEnvVarRef) = dirEnvVarAndRef $ isWindows lbi
+        replaceEnvVar = replacePrefix dirEnvVarRef "."
+        classPaths' = map (addStartingPathSep . replaceEnvVar) classPaths
+        targetManifest = targetDir </> "MANIFEST.MF"
+        launcherJar = targetDir </> (exeName ++ ".launcher.jar")
 
 isWindows :: LocalBuildInfo -> Bool
 isWindows lbi | Platform _ Windows <- hostPlatform lbi = True
@@ -561,12 +529,11 @@ installExe verbosity lbi installDirs buildPref
       copy fromDir x = copyFile (fromDir </> x) (toDir x)
   createDirectoryIfMissingVerbose verbosity True binDir
   copy buildDir (exeNameExt "jar")
-  when (isWindows lbi) $ copy (exeNameExt "launcher.jar")
   withTempDirectory verbosity buildDir "install" $ \tmpDir -> do
-    generateExeLaunchScript
+    -- generateExeLaunchScript
     copy tmpDir (exeNameExt launchExt) 
     when (isWindows lbi) $ do
-      generateExeLaunchJar
+      --generateExeLaunchJar
       copy tmpDir (exeNameExt "jar")
   --copyFile (fromDir (exeNameExt "jar")) (toDir (progprefix ++ exeName exe ++ progsuffix))
 
@@ -684,9 +651,7 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi bi runScript
           | null libs = []
           | runScript = [dirEnvVarRef ++ "/../" ++ libJarName]
           | otherwise = [buildDir lbi </> libJarName]
-          where dirEnvVarRef
-                  | isWindows lbi = "%DIR%"
-                  | otherwise     = "$DIR"
+          where (_,dirEnvVarRef) = dirEnvVarAndRef $ isWindows lbi
                 libJarName = mkJarName (fromJust mbLibUid)
         libMavenDeps
           | null libs = []

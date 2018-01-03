@@ -339,8 +339,9 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
             | isShared  = javaSrcs'
             | otherwise = mavenPaths ++ javaSrcs'
           hasJavaSources = isShared && not (null javaSrcs)
-          maybeJavaSourceAttr | hasJavaSources = [exeTmpDir </> extrasJar]
-                              | otherwise      = []
+          maybeJavaSourceAttr
+            | hasJavaSources = [exeTmpDir </> extrasJar]
+            | otherwise      = []
 
           runEtaProg  = runGHC verbosity etaProg comp (hostPlatform lbi)
           baseOpts = (componentGhcOptions verbosity lbi exeBi clbi exeDir)
@@ -375,8 +376,8 @@ dirEnvVarAndRef isWindows = (var,ref)
         ref | isWindows = "%" ++ var ++ "%"
             | otherwise  = "$" ++ var 
 
-generateExeLaunchers :: Verbosity -> LocalBuildInfo -> String ->
-                        [String] -> [String] -> FilePath -> IO ()
+generateExeLaunchers :: Verbosity -> LocalBuildInfo -> String
+                     -> [String] -> [String] -> FilePath -> IO ()
 generateExeLaunchers verbosity lbi exeName classPaths maybeJavaSourceAttr targetDir = do
   let maybeJavaSourceEnv = map (dirEnvVarRef </>) maybeJavaSourceAttr
       scriptClassPaths

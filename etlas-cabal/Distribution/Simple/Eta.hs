@@ -334,7 +334,6 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
           classPaths
             | isShared  = fullClassPath
             | otherwise = []
-          (dirEnvVar, dirEnvVarRef) = dirEnvVarAndRef isWindows'
           -- Handle java sources
           javaSrcs
             | isShared  = javaSrcs'
@@ -361,35 +360,14 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
               runVerify verbosity (exeJar : classPaths) exeJar lbi
 
       withVerify $ runEtaProg baseOpts
-
       -- Generate command line executable file
-      let maybeJavaSourceEnv = map (dirEnvVarRef </>) maybeJavaSourceAttr
-          scriptClassPaths
-            | null classPaths && not hasJavaSources = ""
-            | otherwise = mkMergedClassPath lbi (maybeJavaSourceEnv ++ classPaths)
-          exeScript = generateExeLaunchScript classPathSep exeName'
-                              scriptClassPaths isWindows'
-          scriptFile | isWindows' = prefix ++ ".cmd"
-                     | otherwise  = prefix
-            where prefix = targetDir </> exeName'
-
-      writeUTF8File scriptFile exeScript
-      p <- getPermissions scriptFile
-      setPermissions scriptFile (p { executable = True })
-
-      {- Windows faces the dreaded line-length limit which forces us to create a
-          launcher jar as a workaround. -}
-      when isWindows' $ do
-        let jarClassPaths =  maybeJavaSourceAttr ++ classPaths
-        generateExeLaunchJar verbosity lbi exeName' jarClassPaths targetDir
-
+      generateExeLaunchers verbosity lbi exeName' classPaths maybeJavaSourceAttr targetDir
+ 
     Nothing -> die' verbosity "Missing dependencies. Try `etlas install --dependencies-only`?"
   where comp         = compiler lbi
         exeBi        = buildInfo exe
         isShared     = withDynExe lbi
         javaSrcs'    = javaSources exeBi
-        isWindows'   = isWindows lbi
-        classPathSep = head (classPathSeparator lbi)
 
 dirEnvVarAndRef :: Bool -> (String,String)
 dirEnvVarAndRef isWindows = (var,ref)
@@ -397,6 +375,33 @@ dirEnvVarAndRef isWindows = (var,ref)
         ref | isWindows = "%" ++ var ++ "%"
             | otherwise  = "$" ++ var 
 
+generateExeLaunchers :: Verbosity -> LocalBuildInfo -> String ->
+                        [String] -> [String] -> FilePath -> IO ()
+generateExeLaunchers verbosity lbi exeName classPaths maybeJavaSourceAttr targetDir = do
+  let maybeJavaSourceEnv = map (dirEnvVarRef </>) maybeJavaSourceAttr
+      scriptClassPaths
+        | null classPaths && null maybeJavaSourceAttr = ""
+        | otherwise = mkMergedClassPath lbi (maybeJavaSourceEnv ++ classPaths)
+      exeScript = generateExeLaunchScript classPathSep exeName
+                  scriptClassPaths isWindows'
+      scriptFile | isWindows' = prefix ++ ".cmd"
+                 | otherwise  = prefix
+        where prefix = targetDir </> exeName
+
+  writeUTF8File scriptFile exeScript
+  p <- getPermissions scriptFile
+  setPermissions scriptFile (p { executable = True })
+
+  {- Windows faces the dreaded line-length limit which forces us to create a
+     launcher jar as a workaround. -}
+  when isWindows' $ do
+    let jarClassPaths =  maybeJavaSourceAttr ++ classPaths
+    generateExeLaunchJar verbosity lbi exeName jarClassPaths targetDir
+
+  where classPathSep = head (classPathSeparator lbi)
+        isWindows'   = isWindows lbi
+        (dirEnvVar, dirEnvVarRef) = dirEnvVarAndRef isWindows'
+        
 generateExeLaunchScript :: Char -> String -> String -> Bool -> String
 generateExeLaunchScript classPathSep exeName classPaths isWindows
   | isWindows
@@ -435,7 +440,8 @@ generateExeLaunchScript classPathSep exeName classPaths isWindows
         -- For Windows
         launcherJarEnv = dirEnvVarRef </> (exeName ++ ".launcher.jar")
         winClassPath = "\"" ++ launcherJarEnv ++ "\"" ++ [classPathSep] ++
-                         "%ETA_CLASSPATH%" 
+                         "%ETA_CLASSPATH%"
+                         
 generateExeLaunchJar :: Verbosity -> LocalBuildInfo -> String -> [String] -> FilePath -> IO ()
 generateExeLaunchJar verbosity lbi exeName classPaths targetDir = do
   jarProg  <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
@@ -523,19 +529,19 @@ installExe verbosity lbi installDirs buildPref
       toDir x = binDir </> x
       exeName' = display (exeName exe)
       buildDir = buildPref </> exeName'
+      installDir = buildDir </> "install"
       exeNameExt ext = if null ext then exeName'
                        else exeName' <.> ext
       launchExt = if isWindows lbi then "cmd" else ""
       copy fromDir x = copyFile (fromDir </> x) (toDir x)
   createDirectoryIfMissingVerbose verbosity True binDir
   copy buildDir (exeNameExt "jar")
-  withTempDirectory verbosity buildDir "install" $ \tmpDir -> do
-    -- generateExeLaunchScript
-    copy tmpDir (exeNameExt launchExt) 
-    when (isWindows lbi) $ do
-      --generateExeLaunchJar
-      copy tmpDir (exeNameExt "jar")
-  --copyFile (fromDir (exeNameExt "jar")) (toDir (progprefix ++ exeName exe ++ progsuffix))
+
+  -- generateExeLaunchScript installDir
+  copy installDir (exeNameExt launchExt) 
+  when (isWindows lbi) $ do
+    --generateExeLaunchJar installDir
+    copy installDir (exeNameExt "jar")
 
 libAbiHash :: Verbosity -> PackageDescription -> LocalBuildInfo
            -> Library -> ComponentLocalBuildInfo -> IO String

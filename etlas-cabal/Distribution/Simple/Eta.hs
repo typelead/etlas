@@ -26,6 +26,7 @@ module Distribution.Simple.Eta (
         findVerifyRef,
         getLibraryComponent,
         getDependencyClassPaths,
+        LibraryPathType(..),
         exeJarPath,
         libJarPath
   ) where
@@ -224,19 +225,14 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
   let runEtaProg          = runGHC verbosity etaProg comp (hostPlatform lbi)
       libBi               = libBuildInfo lib
 
-  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi libBi True
-  case mDeps of
-    Just (depJars, mavenDeps) -> do
+  doWithResolvedDependencyClassPathsOrDie verbosity pkgDescr lbi clbi libBi
+    RelativeLibPath $ \ (depJars,mavenPaths) -> do
 
-      let mavenRepos = frameworks libBi
-      mavenPaths <- fetchMavenDependencies verbosity mavenRepos mavenDeps
-                      (withPrograms lbi)
       let fullClassPath = depJars ++ mavenPaths
 
       createDirectoryIfMissingVerbose verbosity True libTargetDir
       -- TODO: do we need to put hs-boot files into place for mutually recursive
       -- modules?
-      etlasDir <- defaultEtlasDir
 
       let javaSrcs    = javaSources libBi
           baseOpts    = componentGhcOptions verbosity lbi libBi clbi libTargetDir
@@ -271,7 +267,6 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
           else if isSharedLib
           then withVerify $ runEtaProg sharedOpts
           else return ()
-    Nothing -> die' verbosity "Missing dependencies. Try `etlas install --dependencies-only`?"
 
 -- | Start a REPL without loading any source files.
 startInterpreter :: Verbosity -> ProgramDb -> Compiler -> Platform
@@ -309,26 +304,16 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
   let exeName'    = display exeName
       exeNameReal = realExeName exeName'
       targetDir   = buildDir lbi </> exeName'
-      extrasJar   = "__extras.jar"
       exeTmpDir   = exeName' ++ "-tmp"
       exeDir      = targetDir </> exeTmpDir
       exeJar      = targetDir </> exeNameReal
 
   (etaProg, _)  <- requireProgram verbosity etaProgram  (withPrograms lbi)
-  (javaProg, _) <- requireProgram verbosity javaProgram (withPrograms lbi)
-  etlasDir <- defaultEtlasDir
-
   createDirectoryIfMissingVerbose verbosity True exeDir
-
   srcMainFile <- findFile (hsSourceDirs exeBi) modPath
 
-  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi exeBi True
-  case mDeps of
-    Just (depJars, mavenDeps) -> do
-
-      let mavenRepos = frameworks exeBi
-      mavenPaths <- fetchMavenDependencies verbosity
-                      mavenRepos mavenDeps (withPrograms lbi)
+  doWithResolvedDependencyClassPathsOrDie verbosity pkgDescr lbi clbi exeBi
+    RelativeLibPath $ \ (depJars,mavenPaths) -> do
 
       let fullClassPath = depJars ++ mavenPaths
           classPaths
@@ -338,10 +323,6 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
           javaSrcs
             | isShared  = javaSrcs'
             | otherwise = mavenPaths ++ javaSrcs'
-          hasJavaSources = isShared && not (null javaSrcs)
-          maybeJavaSourceAttr
-            | hasJavaSources = [exeTmpDir </> extrasJar]
-            | otherwise      = []
 
           runEtaProg  = runGHC verbosity etaProg comp (hostPlatform lbi)
           baseOpts = (componentGhcOptions verbosity lbi exeBi clbi exeDir)
@@ -361,29 +342,27 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
               runVerify verbosity (exeJar : classPaths) exeJar lbi
 
       withVerify $ runEtaProg baseOpts
-      -- Generate command line executable file
-      generateExeLaunchers verbosity lbi exeName' classPaths maybeJavaSourceAttr targetDir
+      -- Generate command line file / jar exec launchers
+      generateExeLaunchers verbosity lbi exeName' classPaths targetDir
  
-    Nothing -> die' verbosity "Missing dependencies. Try `etlas install --dependencies-only`?"
   where comp         = compiler lbi
         exeBi        = buildInfo exe
         isShared     = withDynExe lbi
         javaSrcs'    = javaSources exeBi
 
 dirEnvVarAndRef :: Bool -> (String,String)
-dirEnvVarAndRef isWindows = (var,ref)
+dirEnvVarAndRef isWindows' = (var,ref)
   where var = "DIR"
-        ref | isWindows = "%" ++ var ++ "%"
+        ref | isWindows' = "%" ++ var ++ "%"
             | otherwise  = "$" ++ var 
 
 generateExeLaunchers :: Verbosity -> LocalBuildInfo -> String
-                     -> [String] -> [String] -> FilePath -> IO ()
-generateExeLaunchers verbosity lbi exeName classPaths maybeJavaSourceAttr targetDir = do
-  let maybeJavaSourceEnv = map (dirEnvVarRef </>) maybeJavaSourceAttr
-      scriptClassPaths
-        | null classPaths && null maybeJavaSourceAttr = ""
-        | otherwise = mkMergedClassPath lbi (maybeJavaSourceEnv ++ classPaths)
-      exeScript = generateExeLaunchScript classPathSep exeName
+                     -> [String]  -> FilePath       -> IO ()
+generateExeLaunchers verbosity lbi exeName classPaths targetDir = do
+  let scriptClassPaths
+        | null classPaths = ""
+        | otherwise = mkMergedClassPath lbi classPaths
+      exeScript = generateExeLauncherScript classPathSep exeName
                   scriptClassPaths isWindows'
       scriptFile | isWindows' = prefix ++ ".cmd"
                  | otherwise  = prefix
@@ -395,17 +374,15 @@ generateExeLaunchers verbosity lbi exeName classPaths maybeJavaSourceAttr target
 
   {- Windows faces the dreaded line-length limit which forces us to create a
      launcher jar as a workaround. -}
-  when isWindows' $ do
-    let jarClassPaths =  maybeJavaSourceAttr ++ classPaths
-    generateExeLaunchJar verbosity lbi exeName jarClassPaths targetDir
+  when isWindows' $ 
+    generateExeLauncherJar verbosity lbi exeName classPaths targetDir
 
   where classPathSep = head (classPathSeparator lbi)
         isWindows'   = isWindows lbi
-        (dirEnvVar, dirEnvVarRef) = dirEnvVarAndRef isWindows'
         
-generateExeLaunchScript :: Char -> String -> String -> Bool -> String
-generateExeLaunchScript classPathSep exeName classPaths isWindows
-  | isWindows
+generateExeLauncherScript :: Char -> String -> String -> Bool -> String
+generateExeLauncherScript classPathSep exeName classPaths isWindows'
+  | isWindows'
   = "@echo off\r\n"
     ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"
     ++ "if defined ETA_JAVA_CMD goto execute\r\n"
@@ -434,7 +411,7 @@ generateExeLaunchScript classPathSep exeName classPaths isWindows
     ++ "fi\n"
     ++ "$ETA_JAVA_CMD $JAVA_ARGS $JAVA_OPTS $ETA_JAVA_ARGS "
        ++ "-classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"\n"
-  where (dirEnvVar, dirEnvVarRef) = dirEnvVarAndRef isWindows 
+  where (dirEnvVar, dirEnvVarRef) = dirEnvVarAndRef isWindows' 
         exeJarEnv   = dirEnvVarRef </> realExeName exeName
         totalClassPath = exeJarEnv ++ [classPathSep] ++
                          classPaths ++ [classPathSep] ++ "$ETA_CLASSPATH"
@@ -443,8 +420,9 @@ generateExeLaunchScript classPathSep exeName classPaths isWindows
         winClassPath = "\"" ++ launcherJarEnv ++ "\"" ++ [classPathSep] ++
                          "%ETA_CLASSPATH%"
                          
-generateExeLaunchJar :: Verbosity -> LocalBuildInfo -> String -> [String] -> FilePath -> IO ()
-generateExeLaunchJar verbosity lbi exeName classPaths targetDir = do
+generateExeLauncherJar :: Verbosity -> LocalBuildInfo -> String
+                       -> [String]  -> FilePath       -> IO ()
+generateExeLauncherJar verbosity lbi exeName classPaths targetDir = do
   jarProg  <- fmap fst $ requireProgram verbosity jarProgram (withPrograms lbi)
   writeFile targetManifest $ unlines $
     ["Manifest-Version: 1.0"
@@ -455,8 +433,7 @@ generateExeLaunchJar verbosity lbi exeName classPaths targetDir = do
   -- Create the launcher jar
   runProgramInvocation verbosity
     $ programInvocation jarProg ["cfm", launcherJar, targetManifest]
-  where classPathSep = head (classPathSeparator lbi)
-        addStartingPathSep path | hasDrive path  = pathSeparator : path
+  where addStartingPathSep path | hasDrive path  = pathSeparator : path
                                 | otherwise      = path
         (_, dirEnvVarRef) = dirEnvVarAndRef $ isWindows lbi
         replaceEnvVar = replacePrefix dirEnvVarRef "."
@@ -517,32 +494,40 @@ mkFFIMapName :: UnitId -> String
 mkFFIMapName uid = getHSLibraryName uid <.> "ffimap"
 
 installExe :: Verbosity
-              -> LocalBuildInfo
-              -> InstallDirs FilePath -- ^Where to copy the files to
-              -> FilePath  -- ^Build location
-              -> (FilePath, FilePath)  -- ^Executable (prefix,suffix)
-              -> PackageDescription
-              -> Executable
-              -> IO ()
-installExe verbosity lbi installDirs buildPref
+           -> LocalBuildInfo
+           -> ComponentLocalBuildInfo
+           -> InstallDirs FilePath -- ^Where to copy the files to
+           -> FilePath  -- ^Build location
+           -> (FilePath, FilePath)  -- ^Executable (prefix,suffix)
+           -> PackageDescription
+           -> Executable
+           -> IO ()
+installExe verbosity lbi clbi installDirs buildPref
            (_progprefix, _progsuffix) _pkg exe = do
-  let binDir = bindir installDirs
+  let exeBi = buildInfo exe
+      isShared = withDynExe lbi
+      binDir = bindir installDirs
       toDir x = binDir </> x
       exeName' = display (exeName exe)
       buildDir = buildPref </> exeName'
-      installDir = buildDir </> "install"
+      installLaunchersDir = buildDir </> "install-launchers"
       exeNameExt ext = if null ext then exeName'
                        else exeName' <.> ext
       launchExt = if isWindows lbi then "cmd" else ""
       copy fromDir x = copyFile (fromDir </> x) (toDir x)
-  createDirectoryIfMissingVerbose verbosity True binDir
-  copy buildDir (exeNameExt "jar")
+  mapM_ (createDirectoryIfMissingVerbose verbosity True) [binDir,installLaunchersDir]
 
-  -- generateExeLaunchScript installDir
-  copy installDir (exeNameExt launchExt) 
-  when (isWindows lbi) $ do
-    --generateExeLaunchJar installDir
-    copy installDir (exeNameExt "jar")
+  copy buildDir (exeNameExt "jar")
+  doWithResolvedDependencyClassPathsOrDie verbosity _pkg lbi clbi exeBi AbsoluteGlobalLibPath $
+    \ (depJars, mavenPaths) -> do
+      let classPaths
+            | isShared  = depJars ++ mavenPaths
+            | otherwise = []
+      generateExeLaunchers verbosity lbi exeName' classPaths installLaunchersDir
+      copy installLaunchersDir (exeNameExt launchExt) 
+      when (isWindows lbi) $ do
+        --generateExeLaunchJar installDir
+        copy installLaunchersDir (exeNameExt "launcher.jar")
 
 libAbiHash :: Verbosity -> PackageDescription -> LocalBuildInfo
            -> Library -> ComponentLocalBuildInfo -> IO String
@@ -633,15 +618,36 @@ etaGhcVersion = mkVersion [7,10,3]
 jarExtension :: String
 jarExtension = "jar"
 
+doWithResolvedDependencyClassPathsOrDie
+  :: Verbosity
+  -> PackageDescription
+  -> LocalBuildInfo
+  -> ComponentLocalBuildInfo
+  -> BuildInfo
+  -> LibraryPathType
+  -> (([FilePath], [FilePath]) -> IO ())
+  -> IO ()
+doWithResolvedDependencyClassPathsOrDie verbosity pkgDescr lbi clbi bi libPathType action = do
+  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi bi libPathType
+  case mDeps of
+    Just (depJars, mavenDeps) -> do
+      let mavenRepos = frameworks bi
+      mavenPaths <- fetchMavenDependencies verbosity mavenRepos mavenDeps
+                      (withPrograms lbi)
+      action (depJars,mavenPaths)
+    Nothing -> die' verbosity "Missing dependencies. Try `etlas install --dependencies-only`?"
+
+data LibraryPathType = RelativeLibPath | AbsoluteLocalLibPath | AbsoluteGlobalLibPath
+
 getDependencyClassPaths
   :: InstalledPackageIndex
   -> PackageDescription
   -> LocalBuildInfo
   -> ComponentLocalBuildInfo
   -> BuildInfo
-  -> Bool
+  -> LibraryPathType
   -> IO (Maybe ([FilePath], [String]))
-getDependencyClassPaths packageIndex pkgDescr lbi clbi bi runScript
+getDependencyClassPaths packageIndex pkgDescr lbi clbi bi libPathType
   | Left closurePackageIndex <- closurePackageIndex'
   = do let packageInfos = PackageIndex.allPackages closurePackageIndex
            packageMavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
@@ -650,15 +656,17 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi bi runScript
        
        packagesPaths <- fmap concat $ mapM hsLibraryPaths packageInfos
        return $ Just (libPath ++ packagesPaths, mavenDeps ++ libMavenDeps ++ packageMavenDeps)
-
+       
   | otherwise = return Nothing
   where closurePackageIndex' = PackageIndex.dependencyClosure packageIndex packages
           where packages  = libDeps ++ packages''
         mavenDeps = extraLibs bi
         libPath
           | null libs = []
-          | runScript = [dirEnvVarRef ++ "/../" ++ libJarName]
-          | otherwise = [buildDir lbi </> libJarName]
+          | otherwise = case libPathType of
+               RelativeLibPath      -> [dirEnvVarRef ++ "/../" ++ libJarName]
+               AbsoluteLocalLibPath -> [buildDir lbi </> libJarName]
+               _                    -> []
           where (_,dirEnvVarRef) = dirEnvVarAndRef $ isWindows lbi
                 libJarName = mkJarName (fromJust mbLibUid)
         libMavenDeps
@@ -669,9 +677,11 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi bi runScript
           | otherwise = (Just $ componentUnitId clbi'
                         , map fst $ componentPackageDeps clbi')
           where clbi' = fromJust libComponent
-        (libs, packages'') = maybe ([], packages')
-                                   (\lc -> partition (== lc) packages')
-                                   $ fmap componentUnitId libComponent
+        (libs, packages'') = case libPathType of
+          AbsoluteGlobalLibPath -> ([],packages')
+          _                     ->
+            maybe ([], packages') (\lc -> partition (== lc) packages') $
+                             fmap componentUnitId libComponent
           where packages' = map fst $ componentPackageDeps clbi
         libComponent = getLibraryComponent lbi
         

@@ -359,10 +359,21 @@ dirEnvVarAndRef isWindows' = (var,ref)
 generateExeLaunchers :: Verbosity -> LocalBuildInfo -> String
                      -> [String]  -> FilePath       -> IO ()
 generateExeLaunchers verbosity lbi exeName classPaths targetDir = do
-  let scriptClassPaths
+  generateExeLauncherScript verbosity lbi exeName classPaths targetDir
+  {- Windows faces the dreaded line-length limit which forces us to create a
+     launcher jar as a workaround. -}
+  when (isWindows lbi) $  
+    generateExeLauncherJar verbosity lbi exeName classPaths targetDir
+        
+generateExeLauncherScript :: Verbosity -> LocalBuildInfo -> String
+                          -> [String]  -> FilePath       -> IO ()
+generateExeLauncherScript verbosity lbi exeName classPaths targetDir = do
+  let isWindows'   = isWindows lbi
+      classPathSep = head (classPathSeparator lbi)
+      scriptClassPaths
         | null classPaths = ""
         | otherwise = mkMergedClassPath lbi classPaths
-      exeScript = generateExeLauncherScript classPathSep exeName
+      exeScript = exeLauncherScript classPathSep exeName
                   scriptClassPaths isWindows'
       scriptFile | isWindows' = prefix ++ ".cmd"
                  | otherwise  = prefix
@@ -372,16 +383,8 @@ generateExeLaunchers verbosity lbi exeName classPaths targetDir = do
   p <- getPermissions scriptFile
   setPermissions scriptFile (p { executable = True })
 
-  {- Windows faces the dreaded line-length limit which forces us to create a
-     launcher jar as a workaround. -}
-  when isWindows' $ 
-    generateExeLauncherJar verbosity lbi exeName classPaths targetDir
-
-  where classPathSep = head (classPathSeparator lbi)
-        isWindows'   = isWindows lbi
-        
-generateExeLauncherScript :: Char -> String -> String -> Bool -> String
-generateExeLauncherScript classPathSep exeName classPaths isWindows'
+exeLauncherScript :: Char -> String -> String -> Bool -> String
+exeLauncherScript classPathSep exeName classPaths isWindows'
   | isWindows'
   = "@echo off\r\n"
     ++ "set " ++ dirEnvVar ++ "=%~dp0\r\n"

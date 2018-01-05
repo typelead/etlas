@@ -26,7 +26,7 @@ module Distribution.Simple.Eta (
         findVerifyRef,
         getLibraryComponent,
         getDependencyClassPaths,
-        LibraryPathType(..),
+        InstallDirType(..),
         exeJarPath,
         libJarPath
   ) where
@@ -226,7 +226,7 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       libBi               = libBuildInfo lib
 
   doWithResolvedDependencyClassPathsOrDie verbosity pkgDescr lbi clbi libBi
-    RelativeLibPath $ \ (depJars,mavenPaths) -> do
+    RelativeInstallDir $ \ (depJars,mavenPaths) -> do
 
       let fullClassPath = depJars ++ mavenPaths
 
@@ -313,7 +313,7 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
   srcMainFile <- findFile (hsSourceDirs exeBi) modPath
 
   doWithResolvedDependencyClassPathsOrDie verbosity pkgDescr lbi clbi exeBi
-    RelativeLibPath $ \ (depJars,mavenPaths) -> do
+    RelativeInstallDir $ \ (depJars,mavenPaths) -> do
 
       let fullClassPath = depJars ++ mavenPaths
           classPaths
@@ -518,7 +518,7 @@ installExe verbosity lbi clbi installDirs buildPref
   mapM_ (createDirectoryIfMissingVerbose verbosity True) [binDir,installLaunchersDir]
 
   copy buildDir (exeNameExt "jar")
-  doWithResolvedDependencyClassPathsOrDie verbosity _pkg lbi clbi exeBi AbsoluteGlobalLibPath $
+  doWithResolvedDependencyClassPathsOrDie verbosity _pkg lbi clbi exeBi AbsoluteGlobalInstallDir $
     \ (depJars, mavenPaths) -> do
       let classPaths
             | isShared  = depJars ++ mavenPaths
@@ -624,11 +624,11 @@ doWithResolvedDependencyClassPathsOrDie
   -> LocalBuildInfo
   -> ComponentLocalBuildInfo
   -> BuildInfo
-  -> LibraryPathType
+  -> InstallDirType
   -> (([FilePath], [FilePath]) -> IO ())
   -> IO ()
-doWithResolvedDependencyClassPathsOrDie verbosity pkgDescr lbi clbi bi libPathType action = do
-  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi bi libPathType
+doWithResolvedDependencyClassPathsOrDie verbosity pkgDescr lbi clbi bi libDirType action = do
+  mDeps <- getDependencyClassPaths (installedPkgs lbi) pkgDescr lbi clbi bi libDirType
   case mDeps of
     Just (depJars, mavenDeps) -> do
       let mavenRepos = frameworks bi
@@ -637,7 +637,9 @@ doWithResolvedDependencyClassPathsOrDie verbosity pkgDescr lbi clbi bi libPathTy
       action (depJars,mavenPaths)
     Nothing -> die' verbosity "Missing dependencies. Try `etlas install --dependencies-only`?"
 
-data LibraryPathType = RelativeLibPath | AbsoluteLocalLibPath | AbsoluteGlobalLibPath
+data InstallDirType = RelativeInstallDir
+                    | AbsoluteLocalInstallDir
+                    | AbsoluteGlobalInstallDir
 
 getDependencyClassPaths
   :: InstalledPackageIndex
@@ -645,30 +647,32 @@ getDependencyClassPaths
   -> LocalBuildInfo
   -> ComponentLocalBuildInfo
   -> BuildInfo
-  -> LibraryPathType
+  -> InstallDirType
   -> IO (Maybe ([FilePath], [String]))
-getDependencyClassPaths packageIndex pkgDescr lbi clbi bi libPathType
+getDependencyClassPaths packageIndex pkgDescr lbi clbi bi libDirType
   | Left closurePackageIndex <- closurePackageIndex'
   = do let packageInfos = PackageIndex.allPackages closurePackageIndex
            packageMavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
-           hsLibraryPaths pinfo = mapM (findFile (libraryDirs pinfo))
-                                       (map (<.> "jar") $ hsLibraries pinfo)
-       
+           
        packagesPaths <- fmap concat $ mapM hsLibraryPaths packageInfos
        return $ Just (libPath ++ packagesPaths, mavenDeps ++ libMavenDeps ++ packageMavenDeps)
        
   | otherwise = return Nothing
-  where closurePackageIndex' = PackageIndex.dependencyClosure packageIndex packages
+  where hsLibraryPaths pinfo = mapM (findFile (libraryDirs pinfo))
+                                       (map (<.> "jar") $ hsLibraries pinfo)
+        closurePackageIndex' = PackageIndex.dependencyClosure packageIndex packages
           where packages  = libDeps ++ packages''
         mavenDeps = extraLibs bi
         libPath
           | null libs = []
-          | otherwise = case libPathType of
-               RelativeLibPath      -> [dirEnvVarRef ++ "/../" ++ libJarName]
-               AbsoluteLocalLibPath -> [buildDir lbi </> libJarName]
-               _                    -> []
+          | otherwise = case libDirType of
+               RelativeInstallDir        -> [dirEnvVarRef ++ "/../" ++ libJarName]
+               AbsoluteLocalInstallDir   -> [buildDir lbi </> libJarName]
+               AbsoluteGlobalInstallDir  -> [globalLibDir </> libJarName]
           where (_,dirEnvVarRef) = dirEnvVarAndRef $ isWindows lbi
-                libJarName = mkJarName (fromJust mbLibUid)
+                libUid = fromJust mbLibUid
+                libJarName = mkJarName libUid
+                globalLibDir = libdir $ absoluteComponentInstallDirs pkgDescr lbi libUid NoCopyDest
         libMavenDeps
           | null libs = []
           | otherwise = extraLibs . libBuildInfo . fromJust $ library pkgDescr
@@ -677,10 +681,7 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi bi libPathType
           | otherwise = (Just $ componentUnitId clbi'
                         , map fst $ componentPackageDeps clbi')
           where clbi' = fromJust libComponent
-        (libs, packages'') = case libPathType of
-          AbsoluteGlobalLibPath -> ([],packages')
-          _                     ->
-            maybe ([], packages') (\lc -> partition (== lc) packages') $
+        (libs, packages'') = maybe ([], packages') (\lc -> partition (== lc) packages') $
                              fmap componentUnitId libComponent
           where packages' = map fst $ componentPackageDeps clbi
         libComponent = getLibraryComponent lbi

@@ -161,7 +161,7 @@ import Distribution.Types.Benchmark
 import Distribution.Types.TargetInfo
 
 import Distribution.Simple.Eta ( findVerifyRef, findCoursierRef, getLibraryComponent
-                               , getDependencyClassPaths, LibraryPathType(..),mkJarName, exeJarPath
+                               , getDependencyClassPaths, InstallDirType(..),mkJarName, exeJarPath
                                , libJarPath )
 import Distribution.Simple.Build
          ( startInterpreter )
@@ -456,7 +456,8 @@ depsAction depsFlags extraArgs globalFlags' = do
   let clbi = targetCLBI target
       comp = targetComponent target
       cbi  = LBI.componentBuildInfo comp
-  mResult <- getDependencyClassPaths (LBI.installedPkgs lbi) pkgDescr lbi clbi cbi AbsoluteLocalLibPath
+  mResult <- getDependencyClassPaths (LBI.installedPkgs lbi)
+               pkgDescr lbi clbi cbi AbsoluteLocalInstallDir
   case mResult of
     Just (depJars, mavenDeps) ->
       if | depsMavenFlag -> mapM_ (notice normal) mavenDeps

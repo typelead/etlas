@@ -528,8 +528,7 @@ installExe verbosity lbi clbi installDirs buildPref
             | otherwise = []
       generateExeLaunchers verbosity lbi exeName' classPaths installLaunchersDir
       copy installLaunchersDir (exeNameExt launchExt) 
-      when (isWindows lbi) $ do
-        --generateExeLaunchJar installDir
+      when (isWindows lbi) $
         copy installLaunchersDir (exeNameExt "launcher.jar")
 
 libAbiHash :: Verbosity -> PackageDescription -> LocalBuildInfo

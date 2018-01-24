@@ -219,7 +219,7 @@ copyComponent verbosity pkg_descr lbi (CExe exe) clbi copydest = do
     case compilerFlavor (compiler lbi) of
       GHC   -> GHC.installExe   verbosity lbi installDirs buildPref (progPrefixPref, progSuffixPref) pkg_descr exe
       GHCJS -> GHCJS.installExe verbosity lbi installDirs buildPref (progPrefixPref, progSuffixPref) pkg_descr exe
-      Eta   -> Eta.installExe   verbosity lbi clbi installDirs buildPref (progPrefixPref, progSuffixPref) pkg_descr exe
+      Eta   -> Eta.installExe   verbosity lbi installDirs buildPref (progPrefixPref, progSuffixPref) pkg_descr exe
       LHC   -> LHC.installExe   verbosity lbi installDirs buildPref (progPrefixPref, progSuffixPref) pkg_descr exe
       JHC   -> JHC.installExe   verbosity binPref buildPref (progPrefixPref, progSuffixPref) pkg_descr exe
       UHC   -> return ()

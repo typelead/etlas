@@ -307,13 +307,13 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
       exeTmpDir   = exeName' ++ "-tmp"
       exeDir      = targetDir </> exeTmpDir
       exeJar      = targetDir </> exeNameReal
-
+      withDeps    = doWithResolvedDependencyClassPathsOrDie
+                    verbosity pkgDescr lbi clbi exeBi
   (etaProg, _)  <- requireProgram verbosity etaProgram  (withPrograms lbi)
   createDirectoryIfMissingVerbose verbosity True exeDir
   srcMainFile <- findFile (hsSourceDirs exeBi) modPath
 
-  doWithResolvedDependencyClassPathsOrDie verbosity pkgDescr lbi clbi exeBi
-    RelativeInstallDir $ \ (depJars,mavenPaths) -> do
+  withDeps RelativeInstallDir $ \ (depJars,mavenPaths) -> do
 
       let fullClassPath = depJars ++ mavenPaths
           classPaths
@@ -344,7 +344,17 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
       withVerify $ runEtaProg baseOpts
       -- Generate command line file / jar exec launchers
       generateExeLaunchers verbosity lbi exeName' classPaths targetDir
- 
+  -- Generate launchers for the install phase
+  withDeps AbsoluteGlobalInstallDir $
+    \ (depJars, mavenPaths) -> do
+      let installLaunchersDir = targetDir </> "install-launchers"
+          classPaths
+            | isShared  = depJars ++ mavenPaths
+            | otherwise = []
+      createDirectoryIfMissingVerbose verbosity True installLaunchersDir
+      generateExeLaunchers verbosity lbi exeName' classPaths installLaunchersDir
+      
+      
   where comp         = compiler lbi
         exeBi        = buildInfo exe
         isShared     = withDynExe lbi
@@ -498,14 +508,13 @@ mkFFIMapName uid = getHSLibraryName uid <.> "ffimap"
 
 installExe :: Verbosity
            -> LocalBuildInfo
-           -> ComponentLocalBuildInfo
            -> InstallDirs FilePath -- ^Where to copy the files to
            -> FilePath  -- ^Build location
            -> (FilePath, FilePath)  -- ^Executable (prefix,suffix)
            -> PackageDescription
            -> Executable
            -> IO ()
-installExe verbosity lbi clbi installDirs buildPref
+installExe verbosity lbi installDirs buildPref
            (_progprefix, _progsuffix) _pkg exe = do
   let exeBi = buildInfo exe
       isShared = withDynExe lbi
@@ -518,18 +527,11 @@ installExe verbosity lbi clbi installDirs buildPref
                        else exeName' <.> ext
       launchExt = if isWindows lbi then "cmd" else ""
       copy fromDir x = copyFile (fromDir </> x) (toDir x)
-  mapM_ (createDirectoryIfMissingVerbose verbosity True) [binDir,installLaunchersDir]
-
+  createDirectoryIfMissingVerbose verbosity True binDir
   copy buildDir (exeNameExt "jar")
-  doWithResolvedDependencyClassPathsOrDie verbosity _pkg lbi clbi exeBi AbsoluteGlobalInstallDir $
-    \ (depJars, mavenPaths) -> do
-      let classPaths
-            | isShared  = depJars ++ mavenPaths
-            | otherwise = []
-      generateExeLaunchers verbosity lbi exeName' classPaths installLaunchersDir
-      copy installLaunchersDir (exeNameExt launchExt) 
-      when (isWindows lbi) $
-        copy installLaunchersDir (exeNameExt "launcher.jar")
+  copy installLaunchersDir (exeNameExt launchExt) 
+  when (isWindows lbi) $
+    copy installLaunchersDir (exeNameExt "launcher.jar")
 
 libAbiHash :: Verbosity -> PackageDescription -> LocalBuildInfo
            -> Library -> ComponentLocalBuildInfo -> IO String

@@ -107,8 +107,13 @@ topLevelIndexPath = "index"
 
 -- Converts a local path to a normalised URI path
 uriWithPath :: URI -> FilePath -> URI
-uriWithPath uri path = uri { uriPath = "/" ++ map makeUniform path }
+uriWithPath uri path = uri { uriPath = joinBase $ map makeUniform path }
   where makeUniform c = if c == pathSeparator then '/' else c
+        oldPath = uriPath uri
+        joinBase relPath
+          | not (null oldPath) && last oldPath == '/'
+          = oldPath ++ relPath
+          | otherwise = oldPath ++ ('/':relPath)
 
 -- Local Paths
 

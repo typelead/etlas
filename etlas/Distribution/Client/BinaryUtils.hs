@@ -55,29 +55,9 @@ updateBinaryPackageCaches transport verbosity cacheDir = do
       Just domain -> do
         let indexFile = topLevelIndexFile domain
         createDirectoryIfMissingVerbose verbosity True (takeDirectory indexFile)
-        _ <- downloadURIWithMsg "Unable to download top-level index file."
-               transport verbosity (uriWithPath uri topLevelIndexPath) indexFile
-        versions <- readLines indexFile
-        forM_ versions $ \version -> do
-
-          let pkgIdxFile         = packageIndexFile     domain (Left version)
-              basePkgIdxFile     = basePackageIndexFile domain (Left version)
-              etaBinaryIdxFile   = etaBinariesIndexFile domain (Left version)
-              msgWithVersion msg = "[" ++ userReadableVersion version
-                                ++ "] Unable to download " ++ msg
-          createDirectoryIfMissingVerbose verbosity True (takeDirectory pkgIdxFile)
-          createDirectoryIfMissingVerbose verbosity True (takeDirectory basePkgIdxFile)
-          createDirectoryIfMissingVerbose verbosity True (takeDirectory etaBinaryIdxFile)
-          _ <- downloadURIWithMsg (msgWithVersion "package index file") transport
-                 verbosity (uriWithPath uri (packageIndexPath (Left version)))
-                 pkgIdxFile
-          _ <- downloadURIWithMsg (msgWithVersion "base package index file") transport
-                 verbosity (uriWithPath uri (basePackageIndexPath (Left version)))
-                 basePkgIdxFile
-          _ <- downloadURIWithMsg (msgWithVersion "binary index file") transport
-                 verbosity (uriWithPath uri (etaBinariesIndexPath (Left version)))
-                 etaBinaryIdxFile
-          return ()
+        downloadURIWithMsg "Unable to download top-level index file."
+          transport verbosity (uriWithPath uri topLevelIndexPath) indexFile
+        return ()
 
       Nothing -> die' verbosity $ "Invalid domain name for URL: " ++ show uri
 
@@ -88,19 +68,23 @@ getBasePackageBinaryPaths verbosity transport binaryPkgDb mVersion = do
   when (isNothing mVersion) $
     die' verbosity "getBasePackageBinaryPaths: Unable to determine eta version."
 
-  let etaVersion = fromJust mVersion
+  let eVersion   = Right $ fromJust mVersion
       -- NOTE: We assume that base-index is the same across mirrors for a given eta version
       mUri       = getArbitraryURI binaryPkgDb
-      domain     = fromJust (getURIDomain (fromJust mUri))
-      indexFile  = basePackageIndexFile domain (Right etaVersion)
+      uri        = fromJust mUri
+      domain     = fromJust (getURIDomain uri)
+      indexFile  = basePackageIndexFile domain eVersion
 
   when (isNothing mUri) $
     dieWithError verbosity "Your binary cache seems to be empty."
 
-  exists <- doesFileExist indexFile
+  exists <- ifConditionElseRetry
+              (doesFileExist indexFile)
+              (downloadVersionIndex transport verbosity domain uri eVersion)
 
   when (not exists) $
-    dieWithError verbosity "Your binary cache index file seems to be missing."
+    dieWithError verbosity $ "The binary cache index file for "
+                          ++ eEtaVersion eVersion ++ " seems to be missing."
 
   packageLines <- readLines indexFile
   forM packageLines $ \line -> do
@@ -109,9 +93,11 @@ getBasePackageBinaryPaths verbosity transport binaryPkgDb mVersion = do
         result <- tryDownloadBinary verbosity transport binaryPkgDb pkgId
         case result of
           Just path -> return path
-          Nothing   -> dieWithError verbosity $ "Unable to find base package "
-                                             ++ display pkgId ++ " in binary package index."
-      Nothing -> dieWithError verbosity "Your binary cache index file seems to corrupted."
+          Nothing   ->
+            dieWithError verbosity $ "Unable to find base package "
+                                  ++ display pkgId ++ " in binary package index."
+      Nothing ->
+        dieWithError verbosity "Your binary cache index file seems to corrupted."
 
 etaPointerFile :: FilePath
 etaPointerFile = defaultBinariesPath </> "eta"
@@ -208,8 +194,8 @@ selectVersion verbosity globalFlags savedConfig version' global = do
   case mResult of
     ret@(Just _) -> return ret
     Nothing -> do
-      _ <- dieWithError verbosity $
-              "Unable to find " ++ version ++ " in any of your configured binary indices.\n"
+      _ <- dieWithError verbosity $ "Unable to find " ++ version
+                                 ++ " in any of your configured binary indices.\n"
       return Nothing
   where version = "eta-" ++ map (\c -> if c == 'b' then '.' else c) version'
 
@@ -254,29 +240,30 @@ withVersions verbosity globalFlags mRepoCtxt savedConfig f =
         case getURIDomain uri of
           Just domain -> do
             let indexFile = topLevelIndexFile domain
-            exists <- doesFileExist indexFile
-            ifTrue exists $ do
+            ifTrue (doesFileExist indexFile) $ do
               versions <- readLines indexFile
               f globalFlags repoCtxt savedConfig uri domain versions
           Nothing -> dieWithError verbosity "Bad uri in index file."
 
 installVersion :: Verbosity -> GlobalFlags -> RepoContext -> SavedConfig -> URI -> String -> String -> Bool -> IO (Maybe [FilePath])
 installVersion verbosity globalFlags repoCtxt savedConfig uri domain version global = do
-  let installedFile = etaInstalledFile domain version
+  let installedFile   = etaInstalledFile domain version
       binaryIndexFile = etaBinariesIndexFile domain (Left version)
   exists <- doesFileExist installedFile
   if exists
   then do
-    pathsFile    <- readFile installedFile
-    let programPaths =  lines pathsFile
+    pathsFile <- readFile installedFile
+    let programPaths = lines pathsFile
     when global $ do
       selectedVersionMessage verbosity version
       writeFile etaPointerFile pathsFile
     return $ Just programPaths
   else do
-    exists <- doesFileExist binaryIndexFile
-    ifTrue exists $ do
-      programs <- readLines binaryIndexFile
+    ifTrue (ifConditionElseRetry
+              (doesFileExist binaryIndexFile)
+              (do transport <- repoContextGetTransport repoCtxt
+                  downloadVersionIndex transport verbosity domain uri (Left version))) $ do
+      programs     <- readLines binaryIndexFile
       programPaths <- downloadPrograms verbosity repoCtxt domain uri version programs
       selectedVersionMessage verbosity version
       installBootLibraries verbosity (readVersion version)
@@ -297,9 +284,8 @@ downloadPrograms verbosity repoCtxt domain uri version programs = do
   forM programs $ \prog -> do
     notice verbosity $ "Downloading executable '" ++ prog ++ "'..."
     let progFile = etaProgFile domain prog (Left version)
-    _ <- downloadURIWithMsg ("Failed to download executable '" ++ prog ++ "'.")
-            transport verbosity
-            (uriWithPath uri (etaProgPath prog (Left version))) progFile
+    downloadURIWithMsg ("Failed to download executable '" ++ prog ++ "'.")
+      transport verbosity (uriWithPath uri (etaProgPath prog (Left version))) progFile
     setFileExecutable progFile
     return progFile
 
@@ -310,11 +296,6 @@ listVersions verbosity globalFlags savedConfig = do
 
 nthProgram :: Int -> [FilePath] -> Maybe (FilePath, [FilePath])
 nthProgram n programPaths = fmap (\x -> (x,[])) $ nth n programPaths
-
-ifTrue :: Monad m => Bool -> m (Maybe a) -> m (Maybe a)
-ifTrue b action
-  | b         = action
-  | otherwise = return Nothing
 
 first :: Monad m => [a] -> (a -> m (Maybe b)) -> m (Maybe b)
 first []     _ = return Nothing
@@ -336,15 +317,6 @@ dieWithError verbosity msg = die' verbosity $
                            ++ "If that doesn't work, please report this as a bug at\n\n"
                            ++ "https://github.com/typelead/eta/issues/new\n\n"
                            ++ "specifying your Etlas version."
-
-downloadURIWithMsg :: String -> HttpTransport -> Verbosity -> URI -> FilePath -> IO (Maybe ())
-downloadURIWithMsg msg transport verbosity uri path =
-  downloadURIAllowFail handler transport verbosity uri path
-  where handler _ = info verbosity $ msg ++ " - " ++ uriToString id uri ""
-
-userReadableVersion :: String -> String
-userReadableVersion version = reverse ('b' : drop 1 rest) ++ reverse buildNumber
-  where (buildNumber, rest) = break (== '.') $ reverse version
 
 readVersion :: String -> Maybe Version
 readVersion versionString = do

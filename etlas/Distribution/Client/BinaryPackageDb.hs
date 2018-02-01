@@ -83,6 +83,9 @@ readLines path = readFile path >>= return . filter (not . all isSpace) . lines
 
 -- URI Paths
 
+commitHashPath :: Either String Version -> FilePath
+commitHashPath version = eEtaVersion version </> "commit-hash"
+
 packageIndexPath :: Either String Version -> FilePath
 packageIndexPath version = eEtaVersion version </> "packages" </> "index"
 
@@ -122,6 +125,10 @@ defaultBinariesPath = unsafePerformIO $ do
 
 topLevelIndexFile :: URIDomain -> FilePath
 topLevelIndexFile uriName = defaultBinariesPath </> uriName </> topLevelIndexPath
+
+commitHashFile :: URIDomain -> Either String Version -> FilePath
+commitHashFile uriName version =
+  defaultBinariesPath </> uriName </> eEtaVersion version </> "commit-hash"
 
 packageIndexFile :: URIDomain -> Either String Version -> FilePath
 packageIndexFile uriName version

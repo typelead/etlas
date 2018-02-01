@@ -6,7 +6,7 @@ license:       BSD3
 license-file:  LICENSE
 author:        TypeLead
 maintainer:    typeleadhq@gmail.com
-homepage:      https://etlas.typelead.com
+homepage:      https://eta-lang.org
 bug-reports:   https://github.com/typelead/etlas/issues
 synopsis:      Package management for Eta
 description:

@@ -544,7 +544,7 @@ defaultRemoteRepos = [ RemoteRepo hackageName hackageUri Nothing [] 0 False Fals
     hackageName = "hackage.haskell.org"
     hackageUri  = URI "http:" (Just (URIAuth "" hackageName ""))
                       "/" "" ""
-    etlasName = "etlas.typelead.com"
+    etlasName = "etlas.org"
     etlasUri  = URI "http:" (Just (URIAuth "" "github.com" ""))
                       "/typelead/etlas-index" "" ""
     -- Note that lots of old ~/.cabal/config files will have the old url

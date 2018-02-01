@@ -283,11 +283,22 @@ downloadPrograms verbosity repoCtxt domain uri version programs = do
   transport <- repoContextGetTransport repoCtxt
   forM programs $ \prog -> do
     notice verbosity $ "Downloading executable '" ++ prog ++ "'..."
-    let progFile = etaProgFile domain prog (Left version)
+    let progFile = etaProgFile domain prog eVersion
     downloadURIWithMsg ("Failed to download executable '" ++ prog ++ "'.")
-      transport verbosity (uriWithPath uri (etaProgPath prog (Left version))) progFile
+      transport verbosity (uriWithPath uri (etaProgPath prog eVersion)) progFile
     setFileExecutable progFile
+    when (prog == "eta") $ do
+      libPath <- (head . lines) <$>
+                   rawSystemStdout verbosity progFile ["--print-libdir"]
+      let commitFile = commitHashFile domain eVersion
+      void $ downloadURIAllowFail (const $ return ())
+        transport verbosity (uriWithPath uri (commitHashPath eVersion)) commitFile
+      exists <- doesFileExist commitFile
+      when exists $ do
+        createDirectoryIfMissingVerbose verbosity True libPath
+        copyFileVerbose verbosity commitFile (libPath </> "commit-hash")
     return progFile
+  where eVersion = Left version
 
 listVersions :: Verbosity -> GlobalFlags -> SavedConfig -> IO (Maybe [String])
 listVersions verbosity globalFlags savedConfig = do

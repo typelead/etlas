@@ -793,4 +793,4 @@ fetchMavenDependencies :: Verbosity -> [String] -> [String] -> ProgramDb -> IO [
 fetchMavenDependencies _ _ [] _ = return []
 fetchMavenDependencies verb repos deps progDb = do
   let resolvedRepos = concatMap (\r -> ["-r", resolveOrId r]) repos
-  fmap lines $ runCoursier verb (["fetch","--quiet"] ++ deps ++ resolvedRepos) progDb
+  fmap lines $ runCoursier verb (["fetch", "-a", "jar","--quiet"] ++ deps ++ resolvedRepos) progDb

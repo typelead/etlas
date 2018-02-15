@@ -1459,7 +1459,7 @@ exeExtensions = case buildOS of
   -- Possible improvement: on Windows, read the list of extensions from the
   -- PATHEXT environment variable. By default PATHEXT is ".com; .exe; .bat;
   -- .cmd".
-  Windows -> ["", "exe"]
+  Windows -> ["", "exe","com","bat","cmd"]
   Ghcjs   -> ["", "exe"]
   _       -> [""]
 

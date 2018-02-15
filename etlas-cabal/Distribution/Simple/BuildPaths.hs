@@ -134,7 +134,7 @@ mkSharedLibName (CompilerId compilerFlavor compilerVersion) lib
 -- (typically @\"\"@ on Unix and @\"exe\"@ on Windows or OS\/2)
 exeExtension :: String
 exeExtension = case buildOS of
-                   Windows -> "exe"
+                   Windows -> "cmd"
                    _       -> ""
 
 -- | Extension for object files. For GHC the extension is @\"o\"@.

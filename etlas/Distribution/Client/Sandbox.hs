@@ -209,6 +209,7 @@ tryLoadSandboxConfig verbosity globalFlags = do
   path <- getSandboxConfigFilePath globalFlags
   tryLoadSandboxPackageEnvironmentFile verbosity path
     (globalConfigFile globalFlags)
+    (globalSendMetrics globalFlags)
 
 -- | Return the name of the package index file for this package environment.
 tryGetIndexFilePath :: Verbosity -> SavedConfig -> IO FilePath
@@ -319,6 +320,7 @@ sandboxInit verbosity sandboxFlags globalFlags = do
 
   -- Determine which compiler to use (using the value from ~/.cabal/config).
   userConfig <- loadConfig verbosity (globalConfigFile globalFlags)
+                  (globalSendMetrics globalFlags)
   (comp, platform, progdb) <- configCompilerAuxEx (savedConfigureFlags userConfig)
 
   -- Create the package environment file.
@@ -588,6 +590,7 @@ loadConfigOrSandboxConfig verbosity globalFlags = do
   let configFileFlag        = globalConfigFile        globalFlags
       sandboxConfigFileFlag = globalSandboxConfigFile globalFlags
       ignoreSandboxFlag     = globalIgnoreSandbox     globalFlags
+      sendMetricsFlag       = globalSendMetrics       globalFlags
 
   pkgEnvDir  <- getPkgEnvDir sandboxConfigFileFlag
   pkgEnvType <- classifyPackageEnvironment pkgEnvDir sandboxConfigFileFlag
@@ -602,7 +605,7 @@ loadConfigOrSandboxConfig verbosity globalFlags = do
 
     -- Only @cabal.config@ is present.
     UserPackageEnvironment    -> do
-      config <- loadConfig verbosity configFileFlag
+      config <- loadConfig verbosity configFileFlag sendMetricsFlag
       userConfig <- loadUserConfig verbosity pkgEnvDir Nothing
       let config' = config `mappend` userConfig
       dieIfSandboxRequired config'
@@ -610,7 +613,7 @@ loadConfigOrSandboxConfig verbosity globalFlags = do
 
     -- Neither @cabal.sandbox.config@ nor @cabal.config@ are present.
     AmbientPackageEnvironment -> do
-      config <- loadConfig verbosity configFileFlag
+      config <- loadConfig verbosity configFileFlag sendMetricsFlag
       let globalConstraintsOpt =
             flagToMaybe . globalConstraintsFile . savedGlobalFlags $ config
       globalConstraintConfig <-

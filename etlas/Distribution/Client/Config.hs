@@ -614,9 +614,9 @@ defaultHackageRemoteRepoKeyThreshold = 3
 -- effective configuration. To loads just what is actually in the config file,
 -- use 'loadRawConfig'.
 --
-loadConfig :: Verbosity -> Flag FilePath -> IO SavedConfig
-loadConfig verbosity configFileFlag = do
-  config <- loadRawConfig verbosity configFileFlag
+loadConfig :: Verbosity -> Flag FilePath -> Flag Bool -> IO SavedConfig
+loadConfig verbosity configFileFlag sendMetricsFlag = do
+  config <- loadRawConfig verbosity configFileFlag sendMetricsFlag
   extendToEffectiveConfig config
 
 extendToEffectiveConfig :: SavedConfig -> IO SavedConfig
@@ -638,13 +638,13 @@ extendToEffectiveConfig config = do
 -- comparing or editing a config file, but not suitable for using as the
 -- effective configuration.
 --
-loadRawConfig :: Verbosity -> Flag FilePath -> IO SavedConfig
-loadRawConfig verbosity configFileFlag = do
+loadRawConfig :: Verbosity -> Flag FilePath -> Flag Bool -> IO SavedConfig
+loadRawConfig verbosity configFileFlag sendMetricsFlag = do
   (source, configFile) <- getConfigFilePathAndSource configFileFlag
   minp <- readConfigFile mempty configFile
   case minp of
     Nothing -> do
-      sendMetrics <- promptUserForTelemetry
+      sendMetrics <- promptUserForTelemetry sendMetricsFlag
       notice verbosity $ "Config file path source is " ++ sourceMsg source ++ "."
       notice verbosity $ "Config file " ++ configFile ++ " not found."
       createDefaultConfigFile verbosity configFile (Just sendMetrics)
@@ -653,8 +653,8 @@ loadRawConfig verbosity configFileFlag = do
         unlines (map (showPWarning configFile) ws)
       if isNothing (flagToMaybe (globalSendMetrics (savedGlobalFlags conf)))
       then do
-        sendMetrics <- promptUserForTelemetry
-        newConfig   <- userConfigUpdate verbosity configFileFlag
+        sendMetrics <- promptUserForTelemetry sendMetricsFlag
+        newConfig   <- userConfigUpdate verbosity configFileFlag sendMetricsFlag
                          (Just (conf, sendMetrics))
         notice verbosity $ "Updated " ++ configFile ++ " to reflect your preference."
         return newConfig
@@ -1193,6 +1193,7 @@ withProgramOptionsFields =
 userConfigDiff :: GlobalFlags -> IO [String]
 userConfigDiff globalFlags = do
   userConfig <- loadRawConfig normal (globalConfigFile globalFlags)
+                  (globalSendMetrics globalFlags)
   testConfig <- initialSavedConfig
   return $ reverse . foldl' createDiff [] . M.toList
                 $ M.unionWith combine
@@ -1235,12 +1236,13 @@ userConfigDiff globalFlags = do
 
 
 -- | Update the user's ~/.etlas/config' keeping the user's customizations.
-userConfigUpdate :: Verbosity -> Flag FilePath -> Maybe (SavedConfig, Bool) -> IO SavedConfig
-userConfigUpdate verbosity configFlag mConfigSendMetrics = do
+userConfigUpdate :: Verbosity -> Flag FilePath -> Flag Bool
+                 -> Maybe (SavedConfig, Bool) -> IO SavedConfig
+userConfigUpdate verbosity configFlag sendMetricsFlag mConfigSendMetrics = do
   userConfig  <- case mConfigSendMetrics of
                    Just (conf, sendMetrics) ->
                      return $ addSendMetrics conf (Just sendMetrics)
-                   Nothing -> loadRawConfig normal configFlag
+                   Nothing -> loadRawConfig normal configFlag sendMetricsFlag
   newConfig   <- initialSavedConfig
   commentConf <- commentSavedConfig
   cabalFile   <- getConfigFilePath configFlag
@@ -1252,8 +1254,8 @@ userConfigUpdate verbosity configFlag mConfigSendMetrics = do
   writeConfigFile cabalFile commentConf finalConfig
   return finalConfig
 
-promptUserForTelemetry :: IO Bool
-promptUserForTelemetry = do
+promptUserForTelemetry :: Flag Bool -> IO Bool
+promptUserForTelemetry sendMetricsFlag = do
   putStrLn $ unlines [
     "Welcome to Etlas, the awesome build tool for the Eta programming language!",
     "",
@@ -1276,11 +1278,15 @@ promptUserForTelemetry = do
     "",
     "Would you like to help us make Eta the fastest growing programming language,",
     "and help pure functional programming become mainstream? (y/n)" ]
+  c <- case flagToMaybe sendMetricsFlag of
+         Just sendMetrics
+           | sendMetrics -> return 'y'
+         _ -> do
 #ifdef MIN_VERSION_unix
-  isTTY <- queryTerminal stdInput
-  c <- if isTTY then getChar else return 'n'
+          isTTY <- queryTerminal stdInput
+          if isTTY then getChar else return 'n'
 #else
-  c <- getChar
+          getChar
 #endif
 
   putStrLn $ unlines [

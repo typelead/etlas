@@ -562,7 +562,7 @@ writeProjectConfigFile file =
 --
 readGlobalConfig :: Verbosity -> Rebuild ProjectConfig
 readGlobalConfig verbosity = do
-    config     <- liftIO (loadConfig verbosity mempty)
+    config     <- liftIO (loadConfig verbosity mempty mempty)
     configFile <- liftIO defaultConfigFile
     monitorFiles [monitorFileHashed configFile]
     return (convertLegacyGlobalConfig config)

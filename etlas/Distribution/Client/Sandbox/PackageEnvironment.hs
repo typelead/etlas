@@ -267,12 +267,13 @@ commentPackageEnvironment sandboxDir = do
 -- | If this package environment inherits from some other package environment,
 -- return that package environment; otherwise return mempty.
 inheritedPackageEnvironment :: Verbosity -> PackageEnvironment
+                               -> Flag Bool
                                -> IO PackageEnvironment
-inheritedPackageEnvironment verbosity pkgEnv = do
+inheritedPackageEnvironment verbosity pkgEnv sendMetricsFlag = do
   case (pkgEnvInherit pkgEnv) of
     NoFlag                -> return mempty
     confPathFlag@(Flag _) -> do
-      conf <- loadConfig verbosity confPathFlag
+      conf <- loadConfig verbosity confPathFlag sendMetricsFlag
       return $ mempty { pkgEnvSavedConfig = conf }
 
 -- | Load the user package environment if it exists (the optional "cabal.config"
@@ -334,8 +335,9 @@ handleParseResult verbosity path minp =
 -- doesn't exist. Also returns the path to the sandbox directory. The path
 -- parameter should refer to an existing file.
 tryLoadSandboxPackageEnvironmentFile :: Verbosity -> FilePath -> (Flag FilePath)
+                                        -> Flag Bool
                                         -> IO (FilePath, PackageEnvironment)
-tryLoadSandboxPackageEnvironmentFile verbosity pkgEnvFile configFileFlag = do
+tryLoadSandboxPackageEnvironmentFile verbosity pkgEnvFile configFileFlag sendMetricsFlag = do
   let pkgEnvDir = takeDirectory pkgEnvFile
   minp   <- readPackageEnvironmentFile
             (ConstraintSourceSandboxConfig pkgEnvFile) mempty pkgEnvFile
@@ -358,10 +360,10 @@ tryLoadSandboxPackageEnvironmentFile verbosity pkgEnvFile configFileFlag = do
   let base   = basePackageEnvironment
   let common = commonPackageEnvironment sandboxDir
   user      <- userPackageEnvironment verbosity pkgEnvDir Nothing --TODO
-  inherited <- inheritedPackageEnvironment verbosity user
+  inherited <- inheritedPackageEnvironment verbosity user sendMetricsFlag
 
   -- Layer the package environment settings over settings from ~/.etlas/config.
-  cabalConfig <- fmap unsetSymlinkBinDir $ loadConfig verbosity configFileFlag
+  cabalConfig <- fmap unsetSymlinkBinDir $ loadConfig verbosity configFileFlag sendMetricsFlag
   return (sandboxDir,
           updateInstallDirs $
           (base `mappend` (toPkgEnv cabalConfig) `mappend`

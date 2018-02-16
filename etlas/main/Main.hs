@@ -948,6 +948,7 @@ fetchAction fetchFlags extraArgs globalFlags = do
   let verbosity = fromFlag (fetchVerbosity fetchFlags)
   targets <- readUserTargets verbosity extraArgs
   config <- loadConfig verbosity (globalConfigFile globalFlags)
+              (globalSendMetrics globalFlags)
   let configFlags  = savedConfigureFlags config
       globalFlags' = savedGlobalFlags config `mappend` globalFlags
   (comp, platform, progdb) <- configCompilerAux' configFlags
@@ -1016,6 +1017,7 @@ outdatedAction outdatedFlags _extraArgs globalFlags = do
 uploadAction :: UploadFlags -> [String] -> Action
 uploadAction uploadFlags extraArgs globalFlags = do
   config <- loadConfig verbosity (globalConfigFile globalFlags)
+              (globalSendMetrics globalFlags)
   let uploadFlags' = savedUploadFlags config `mappend` uploadFlags
       globalFlags' = savedGlobalFlags config `mappend` globalFlags
       tarfiles     = extraArgs
@@ -1136,6 +1138,7 @@ reportAction reportFlags extraArgs globalFlags = do
   unless (null extraArgs) $
     die' verbosity $ "'report' doesn't take any extra arguments: " ++ unwords extraArgs
   config <- loadConfig verbosity (globalConfigFile globalFlags)
+              (globalSendMetrics globalFlags)
   let globalFlags' = savedGlobalFlags config `mappend` globalFlags
       reportFlags' = savedReportFlags config `mappend` reportFlags
 
@@ -1264,7 +1267,8 @@ userConfigAction ucflags extraArgs globalFlags = do
       then void $ createDefaultConfigFile verbosity path Nothing
       else die' verbosity $ path ++ " already exists."
     ("diff":_)   -> mapM_ putStrLn =<< userConfigDiff globalFlags
-    ("update":_) -> void $ userConfigUpdate verbosity (globalConfigFile globalFlags) Nothing
+    ("update":_) -> void $ userConfigUpdate verbosity (globalConfigFile globalFlags)
+                             (globalSendMetrics globalFlags) Nothing
     -- Error handling.
     [] -> die' verbosity $ "Please specify a subcommand (see 'help user-config')"
     _  -> die' verbosity $ "Unknown 'user-config' subcommand: " ++ unwords extraArgs

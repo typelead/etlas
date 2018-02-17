@@ -52,6 +52,7 @@ import qualified Data.ByteString.Lazy       as BS
 import Data.Maybe (catMaybes)
 import Data.Time (getCurrentTime)
 import Control.Monad
+import Network.URI (uriPath)
 
 import qualified Hackage.Security.Client as Sec
 
@@ -63,14 +64,17 @@ update verbosity _ repoCtxt _ | null (repoContextRepos repoCtxt) = do
 update verbosity updateFlags repoCtxt firstTime = do
   let repos       = repoContextRepos repoCtxt
       remoteRepos = catMaybes (map maybeRepoRemote repos)
+      remoteRepoName' repo
+        | remoteRepoGitIndexed repo = "git@github.com" ++ (uriPath (remoteRepoURI repo))
+        | otherwise                 = remoteRepoName repo
   case remoteRepos of
     [] -> return ()
     [remoteRepo] ->
         notice verbosity $ "Downloading the latest package list from "
-                        ++ remoteRepoName remoteRepo
+                        ++ remoteRepoName' remoteRepo
     _ -> notice verbosity . unlines
             $ "Downloading the latest package lists from: "
-            : map (("- " ++) . remoteRepoName) remoteRepos
+            : map (("- " ++) . remoteRepoName') remoteRepos
   jobCtrl <- newParallelJobControl (length repos)
   mapM_ (spawnJob jobCtrl . updateRepo verbosity updateFlags repoCtxt) repos
   mapM_ (\_ -> collectJob jobCtrl) repos

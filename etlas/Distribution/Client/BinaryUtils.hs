@@ -302,8 +302,10 @@ downloadPrograms verbosity repoCtxt domain uri version programs = do
 
 listVersions :: Verbosity -> GlobalFlags -> SavedConfig -> IO (Maybe [String])
 listVersions verbosity globalFlags savedConfig = do
-  withVersions verbosity globalFlags Nothing savedConfig $
-    \_ _ _ _ _ versions -> return $ Just versions
+  withVersions verbosity globalFlags Nothing savedConfig extractVersions
+  where extractVersions _ _ _ _ _ versions = return $ Just $ map f versions
+        f ver = reverse (drop 1 rest) ++ ('b' : reverse build)
+          where (build, rest)= break (== '.') (reverse ver)
 
 nthProgram :: Int -> [FilePath] -> Maybe (FilePath, [FilePath])
 nthProgram n programPaths = fmap (\x -> (x,[])) $ nth n programPaths

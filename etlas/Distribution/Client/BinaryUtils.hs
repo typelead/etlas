@@ -300,12 +300,17 @@ downloadPrograms verbosity repoCtxt domain uri version programs = do
     return progFile
   where eVersion = Left version
 
-listVersions :: Verbosity -> GlobalFlags -> SavedConfig -> IO (Maybe [String])
-listVersions verbosity globalFlags savedConfig = do
+listVersions :: Verbosity -> GlobalFlags -> SavedConfig -> Bool -> IO (Maybe [String])
+listVersions verbosity globalFlags savedConfig installed = do
   withVersions verbosity globalFlags Nothing savedConfig extractVersions
-  where extractVersions _ _ _ _ _ versions = return $ Just $ map f versions
-        f ver = reverse (drop 1 rest) ++ ('b' : reverse build)
+  where extractVersions _ _ _ _ domain versions = do
+          versions' <- filterM (installedOnly domain) versions
+          return . Just $ map toHumanReadable versions'
+        toHumanReadable ver = reverse (drop 1 rest) ++ ('b' : reverse build)
           where (build, rest)= break (== '.') (reverse ver)
+        installedOnly domain version
+          | installed = doesFileExist $ etaInstalledFile domain version
+          | otherwise = return True
 
 nthProgram :: Int -> [FilePath] -> Maybe (FilePath, [FilePath])
 nthProgram n programPaths = fmap (\x -> (x,[])) $ nth n programPaths

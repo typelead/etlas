@@ -2366,13 +2366,15 @@ instance Semigroup SandboxFlags where
 
 data SelectFlags = SelectFlags {
   selectVerbosity :: Flag Verbosity,
-  selectList      :: Flag Bool
+  selectList      :: Flag Bool,
+  selectInstalled :: Flag Bool
   } deriving Generic
 
 defaultSelectFlags :: SelectFlags
 defaultSelectFlags =
   SelectFlags { selectVerbosity = toFlag normal
-              , selectList      = mempty }
+              , selectList      = mempty
+              , selectInstalled = mempty }
 
 selectCommand :: CommandUI SelectFlags
 selectCommand = CommandUI
@@ -2381,10 +2383,14 @@ selectCommand = CommandUI
   , commandDescription  = Just $ \_ -> wrapText ""
   , commandNotes        = Just $ \pname ->
        "Examples:\n"
-        ++ "  " ++ pname ++ " select --list"
+        ++ "  " ++ pname ++ " select --list            "
         ++ "    Lists the available Eta versions\n"
-        ++ "  " ++ pname ++ " select 0.0.9b1"
+        ++ "  " ++ pname ++ " select --list --installed"
+        ++ "    Lists the available Eta versions that have been installed\n"
+        ++ "  " ++ pname ++ " select 0.7.0b2           "
         ++ "    Selects a specific Eta version to use globally\n"
+        ++ "  " ++ pname ++ " select local             "
+        ++ "    Selects the Eta on the PATH to use globally\n"
   , commandUsage        = usageAlternatives "select" ["[FLAG]", "[VERSION]"]
   , commandDefaultFlags = defaultSelectFlags
   , commandOptions      = \showOrParseArgs ->
@@ -2392,6 +2398,10 @@ selectCommand = CommandUI
       , option [] ["list"]
           "Lists the available Eta versions."
           selectList (\v flags -> flags { selectList = v })
+          trueArg
+      , option [] ["installed"]
+          "To be used in conjunction with --list. Will only list the installed Eta versions."
+          selectInstalled (\v flags -> flags { selectInstalled = v })
           trueArg
       ]
   }

@@ -480,9 +480,11 @@ selectAction selectFlags extraArgs globalFlags' = do
   -- TODO: Make this respect sandboxes?
   savedConfig <- fmap snd $ loadConfigOrSandboxConfig verbosity globalFlags'
   let globalFlags = savedGlobalFlags savedConfig `mappend` globalFlags'
+  when (installed && not list) $
+    die' verbosity "Must use --list when using --installed."
   if list
   then do
-    mResult <- listVersions verbosity globalFlags savedConfig
+    mResult <- listVersions verbosity globalFlags savedConfig installed
     case mResult of
       Just versions -> notice verbosity $ unlines $ map (drop 4) versions
       Nothing -> die' verbosity "Unable to list versions."
@@ -495,6 +497,7 @@ selectAction selectFlags extraArgs globalFlags' = do
       "latest" -> selectLatest verbosity globalFlags savedConfig >> return ()
       _ -> selectVersion verbosity globalFlags savedConfig version True >> return ()
   where list      = fromFlagOrDefault False  (selectList      selectFlags)
+        installed = fromFlagOrDefault False  (selectInstalled selectFlags)
         verbosity = fromFlagOrDefault normal (selectVerbosity selectFlags)
         version   = head extraArgs
 

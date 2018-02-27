@@ -45,6 +45,7 @@ import qualified Distribution.Simple.GHCJS as GHCJS
 import System.Directory                      (getCurrentDirectory)
 import Distribution.Compat.Environment       (getEnvironment)
 import System.FilePath                       ((<.>), (</>))
+import Data.Time
 
 
 -- | Return the executable to run and any extra arguments that should be
@@ -170,7 +171,11 @@ run verbosity debug trace lbi exe exeArgs = do
                      return (addLibraryPath os paths env)
              else return env
   notice verbosity $ "Running " ++ display (exeName exe) ++ "..."
+  startTime <- getCurrentTime
   rawSystemExitWithEnv verbosity path (runArgs++exeArgs) env'
+  endTime <- getCurrentTime
+  let diffTime = diffUTCTime endTime startTime
+  notice verbosity $ "Run time: " ++ show diffTime ++ "."
 
 isWindows :: LocalBuildInfo -> Bool
 isWindows lbi | Platform _ Windows <- hostPlatform lbi = True

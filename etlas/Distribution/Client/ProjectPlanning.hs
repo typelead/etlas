@@ -116,6 +116,7 @@ import           Distribution.Simple.PackageIndex (InstalledPackageIndex)
 import           Distribution.Simple.Compiler hiding (Flag)
 import qualified Distribution.Simple.GHC   as GHC   --TODO: [code cleanup] eliminate
 import qualified Distribution.Simple.GHCJS as GHCJS --TODO: [code cleanup] eliminate
+import qualified Distribution.Simple.Eta   as Eta   --TODO: [code cleanup] eliminate
 import           Distribution.Simple.Program
 import           Distribution.Simple.Program.Db
 import           Distribution.Simple.Program.Find
@@ -1689,9 +1690,9 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
 
         elabPkgDescriptionOverride = descOverride
 
-        elabVanillaLib    = perPkgOptionFlag pkgid True packageConfigVanillaLib --TODO: [required feature]: also needs to be handled recursively
+        elabVanillaLib    = perPkgOptionFlag pkgid False packageConfigVanillaLib --TODO: [required feature]: also needs to be handled recursively
         elabSharedLib     = pkgid `Set.member` pkgsUseSharedLibrary
-        elabDynExe        = perPkgOptionFlag pkgid False packageConfigDynExe
+        elabDynExe        = perPkgOptionFlag pkgid True packageConfigDynExe
         elabGHCiLib       = perPkgOptionFlag pkgid False packageConfigGHCiLib --TODO: [required feature] needs to default to enabled on windows still
 
         elabProfExe       = perPkgOptionFlag pkgid False packageConfigProf
@@ -1828,6 +1829,7 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
       case compilerFlavor compiler of
         GHC   -> GHC.isDynamic compiler
         GHCJS -> GHCJS.isDynamic compiler
+        Eta   -> Eta.isDynamic compiler
         _     -> False
 
     pkgsUseProfilingLibrary :: Set PackageId

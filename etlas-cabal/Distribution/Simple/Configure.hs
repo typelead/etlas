@@ -662,6 +662,8 @@ configure (pkg_descr0', pbi) cfg = do
               GHC.isDynamic comp
             CompilerId GHCJS _ ->
               GHCJS.isDynamic comp
+            CompilerId Eta _ ->
+              Eta.isDynamic comp
             _ -> False
         withSharedLib_ =
             -- build shared libraries if required by GHC or by the

@@ -353,8 +353,8 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
             | otherwise = []
       createDirectoryIfMissingVerbose verbosity True installLaunchersDir
       generateExeLaunchers verbosity lbi exeName' classPaths installLaunchersDir
-      
-      
+
+
   where comp         = compiler lbi
         exeBi        = buildInfo exe
         isShared     = withDynExe lbi
@@ -364,7 +364,7 @@ dirEnvVarAndRef :: Bool -> (String,String)
 dirEnvVarAndRef isWindows' = (var,ref)
   where var = "DIR"
         ref | isWindows' = "%" ++ var ++ "%"
-            | otherwise  = "$" ++ var 
+            | otherwise  = "$" ++ var
 
 generateExeLaunchers :: Verbosity -> LocalBuildInfo -> String
                      -> [String]  -> FilePath       -> IO ()
@@ -372,9 +372,9 @@ generateExeLaunchers verbosity lbi exeName classPaths targetDir = do
   generateExeLauncherScript verbosity lbi exeName classPaths targetDir
   {- Windows faces the dreaded line-length limit which forces us to create a
      launcher jar as a workaround. -}
-  when (isWindows lbi) $  
+  when (isWindows lbi) $
     generateExeLauncherJar verbosity lbi exeName classPaths targetDir
-        
+
 generateExeLauncherScript :: Verbosity -> LocalBuildInfo -> String
                           -> [String]  -> FilePath       -> IO ()
 generateExeLauncherScript verbosity lbi exeName classPaths targetDir = do
@@ -424,7 +424,7 @@ exeLauncherScript classPathSep exeName classPaths isWindows'
     ++ "fi\n"
     ++ "$ETA_JAVA_CMD $JAVA_ARGS $JAVA_OPTS $ETA_JAVA_ARGS "
        ++ "-classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"\n"
-  where (dirEnvVar, dirEnvVarRef) = dirEnvVarAndRef isWindows' 
+  where (dirEnvVar, dirEnvVarRef) = dirEnvVarAndRef isWindows'
         exeJarEnv   = dirEnvVarRef </> realExeName exeName
         totalClassPath = exeJarEnv ++ [classPathSep] ++
                          classPaths ++ [classPathSep] ++ "$ETA_CLASSPATH"
@@ -432,7 +432,7 @@ exeLauncherScript classPathSep exeName classPaths isWindows'
         launcherJarEnv = dirEnvVarRef </> (exeName ++ ".launcher.jar")
         winClassPath = "\"" ++ launcherJarEnv ++ "\"" ++ [classPathSep] ++
                          "%ETA_CLASSPATH%"
-                         
+
 generateExeLauncherJar :: Verbosity -> LocalBuildInfo -> String
                        -> [String]  -> FilePath       -> IO ()
 generateExeLauncherJar verbosity lbi exeName classPaths targetDir = do
@@ -517,7 +517,6 @@ installExe :: Verbosity
 installExe verbosity lbi installDirs buildPref
            (_progprefix, _progsuffix) _pkg exe = do
   let exeBi = buildInfo exe
-      isShared = withDynExe lbi
       binDir = bindir installDirs
       toDir x = binDir </> x
       exeName' = display (exeName exe)
@@ -529,7 +528,7 @@ installExe verbosity lbi installDirs buildPref
       copy fromDir x = copyFile (fromDir </> x) (toDir x)
   createDirectoryIfMissingVerbose verbosity True binDir
   copy buildDir (exeNameExt "jar")
-  copy installLaunchersDir (exeNameExt launchExt) 
+  copy installLaunchersDir (exeNameExt launchExt)
   when (isWindows lbi) $
     copy installLaunchersDir (exeNameExt "launcher.jar")
 
@@ -588,7 +587,6 @@ etaSharedOptions :: BuildInfo -> [String]
 etaSharedOptions bi =
   hcSharedOptions GHC bi `mappend` hcSharedOptions Eta bi
 
--- TODO: Correct default?
 isDynamic :: Compiler -> Bool
 isDynamic = const True
 
@@ -657,10 +655,10 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi bi libDirType
   | Left closurePackageIndex <- closurePackageIndex'
   = do let packageInfos = PackageIndex.allPackages closurePackageIndex
            packageMavenDeps = concatMap InstalledPackageInfo.extraLibraries packageInfos
-           
+
        packagesPaths <- fmap concat $ mapM hsLibraryPaths packageInfos
        return $ Just (libPath ++ packagesPaths, mavenDeps ++ libMavenDeps ++ packageMavenDeps)
-       
+
   | otherwise = return Nothing
   where hsLibraryPaths pinfo = mapM (findFile (libraryDirs pinfo))
                                        (map (<.> "jar") $ hsLibraries pinfo)
@@ -689,7 +687,7 @@ getDependencyClassPaths packageIndex pkgDescr lbi clbi bi libDirType
                              fmap componentUnitId libComponent
           where packages' = map fst $ componentPackageDeps clbi
         libComponent = getLibraryComponent lbi
-        
+
 
 getLibraryComponent :: LocalBuildInfo -> Maybe ComponentLocalBuildInfo
 getLibraryComponent lbi = fmap head clbis

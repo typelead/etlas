@@ -202,7 +202,7 @@ rebuildTargetsDryRun distDirLayout@DistDirLayout{..} shared =
 
         -- TODO: Make this more precise
         Just (ScmPackage _ _ _ localPkgPath) ->
-          dryRunTarballPkg pkg depsBuildStatus localPkgPath
+          dryRunLocalPkg pkg depsBuildStatus localPkgPath
 
     dryRunTarballPkg :: ElaboratedConfiguredPackage
                      -> [BuildStatus]

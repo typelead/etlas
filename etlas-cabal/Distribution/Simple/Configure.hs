@@ -1322,6 +1322,8 @@ getInstalledPackagesMonitorFiles verbosity comp packageDBs progdb platform =
   case compilerFlavor comp of
     GHC   -> GHC.getInstalledPackagesMonitorFiles
                verbosity platform progdb packageDBs
+    Eta   -> Eta.getInstalledPackagesMonitorFiles
+               verbosity platform progdb packageDBs
     other -> do
       warn verbosity $ "don't know how to find change monitoring files for "
                     ++ "the installed package databases for " ++ display other

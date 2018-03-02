@@ -28,7 +28,8 @@ module Distribution.Simple.Eta (
         getDependencyClassPaths,
         InstallDirType(..),
         exeJarPath,
-        libJarPath
+        libJarPath,
+        getInstalledPackagesMonitorFiles
   ) where
 
 import Prelude ()
@@ -792,3 +793,31 @@ fetchMavenDependencies _ _ [] _ = return []
 fetchMavenDependencies verb repos deps progDb = do
   let resolvedRepos = concatMap (\r -> ["-r", resolveOrId r]) repos
   fmap lines $ runCoursier verb (["fetch", "-a", "jar","--quiet"] ++ deps ++ resolvedRepos) progDb
+
+getInstalledPackagesMonitorFiles :: Verbosity -> Platform
+                                 -> ProgramDb
+                                 -> [PackageDB]
+                                 -> IO [FilePath]
+getInstalledPackagesMonitorFiles verbosity platform progdb =
+    traverse getPackageDBPath
+  where
+    getPackageDBPath :: PackageDB -> IO FilePath
+    getPackageDBPath GlobalPackageDB =
+      selectMonitorFile =<< getGlobalPackageDB verbosity etaProg
+
+    -- For Eta, both Global and User are one and the same.
+    getPackageDBPath UserPackageDB =
+      selectMonitorFile =<< getGlobalPackageDB verbosity etaProg
+
+    getPackageDBPath (SpecificPackageDB path) = selectMonitorFile path
+
+    -- GHC has old style file dbs, and new style directory dbs.
+    -- Note that for dir style dbs, we only need to monitor the cache file, not
+    -- the whole directory. The ghc program itself only reads the cache file
+    -- so it's safe to only monitor this one file.
+    selectMonitorFile path = do
+      isFileStyle <- doesFileExist path
+      if isFileStyle then return path
+                     else return (path </> "package.cache")
+
+    Just etaProg = lookupProgram etaProgram progdb

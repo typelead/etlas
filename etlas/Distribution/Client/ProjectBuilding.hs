@@ -55,6 +55,7 @@ import           Distribution.Client.JobControl
 import           Distribution.Client.FetchUtils
 import           Distribution.Client.GlobalFlags (RepoContext)
 import qualified Distribution.Client.Tar as Tar
+import           Distribution.Client.Patch (patchedExtractTarGzFile)
 import           Distribution.Client.Setup (filterConfigureFlags)
 import           Distribution.Client.SourceFiles
 import           Distribution.Client.SrcDist (allPackageSourceFiles)
@@ -603,7 +604,8 @@ rebuildTarget :: Verbosity
               -> IO BuildResult
 rebuildTarget verbosity
               distDirLayout@DistDirLayout{distBuildDirectory}
-              buildSettings downloadMap
+              buildSettings@BuildTimeSettings{buildSettingPatchesDir}
+              downloadMap
               registerLock cacheLock
               sharedPackageConfig
               plan rpkg@(ReadyPackage pkg)
@@ -634,7 +636,7 @@ rebuildTarget verbosity
         withTarballLocalDirectory
           verbosity distDirLayout tarball
           (packageId pkg) (elabDistDirParams sharedPackageConfig pkg) (elabBuildStyle pkg)
-          (elabPkgDescriptionOverride pkg) $
+          (elabPkgDescriptionOverride pkg) buildSettingPatchesDir $
 
           case elabBuildStyle pkg of
             BuildAndInstall  -> buildAndInstall
@@ -748,12 +750,13 @@ withTarballLocalDirectory
   -> DistDirParams
   -> BuildStyle
   -> Maybe CabalFileText
+  -> FilePath -- Patches directory
   -> (FilePath -> -- Source directory
       FilePath -> -- Build directory
       IO a)
   -> IO a
 withTarballLocalDirectory verbosity distDirLayout@DistDirLayout{..}
-                          tarball pkgid dparams buildstyle pkgTextOverride
+                          tarball pkgid dparams buildstyle pkgTextOverride patchesDir
                           buildPkg  =
       case buildstyle of
         -- In this case we make a temp dir (e.g. tmp/src2345/), unpack
@@ -767,7 +770,7 @@ withTarballLocalDirectory verbosity distDirLayout@DistDirLayout{..}
         BuildAndInstall ->
           let tmpdir = distTempDirectory in
           withTempDirectory verbosity tmpdir "src"   $ \unpackdir -> do
-            unpackPackageTarball verbosity tarball unpackdir
+            unpackPackageTarball verbosity patchesDir tarball unpackdir
                                  pkgid pkgTextOverride
             let srcdir   = unpackdir </> display pkgid
                 builddir = srcdir </> "dist"
@@ -784,24 +787,25 @@ withTarballLocalDirectory verbosity distDirLayout@DistDirLayout{..}
           exists <- doesDirectoryExist srcdir
           unless exists $ do
             createDirectoryIfMissingVerbose verbosity True srcrootdir
-            unpackPackageTarball verbosity tarball srcrootdir
+            unpackPackageTarball verbosity patchesDir tarball srcrootdir
                                  pkgid pkgTextOverride
             moveTarballShippedDistDirectory verbosity distDirLayout
                                             srcrootdir pkgid dparams
           buildPkg srcdir builddir
 
 
-unpackPackageTarball :: Verbosity -> FilePath -> FilePath
+unpackPackageTarball :: Verbosity -> FilePath -> FilePath -> FilePath
                      -> PackageId -> Maybe CabalFileText
                      -> IO ()
-unpackPackageTarball verbosity tarball parentdir pkgid pkgTextOverride =
+unpackPackageTarball verbosity patchesDir tarball parentdir pkgid pkgTextOverride =
     --TODO: [nice to have] switch to tar package and catch tar exceptions
     annotateFailureNoLog UnpackFailed $ do
 
       -- Unpack the tarball
       --
       info verbosity $ "Extracting " ++ tarball ++ " to " ++ parentdir ++ "..."
-      Tar.extractTarGzFile parentdir pkgsubdir tarball
+      patchedExtractTarGzFile verbosity False parentdir pkgsubdir tarball patchesDir
+        False False
 
       -- Sanity check
       --
@@ -809,14 +813,17 @@ unpackPackageTarball verbosity tarball parentdir pkgid pkgTextOverride =
       when (not exists) $
         die' verbosity $ "Package .cabal file not found in the tarball: " ++ cabalFile
 
+      -- TODO: We ignore revisions because that messes with patches. If for some reason
+      --       someone needs a revision, they can submit the revision as an updated
+      --       patch.
       -- Overwrite the .cabal with the one from the index, when appropriate
       --
-      case pkgTextOverride of
-        Nothing     -> return ()
-        Just pkgtxt -> do
-          info verbosity $ "Updating " ++ display pkgname <.> "cabal"
-                        ++ " with the latest revision from the index."
-          writeFileAtomic cabalFile pkgtxt
+      -- case pkgTextOverride of
+      --   Nothing     -> return ()
+      --   Just pkgtxt -> do
+      --     info verbosity $ "Updating " ++ display pkgname <.> "cabal"
+      --                   ++ " with the latest revision from the index."
+      --     writeFileAtomic cabalFile pkgtxt
 
   where
     cabalFile = parentdir </> pkgsubdir

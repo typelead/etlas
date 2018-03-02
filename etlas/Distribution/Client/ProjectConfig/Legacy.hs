@@ -272,7 +272,8 @@ convertLegacyAllPackageFlags globalFlags configFlags
       globalConfigFile        = _, -- TODO: [required feature]
       globalSandboxConfigFile = _, -- ??
       globalRemoteRepos       = projectConfigRemoteRepos,
-      globalLocalRepos        = projectConfigLocalRepos
+      globalLocalRepos        = projectConfigLocalRepos,
+      globalPatchesDir        = projectConfigPatchesDir
     } = globalFlags
 
     ConfigFlags {
@@ -351,7 +352,8 @@ convertLegacyPerPackageFlags configFlags installFlags haddockFlags =
       configCoverage            = coverage,
       configLibCoverage         = libcoverage, --deprecated
       configDebugInfo           = packageConfigDebugInfo,
-      configRelocatable         = packageConfigRelocatable
+      configRelocatable         = packageConfigRelocatable,
+      configVerifyMode          = packageConfigVerifyMode
     } = configFlags
     packageConfigProgramPaths   = MapLast    (Map.fromList configProgramPaths)
     packageConfigProgramArgs    = MapMappend (Map.fromList configProgramArgs)
@@ -396,7 +398,9 @@ convertLegacyBuildOnlyFlags globalFlags configFlags
       globalLogsDir           = projectConfigLogsDir,
       globalWorldFile         = _,
       globalHttpTransport     = projectConfigHttpTransport,
-      globalIgnoreExpiry      = projectConfigIgnoreExpiry
+      globalIgnoreExpiry      = projectConfigIgnoreExpiry,
+      globalAutoUpdate        = projectConfigAutoUpdate,
+      globalSendMetrics       = projectConfigSendMetrics
     } = globalFlags
 
     ConfigFlags {
@@ -477,9 +481,9 @@ convertToLegacySharedConfig
       globalIgnoreExpiry      = projectConfigIgnoreExpiry,
       globalHttpTransport     = projectConfigHttpTransport,
       globalNix               = mempty,
-      globalPatchesDir        = mempty,
-      globalAutoUpdate        = mempty,
-      globalSendMetrics       = mempty,
+      globalPatchesDir        = projectConfigPatchesDir,
+      globalAutoUpdate        = projectConfigAutoUpdate,
+      globalSendMetrics       = projectConfigSendMetrics,
       globalEtaVersion        = mempty
     }
 

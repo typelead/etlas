@@ -806,7 +806,10 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
         localTarballPkgs :: [(PackageId, FilePath)]
         localTarballPkgs =
           [ (pkgid, tarball)
-          | (pkgid, LocalTarballPackage tarball _isBinary) <- allPkgLocations ]
+          | (pkgid, LocalTarballPackage tarball isBinary) <- allPkgLocations
+          , not isBinary ]
+          -- Ignore binary tarballs since there's no need to calculate
+          -- source hashes (for now).
 
         -- Tarballs from remote URLs. We must have downloaded these already
         -- (since we extracted the .cabal file earlier)
@@ -1697,7 +1700,7 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
 
         elabProfExe       = perPkgOptionFlag pkgid False packageConfigProf
         elabProfLib       = pkgid `Set.member` pkgsUseProfilingLibrary
-        elabVerifyMode    = False -- TODO: Should this be grabbed from somewhere? -RM
+        elabVerifyMode    = perPkgOptionFlag pkgid False packageConfigVerifyMode
 
         (elabProfExeDetail,
          elabProfLibDetail) = perPkgOptionLibExeFlag pkgid ProfDetailDefault

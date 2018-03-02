@@ -148,9 +148,6 @@ projectConfigWithBuilderRepoContext :: Verbosity
                                     -> BuildTimeSettings
                                     -> (RepoContext -> IO a) -> IO a
 projectConfigWithBuilderRepoContext verbosity BuildTimeSettings{..} f = do
-    -- TODO: Should we customize patches dir here? -RM
-    --       Handle sending metrics/updating here.
-    patchesDir <- defaultPatchesDir
     withRepoContext'
       verbosity
       buildSettingRemoteRepos
@@ -158,9 +155,9 @@ projectConfigWithBuilderRepoContext verbosity BuildTimeSettings{..} f = do
       buildSettingCacheDir
       buildSettingHttpTransport
       (Just buildSettingIgnoreExpiry)
-      patchesDir
-      True
-      False
+      buildSettingPatchesDir
+      buildSettingAutoUpdate
+      buildSettingSendMetrics
       f
 
 
@@ -176,8 +173,6 @@ projectConfigWithSolverRepoContext :: Verbosity
 projectConfigWithSolverRepoContext verbosity
                                    ProjectConfigShared{..}
                                    ProjectConfigBuildOnly{..} f = do
-    -- TODO: Should we customize patches dir here? -RM
-    patchesDir <- defaultPatchesDir
     withRepoContext'
       verbosity
       (fromNubList projectConfigRemoteRepos)
@@ -186,9 +181,10 @@ projectConfigWithSolverRepoContext verbosity
                          projectConfigCacheDir)
       (flagToMaybe projectConfigHttpTransport)
       (flagToMaybe projectConfigIgnoreExpiry)
-      patchesDir
-      True
-      False
+      (fromFlagOrDefault (error "projectConfigWithSolverRepoContext: patchesDir is somehow not configured.")
+                         projectConfigPatchesDir)
+      (fromFlagOrDefault True  projectConfigAutoUpdate)
+      (fromFlagOrDefault False projectConfigSendMetrics)
       f
 
 
@@ -265,7 +261,8 @@ resolveBuildTimeSettings verbosity
                          ProjectConfig {
                            projectConfigShared = ProjectConfigShared {
                              projectConfigRemoteRepos,
-                             projectConfigLocalRepos
+                             projectConfigLocalRepos,
+                             projectConfigPatchesDir
                            },
                            projectConfigBuildOnly
                          } =
@@ -286,8 +283,13 @@ resolveBuildTimeSettings verbosity
     buildSettingRemoteRepos   = fromNubList projectConfigRemoteRepos
     buildSettingLocalRepos    = fromNubList projectConfigLocalRepos
     buildSettingCacheDir      = fromFlag    projectConfigCacheDir
+    buildSettingPatchesDir    = fromFlagOrDefault
+      (error "resolveBuildTimeSettings: patchesDir is somehow not configured.")
+      projectConfigPatchesDir
     buildSettingHttpTransport = flagToMaybe projectConfigHttpTransport
     buildSettingIgnoreExpiry  = fromFlag    projectConfigIgnoreExpiry
+    buildSettingAutoUpdate    = fromFlag    projectConfigAutoUpdate
+    buildSettingSendMetrics   = fromFlag    projectConfigSendMetrics
     buildSettingReportPlanningFailure
                               = fromFlag projectConfigReportPlanningFailure
 
@@ -303,7 +305,9 @@ resolveBuildTimeSettings verbosity
       projectConfigOneShot               = toFlag False,
       projectConfigOfflineMode           = toFlag False,
       projectConfigKeepTempFiles         = toFlag False,
-      projectConfigIgnoreExpiry          = toFlag False
+      projectConfigIgnoreExpiry          = toFlag False,
+      projectConfigAutoUpdate            = toFlag True,
+      projectConfigSendMetrics           = toFlag False
     }
 
     -- The logging logic: what log file to use and what verbosity.

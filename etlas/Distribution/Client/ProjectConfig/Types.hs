@@ -143,7 +143,9 @@ data ProjectConfigBuildOnly
        projectConfigHttpTransport         :: Flag String,
        projectConfigIgnoreExpiry          :: Flag Bool,
        projectConfigCacheDir              :: Flag FilePath,
-       projectConfigLogsDir               :: Flag FilePath
+       projectConfigLogsDir               :: Flag FilePath,
+       projectConfigSendMetrics           :: Flag Bool,
+       projectConfigAutoUpdate            :: Flag Bool
      }
   deriving (Eq, Show, Generic)
 
@@ -172,6 +174,7 @@ data ProjectConfigShared
        projectConfigRemoteRepos       :: NubList RemoteRepo,     -- ^ Available Hackage servers.
        projectConfigLocalRepos        :: NubList FilePath,
        projectConfigIndexState        :: Flag IndexState,
+       projectConfigPatchesDir        :: Flag FilePath,
 
        -- solver configuration
        projectConfigConstraints       :: [(UserConstraint, ConstraintSource)],
@@ -248,6 +251,7 @@ data PackageConfig
        packageConfigCoverage            :: Flag Bool,
        packageConfigRelocatable         :: Flag Bool,
        packageConfigDebugInfo           :: Flag DebugInfoLevel,
+       packageConfigVerifyMode          :: Flag Bool,
        packageConfigRunTests            :: Flag Bool, --TODO: [required eventually] use this
        packageConfigDocumentation       :: Flag Bool, --TODO: [required eventually] use this
        packageConfigHaddockHoogle       :: Flag Bool, --TODO: [required eventually] use this
@@ -404,7 +408,10 @@ data BuildTimeSettings
        buildSettingRemoteRepos           :: [RemoteRepo],
        buildSettingLocalRepos            :: [FilePath],
        buildSettingCacheDir              :: FilePath,
+       buildSettingPatchesDir            :: FilePath,
        buildSettingHttpTransport         :: Maybe String,
-       buildSettingIgnoreExpiry          :: Bool
+       buildSettingIgnoreExpiry          :: Bool,
+       buildSettingAutoUpdate            :: Bool,
+       buildSettingSendMetrics           :: Bool
      }
 

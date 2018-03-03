@@ -18,11 +18,6 @@ module Distribution.Client.Targets (
   UserTarget(..),
   readUserTargets,
 
-  -- * Package specifiers
-  PackageSpecifier(..),
-  pkgSpecifierTarget,
-  pkgSpecifierConstraints,
-
   -- * Resolving user targets to package specifiers
   resolveUserTargets,
 
@@ -60,8 +55,8 @@ import Distribution.Package
          , PackageIdentifier(..), packageName, packageVersion )
 import Distribution.Types.Dependency
 import Distribution.Client.Types
-         ( PackageLocation(..)
-         , ResolvedPkgLoc, UnresolvedSourcePackage )
+         ( PackageLocation(..), ResolvedPkgLoc, UnresolvedSourcePackage
+         , PackageSpecifier(..) )
 
 import           Distribution.Solver.Types.ConstraintSource
 import           Distribution.Solver.Types.LabeledPackageConstraint
@@ -177,46 +172,6 @@ data UserTarget =
    | UserTargetRemoteTarball URI
   deriving (Show,Eq)
 
-
--- ------------------------------------------------------------
--- * Package specifier
--- ------------------------------------------------------------
-
--- | A fully or partially resolved reference to a package.
---
-data PackageSpecifier pkg =
-
-     -- | A partially specified reference to a package (either source or
-     -- installed). It is specified by package name and optionally some
-     -- required properties. Use a dependency resolver to pick a specific
-     -- package satisfying these properties.
-     --
-     NamedPackage PackageName [PackageProperty]
-
-     -- | A fully specified source package.
-     --
-   | SpecificSourcePackage pkg
-  deriving (Eq, Show, Generic)
-
-instance Binary pkg => Binary (PackageSpecifier pkg)
-
-pkgSpecifierTarget :: Package pkg => PackageSpecifier pkg -> PackageName
-pkgSpecifierTarget (NamedPackage name _)       = name
-pkgSpecifierTarget (SpecificSourcePackage pkg) = packageName pkg
-
-pkgSpecifierConstraints :: Package pkg
-                        => PackageSpecifier pkg -> [LabeledPackageConstraint]
-pkgSpecifierConstraints (NamedPackage name props) = map toLpc props
-  where
-    toLpc prop = LabeledPackageConstraint
-                 (PackageConstraint (scopeToplevel name) prop)
-                 ConstraintSourceUserTarget
-pkgSpecifierConstraints (SpecificSourcePackage pkg)  =
-    [LabeledPackageConstraint pc ConstraintSourceUserTarget]
-  where
-    pc = PackageConstraint
-         (scopeToplevel $ packageName pkg)
-         (PackagePropertyVersion $ thisVersion (packageVersion pkg))
 
 -- ------------------------------------------------------------
 -- * Parsing and checking user targets
@@ -505,7 +460,8 @@ readPackageTarget verbosity = traverse modifyLocation
                    packageInfoId        = packageId pkg,
                    packageDescription   = pkg,
                    packageSource        = fmap Just location,
-                   packageDescrOverride = Nothing
+                   packageDescrOverride = Nothing,
+                   packagePatch         = Nothing
                  }
 
       LocalTarballPackage tarballFile _isBinary ->
@@ -531,7 +487,8 @@ readPackageTarget verbosity = traverse modifyLocation
                      packageInfoId        = packageId pkg,
                      packageDescription   = pkg,
                      packageSource        = fmap Just location,
-                     packageDescrOverride = Nothing
+                     packageDescrOverride = Nothing,
+                     packagePatch         = Nothing
                    }
 
     extractTarballPackageCabalFile :: FilePath -> String

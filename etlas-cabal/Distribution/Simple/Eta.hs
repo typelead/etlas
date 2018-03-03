@@ -541,15 +541,14 @@ libAbiHash verbosity _pkg_descr lbi lib clbi = do
       comp        = compiler lbi
       platform    = hostPlatform lbi
       vanillaArgs =
-        (componentGhcOptions verbosity lbi libBi clbi (buildDir lbi))
+        (componentGhcOptions verbosity lbi libBi clbi (componentBuildDir lbi clbi))
         `mappend` mempty {
           ghcOptMode         = toFlag GhcModeAbiHash,
           ghcOptInputModules = toNubListR $ exposedModules lib
         }
-      ghcArgs = if withVanillaLib lbi then vanillaArgs
-                else error "libAbiHash: Can't find an enabled library way"
+      etaArgs = vanillaArgs
   (etaProg, _) <- requireProgram verbosity etaProgram (withPrograms lbi)
-  getProgramInvocationOutput verbosity (ghcInvocation etaProg comp platform ghcArgs)
+  getProgramInvocationOutput verbosity (ghcInvocation etaProg comp platform etaArgs)
 
 registerPackage :: Verbosity
                 -> ProgramDb

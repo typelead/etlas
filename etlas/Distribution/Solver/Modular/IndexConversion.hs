@@ -146,7 +146,7 @@ convSPI' os arch cinfo strfl sexes = L.map (convSP os arch cinfo strfl sexes) . 
 
 -- | Convert a single source package into the solver-specific format.
 convSP :: OS -> Arch -> CompilerInfo -> StrongFlags -> SolveExecutables -> SourcePackage loc -> (PN, I, PInfo)
-convSP os arch cinfo strfl sexes (SourcePackage (PackageIdentifier pn pv) gpd _ _pl) =
+convSP os arch cinfo strfl sexes (SourcePackage (PackageIdentifier pn pv) gpd _ _pl _) =
   let i = I pv InRepo
   in  (pn, i, convGPD os arch cinfo strfl sexes (PI pn i) gpd)
 

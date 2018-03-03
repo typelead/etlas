@@ -149,7 +149,7 @@ configure verbosity packageDBs repoCtxt comp platform progdb
      let installPlan = InstallPlan.configureInstallPlan configFlags installPlan0
      in case fst (InstallPlan.ready installPlan) of
       [pkg@(ReadyPackage
-              (ConfiguredPackage _ (SourcePackage _ _ (LocalUnpackedPackage _) _)
+              (ConfiguredPackage _ (SourcePackage _ _ (LocalUnpackedPackage _) _ _)
                                  _ _ _))] -> do
         configurePackage verbosity
           platform (compilerInfo comp)
@@ -314,7 +314,8 @@ planLocalPackage verbosity comp platform configFlags configExFlags
         packageInfoId             = packageId pkg,
         packageDescription        = pkg,
         packageSource             = LocalUnpackedPackage ".",
-        packageDescrOverride      = Nothing
+        packageDescrOverride      = Nothing,
+        packagePatch              = Nothing
       }
 
       testsEnabled = fromFlagOrDefault False $ configTests configFlags

@@ -1255,7 +1255,7 @@ installReadyPackage :: Platform -> CompilerInfo
                     -> a
 installReadyPackage platform cinfo configFlags
                     (ReadyPackage (ConfiguredPackage ipid
-                                    (SourcePackage _ gpkg source pkgoverride)
+                                    (SourcePackage _ gpkg source pkgoverride _)
                                     flags stanzas deps))
                     installPkg =
   installPkg configFlags {

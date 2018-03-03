@@ -378,13 +378,16 @@ readRepoIndex verbosity repoCtxt repo idxState =
         packageInfoId      = pkgid,
         packageDescription = genPkgDesc,
         packageSource      = case pkgEntry of
-          NormalPackage _ _ _ descLoc
+          NormalPackage _ _ _ descLoc _
             | Left _ <- descLoc -> ScmPackage (Just repo) srcRepos pkgid Nothing
             | otherwise         -> RepoTarballPackage repo pkgid Nothing
           BuildTreeRef  _  _ _ path _ -> LocalUnpackedPackage path,
         packageDescrOverride = case pkgEntry of
-          NormalPackage _ _ pkgtxt _ -> Just pkgtxt
-          _                          -> Nothing
+          NormalPackage _ _ pkgtxt _ _ -> Just pkgtxt
+          _                            -> Nothing,
+        packagePatch = case pkgEntry of
+          NormalPackage _ _ _ _ mPatch -> mPatch
+          _                            -> Nothing
       }
       where
         pkgid      = packageId pkgEntry
@@ -455,7 +458,7 @@ whenCacheOutOfDate index action = do
 
 -- | An index entry is either a normal package, or a local build tree reference.
 data PackageEntry =
-  NormalPackage  PackageId GenericPackageDescription ByteString (Either FilePath BlockNo)
+  NormalPackage  PackageId GenericPackageDescription ByteString (Either FilePath BlockNo) (Maybe FilePath)
   | BuildTreeRef BuildTreeRefType
                  PackageId GenericPackageDescription FilePath   BlockNo
 
@@ -477,11 +480,11 @@ typeCodeFromRefType LinkRef     = Tar.buildTreeRefTypeCode
 typeCodeFromRefType SnapshotRef = Tar.buildTreeSnapshotTypeCode
 
 instance Package PackageEntry where
-  packageId (NormalPackage  pkgid _ _ _) = pkgid
+  packageId (NormalPackage  pkgid _ _ _ _) = pkgid
   packageId (BuildTreeRef _ pkgid _ _ _) = pkgid
 
 packageDesc :: PackageEntry -> GenericPackageDescription
-packageDesc (NormalPackage  _ descr _ _) = descr
+packageDesc (NormalPackage  _ descr _ _ _) = descr
 packageDesc (BuildTreeRef _ _ descr _ _) = descr
 
 -- | Parse an uncompressed \"00-index.tar\" repository index file represented
@@ -530,7 +533,7 @@ extractPkg verbosity entry blockNo = case Tar.entryContent entry of
      | takeExtension fileName == ".cabal"
     -> case splitDirectories (normalise fileName) of
         [pkgname,vers,_] -> case simpleParse vers of
-          Just ver -> Just . return $ Just (NormalPackage pkgid descr content (Right blockNo))
+          Just ver -> Just . return $ Just (NormalPackage pkgid descr content (Right blockNo) Nothing)
             where
               pkgid  = PackageIdentifier (mkPackageName pkgname) ver
 #ifdef CABAL_PARSEC
@@ -718,7 +721,7 @@ withIndexEntries verbosity index callback = do -- non-secure repositories
       callback $ map toCache (catMaybes pkgsOrPrefs)
   where
     toCache :: PackageOrDep -> IndexCacheEntry
-    toCache (Pkg (NormalPackage pkgid _ _ blockNo)) = CachePackageId pkgid blockNo nullTimestamp
+    toCache (Pkg (NormalPackage pkgid _ _ blockNo _)) = CachePackageId pkgid blockNo nullTimestamp
     toCache (Pkg (BuildTreeRef refType _ _ _ blockNo)) = CacheBuildTreeRef refType blockNo
     toCache (Dep d) = CachePreference d 0 nullTimestamp
 
@@ -782,16 +785,16 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
       -- The magic here is that we use lazy IO to read the .cabal file
       -- from the index tarball if it turns out that we need it.
       -- Most of the time we only need the package id.
-      ~(pkg, pkgtxt) <- unsafeInterleaveIO $ do
+      ~(pkg, pkgtxt, mPatchPath) <- unsafeInterleaveIO $ do
         mPatch <- patchedPackageCabalFile pkgid patchesDir
-        pkgtxt <- maybe (getPackageDesc descLoc) return mPatch
+        pkgtxt <- maybe (getPackageDesc descLoc) return (fmap snd mPatch)
         pkg    <- readPackageDescription pkgtxt
-        return (pkg, pkgtxt)
+        return (pkg, pkgtxt, (fmap fst mPatch))
       let descLoc' = left (\x -> indexDir </> x) descLoc
       case mode of
         ReadPackageIndexLazyIO -> pure ()
         ReadPackageIndexStrict -> evaluate pkg *> evaluate pkgtxt *> pure ()
-      let srcpkg = mkPkg (NormalPackage pkgid pkg pkgtxt descLoc')
+      let srcpkg = mkPkg (NormalPackage pkgid pkg pkgtxt descLoc' mPatchPath)
       accum (Map.insert pkgid srcpkg srcpkgs) btrs prefs entries
 
     accum srcpkgs btrs prefs (CacheBuildTreeRef refType blockno : entries) = do

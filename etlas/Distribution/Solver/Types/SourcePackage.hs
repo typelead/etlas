@@ -3,6 +3,7 @@
 module Distribution.Solver.Types.SourcePackage
     ( PackageDescriptionOverride
     , SourcePackage(..)
+    , sourcePackagePatches
     ) where
 
 import Distribution.Package
@@ -14,6 +15,7 @@ import Data.ByteString.Lazy (ByteString)
 import GHC.Generics (Generic)
 import Distribution.Compat.Binary (Binary(..))
 import Data.Typeable
+import System.FilePath
 
 -- | A package description along with the location of the package sources.
 --
@@ -21,7 +23,8 @@ data SourcePackage loc = SourcePackage {
     packageInfoId        :: PackageId,
     packageDescription   :: GenericPackageDescription,
     packageSource        :: loc,
-    packageDescrOverride :: PackageDescriptionOverride
+    packageDescrOverride :: PackageDescriptionOverride,
+    packagePatch         :: Maybe FilePath
   }
   deriving (Eq, Show, Generic, Typeable)
 
@@ -32,3 +35,9 @@ instance Package (SourcePackage a) where packageId = packageInfoId
 -- | We sometimes need to override the .cabal file in the tarball with
 -- the newer one from the package index.
 type PackageDescriptionOverride = Maybe ByteString
+
+sourcePackagePatches :: SourcePackage loc -> [FilePath]
+sourcePackagePatches srcpkg
+  | Just patch <- packagePatch srcpkg
+  = [patch, patch -<.> "patch"]
+  | otherwise = []

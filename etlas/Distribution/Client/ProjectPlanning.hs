@@ -292,7 +292,8 @@ sanityCheckElaboratedPackage ElaboratedConfiguredPackage{..}
 rebuildProjectConfig :: Verbosity
                      -> DistDirLayout
                      -> ProjectConfig
-                     -> IO (ProjectConfig, [UnresolvedSourcePackage])
+                     -> IO (ProjectConfig,
+                            [PackageSpecifier UnresolvedSourcePackage])
 rebuildProjectConfig verbosity
                      distDirLayout@DistDirLayout {
                        distProjectRootDirectory,
@@ -313,6 +314,14 @@ rebuildProjectConfig verbosity
     return (projectConfig <> cliConfig, localPackages)
 
   where
+    ProjectConfigShared {
+      projectConfigConfigFile
+    } = projectConfigShared cliConfig
+
+    ProjectConfigBuildOnly {
+      projectConfigSendMetrics
+    } = projectConfigBuildOnly cliConfig
+
     fileMonitorProjectConfig = newFileMonitor (distProjectCacheFile "config")
 
     -- Read the cabal.project (or implicit config) and combine it with
@@ -322,17 +331,24 @@ rebuildProjectConfig verbosity
     phaseReadProjectConfig = do
       liftIO $ do
         info verbosity "Project settings changed, reconfiguring..."
-        createDirectoryIfMissingVerbose verbosity True distDirectory
-        createDirectoryIfMissingVerbose verbosity True distProjectCacheDirectory
 
-      readProjectConfig verbosity distDirLayout
+      readProjectConfig verbosity projectConfigConfigFile
+        projectConfigSendMetrics distDirLayout
 
     -- Look for all the cabal packages in the project
     -- some of which may be local src dirs, tarballs etc
     --
-    phaseReadLocalPackages :: ProjectConfig -> Rebuild [UnresolvedSourcePackage]
+    phaseReadLocalPackages :: ProjectConfig
+                           -> Rebuild [PackageSpecifier UnresolvedSourcePackage]
     phaseReadLocalPackages projectConfig = do
       localCabalFiles <- findProjectPackages distDirLayout projectConfig
+
+      -- Create folder only if findProjectPackages did not throw a
+      -- BadPackageLocations exception.
+      liftIO $ do
+        createDirectoryIfMissingVerbose verbosity True distDirectory
+        createDirectoryIfMissingVerbose verbosity True distProjectCacheDirectory
+
       mapM (readSourcePackage verbosity) localCabalFiles
 
 
@@ -352,7 +368,7 @@ rebuildProjectConfig verbosity
 rebuildInstallPlan :: Verbosity
                    -> DistDirLayout -> CabalDirLayout
                    -> ProjectConfig
-                   -> [UnresolvedSourcePackage]
+                   -> [PackageSpecifier UnresolvedSourcePackage]
                    -> IO ( ElaboratedInstallPlan  -- with store packages
                          , ElaboratedInstallPlan  -- with source packages
                          , ElaboratedSharedConfig )
@@ -505,7 +521,7 @@ rebuildInstallPlan verbosity
     --
     phaseRunSolver :: ProjectConfig
                    -> (Compiler, Platform, ProgramDb)
-                   -> [UnresolvedSourcePackage]
+                   -> [PackageSpecifier UnresolvedSourcePackage]
                    -> Rebuild (SolverInstallPlan, PkgConfigDb)
     phaseRunSolver projectConfig@ProjectConfig {
                      projectConfigShared,
@@ -553,7 +569,7 @@ rebuildInstallPlan verbosity
           Map.fromList
             [ (pkgname, stanzas)
             | pkg <- localPackages
-            , let pkgname            = packageName pkg
+            , let pkgname            = pkgSpecifierTarget pkg
                   testsEnabled       = lookupLocalPackageConfig
                                          packageConfigTests
                                          projectConfig pkgname
@@ -575,7 +591,7 @@ rebuildInstallPlan verbosity
                        -> (Compiler, Platform, ProgramDb)
                        -> PkgConfigDb
                        -> SolverInstallPlan
-                       -> [SourcePackage loc]
+                       -> [PackageSpecifier (SourcePackage loc)]
                        -> Rebuild ( ElaboratedInstallPlan
                                   , ElaboratedSharedConfig )
     phaseElaboratePlan ProjectConfig {
@@ -795,18 +811,18 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
 
     -- Determine if and where to get the package's source hash from.
     --
-    let allPkgLocations :: [(PackageId, PackageLocation (Maybe FilePath))]
+    let allPkgLocations :: [(PackageId, PackageLocation (Maybe FilePath), [FilePath])]
         allPkgLocations =
-          [ (packageId pkg, packageSource pkg)
+          [ (packageId pkg, packageSource pkg, sourcePackagePatches pkg)
           | SolverInstallPlan.Configured (SolverPackage { solverPkgSource = pkg})
               <- SolverInstallPlan.toList solverPlan ]
 
         -- Tarballs that were local in the first place.
         -- We'll hash these tarball files directly.
-        localTarballPkgs :: [(PackageId, FilePath)]
+        localTarballPkgs :: [(PackageId, FilePath, [FilePath])]
         localTarballPkgs =
-          [ (pkgid, tarball)
-          | (pkgid, LocalTarballPackage tarball isBinary) <- allPkgLocations
+          [ (pkgid, tarball, patches)
+          | (pkgid, LocalTarballPackage tarball isBinary, patches) <- allPkgLocations
           , not isBinary ]
           -- Ignore binary tarballs since there's no need to calculate
           -- source hashes (for now).
@@ -821,15 +837,25 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
         -- Tarballs from repositories, either where the repository provides
         -- hashes as part of the repo metadata, or where we will have to
         -- download and hash the tarball.
-        repoTarballPkgsWithMetadata    :: [(PackageId, Repo)]
-        repoTarballPkgsWithoutMetadata :: [(PackageId, Repo)]
+        repoTarballPkgsWithMetadata    :: [(PackageId, Repo, [FilePath])]
+        repoTarballPkgsWithoutMetadata :: [(PackageId, Repo, [FilePath])]
         (repoTarballPkgsWithMetadata,
          repoTarballPkgsWithoutMetadata) =
           partitionEithers
           [ case repo of
-              RepoSecure{} -> Left  (pkgid, repo)
-              _            -> Right (pkgid, repo)
-          | (pkgid, RepoTarballPackage repo _ _) <- allPkgLocations ]
+              RepoSecure{} -> Left  (pkgid, repo, patches)
+              _            -> Right (pkgid, repo, patches)
+          | (pkgid, RepoTarballPackage repo _ _, patches) <- allPkgLocations ]
+
+        includePatchHashes pkgid hash patches
+          | null patches = return (pkgid, hash)
+          | otherwise    = do
+              patchHashes <- mapM readFileHashValue patches
+              return (pkgid, mconcat (hash : patchHashes))
+
+        first  (a,_,_) = a
+        second (_,b,_) = b
+        third  (_,_,c) = c
 
     -- For tarballs from repos that do not have hashes available we now have
     -- to check if the packages were downloaded already.
@@ -840,9 +866,9 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
          liftIO $ sequence
            [ do mtarball <- checkRepoTarballFetched repo pkgid
                 case mtarball of
-                  Nothing      -> return (Left  (pkgid, repo))
-                  Just tarball -> return (Right (pkgid, tarball))
-           | (pkgid, repo) <- repoTarballPkgsWithoutMetadata ]
+                  Nothing      -> return (Left  (pkgid, repo, patches))
+                  Just tarball -> return (Right (pkgid, tarball, patches))
+           | (pkgid, repo, patches) <- repoTarballPkgsWithoutMetadata ]
 
     (hashesFromRepoMetadata,
      repoTarballPkgsNewlyDownloaded) <-
@@ -869,12 +895,12 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
                        -- Note that hackage-security currently uses SHA256
                        -- but this API could in principle give us some other
                        -- choice in future.
-                       return (pkgid, hashFromTUF hash)
-                  | pkgid <- pkgids ]
-          | (repo, pkgids) <-
-                map (\grp@((_,repo):_) -> (repo, map fst grp))
-              . groupBy ((==)    `on` (remoteRepoName . repoRemote . snd))
-              . sortBy  (compare `on` (remoteRepoName . repoRemote . snd))
+                       includePatchHashes pkgid (hashFromTUF hash) patch
+                  | (pkgid,patch) <- zip pkgids patches ]
+          | (repo, pkgids, patches) <-
+                map (\grp@((_,repo,_):_) -> (repo, map first grp, map third grp))
+              . groupBy ((==)    `on` (remoteRepoName . repoRemote . second))
+              . sortBy  (compare `on` (remoteRepoName . repoRemote . second))
               $ repoTarballPkgsWithMetadata
           ]
 
@@ -884,8 +910,8 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
       repoTarballPkgsNewlyDownloaded <-
         sequence
           [ do tarball <- fetchRepoTarball verbosity repoctx repo pkgid
-               return (pkgid, tarball)
-          | (pkgid, repo) <- repoTarballPkgsToDownload ]
+               return (pkgid, tarball, patches)
+          | (pkgid, repo, patches) <- repoTarballPkgsToDownload ]
 
       return (hashesFromRepoMetadata,
               repoTarballPkgsNewlyDownloaded)
@@ -894,7 +920,7 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
     -- tarballs that were local in the first place, plus tarballs from repos,
     -- either previously cached or freshly downloaded.
     --
-    let allTarballFilePkgs :: [(PackageId, FilePath)]
+    let allTarballFilePkgs :: [(PackageId, FilePath, [FilePath])]
         allTarballFilePkgs = localTarballPkgs
                           ++ repoTarballPkgsDownloaded
                           ++ repoTarballPkgsNewlyDownloaded
@@ -902,11 +928,19 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
       fmap Map.fromList $
       sequence
         [ do srchash <- readFileHashValue tarball
-             return (pkgid, srchash)
-        | (pkgid, tarball) <- allTarballFilePkgs
+             includePatchHashes pkgid srchash patches
+        | (pkgid, tarball, patches) <- allTarballFilePkgs
         ]
-    monitorFiles [ monitorFile tarball
-                 | (_pkgid, tarball) <- allTarballFilePkgs ]
+
+    -- Monitor the tarballs for any changes
+    monitorFiles
+      $ concat [ monitorFile tarball : map monitorFileHashed patches
+               | (_pkgid, tarball, patches) <- allTarballFilePkgs ]
+
+    -- Monitor the patches for secure repos (not included above)
+    monitorFiles
+      $ concat [ map monitorFileHashed patches
+               | (_pkgid, _repo, patches) <- repoTarballPkgsWithMetadata ]
 
     -- Return the combination
     return $! hashesFromRepoMetadata
@@ -924,7 +958,7 @@ planPackages :: Verbosity
              -> InstalledPackageIndex
              -> SourcePackageDb
              -> PkgConfigDb
-             -> [UnresolvedSourcePackage]
+             -> [PackageSpecifier UnresolvedSourcePackage]
              -> Map PackageName (Map OptionalStanza Bool)
              -> Progress String String SolverInstallPlan
 planPackages verbosity comp platform solver SolverSettings{..}
@@ -944,8 +978,7 @@ planPackages verbosity comp platform solver SolverSettings{..}
 
         setMaxBackjumps solverSettingMaxBackjumps
 
-        --TODO: [required eventually] should only be configurable for custom installs
-   -- . setIndependentGoals solverSettingIndependentGoals
+      . setIndependentGoals solverSettingIndependentGoals
 
       . setReorderGoals solverSettingReorderGoals
 
@@ -1005,7 +1038,7 @@ planPackages verbosity comp platform solver SolverSettings{..}
           -- enable stanza preference where the user did not specify
           [ PackageStanzasPreference pkgname stanzas
           | pkg <- localPackages
-          , let pkgname = packageName pkg
+          , let pkgname = pkgSpecifierTarget pkg
                 stanzaM = Map.findWithDefault Map.empty pkgname pkgStanzasEnable
                 stanzas = [ stanza | stanza <- [minBound..maxBound]
                           , Map.lookup stanza stanzaM == Nothing ]
@@ -1019,7 +1052,7 @@ planPackages verbosity comp platform solver SolverSettings{..}
                                  (PackagePropertyStanzas stanzas))
               ConstraintSourceConfigFlagOrTarget
           | pkg <- localPackages
-          , let pkgname = packageName pkg
+          , let pkgname = pkgSpecifierTarget pkg
                 stanzaM = Map.findWithDefault Map.empty pkgname pkgStanzasEnable
                 stanzas = [ stanza | stanza <- [minBound..maxBound]
                           , Map.lookup stanza stanzaM == Just True ]
@@ -1047,7 +1080,7 @@ planPackages verbosity comp platform solver SolverSettings{..}
           | let flags = solverSettingFlagAssignment
           , not (null flags)
           , pkg <- localPackages
-          , let pkgname = packageName pkg ]
+          , let pkgname = pkgSpecifierTarget pkg ]
 
       $ stdResolverParams
 
@@ -1056,7 +1089,7 @@ planPackages verbosity comp platform solver SolverSettings{..}
       -- its own addDefaultSetupDependencies that is not appropriate for us.
       basicInstallPolicy
         installedPkgIndex sourcePkgDb
-        (map SpecificSourcePackage localPackages)
+        localPackages
 
 
 ------------------------------------------------------------------------------
@@ -1168,7 +1201,7 @@ elaborateInstallPlan
   -> DistDirLayout
   -> CabalDirLayout
   -> SolverInstallPlan
-  -> [SourcePackage loc]
+  -> [PackageSpecifier (SourcePackage loc)]
   -> Map PackageId PackageSourceHash
   -> InstallDirs.InstallDirTemplates
   -> ProjectConfigShared
@@ -1526,7 +1559,7 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
                              -> ElaboratedConfiguredPackage
     elaborateSolverToPackage
         mapDep
-        pkg@(SolverPackage (SourcePackage pkgid _gdesc _srcloc _descOverride)
+        pkg@(SolverPackage (SourcePackage pkgid _gdesc _srcloc _descOverride _patch)
                            _flags _stanzas _deps0 _exe_deps0) comps =
         -- Knot tying: the final elab includes the
         -- pkgInstalledId, which is calculated by hashing many
@@ -1614,7 +1647,7 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
                             -> SolverPackage UnresolvedPkgLoc
                             -> ElaboratedConfiguredPackage
     elaborateSolverToCommon mapDep
-        pkg@(SolverPackage (SourcePackage pkgid gdesc srcloc descOverride)
+        pkg@(SolverPackage spkg@(SourcePackage pkgid gdesc srcloc descOverride patch)
                            flags stanzas deps0 _exe_deps0) =
         elaboratedPackage
       where
@@ -1637,6 +1670,8 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
                                     platform (compilerInfo compiler)
                                     [] gdesc
                                in desc
+
+        elabPatchFiles = sourcePackagePatches spkg
         elabFlagAssignment  = flags
         elabFlagDefaults    = [ (Cabal.flagName flag, Cabal.flagDefault flag)
                               | flag <- PD.genPackageFlags gdesc ]
@@ -1803,15 +1838,25 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
       $ map packageId
       $ SolverInstallPlan.reverseDependencyClosure
           solverPlan
-          [ PlannedId (packageId pkg)
-          | pkg <- localPackages ]
+         (map PlannedId (Set.toList pkgsLocalToProject))
 
     isLocalToProject :: Package pkg => pkg -> Bool
     isLocalToProject pkg = Set.member (packageId pkg)
                                       pkgsLocalToProject
 
     pkgsLocalToProject :: Set PackageId
-    pkgsLocalToProject = Set.fromList [ packageId pkg | pkg <- localPackages ]
+    pkgsLocalToProject =
+        Set.fromList (catMaybes (map shouldBeLocal localPackages))
+        --TODO: localPackages is a misnomer, it's all project packages
+        -- here is where we decide which ones will be local!
+      where
+        shouldBeLocal :: PackageSpecifier (SourcePackage loc) -> Maybe PackageId
+        shouldBeLocal NamedPackage{}              = Nothing
+        shouldBeLocal (SpecificSourcePackage pkg) = Just (packageId pkg)
+        -- TODO: It's not actually obvious for all of the
+        -- 'ProjectPackageLocation's that they should all be local. We might
+        -- need to provide the user with a choice.
+        -- Also, review use of SourcePackage's loc vs ProjectPackageLocation
 
     pkgsUseSharedLibrary :: Set PackageId
     pkgsUseSharedLibrary =

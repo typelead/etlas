@@ -269,7 +269,7 @@ convertLegacyAllPackageFlags globalFlags configFlags
     ProjectConfigShared{..}
   where
     GlobalFlags {
-      globalConfigFile        = _, -- TODO: [required feature]
+      globalConfigFile        = projectConfigConfigFile,
       globalSandboxConfigFile = _, -- ??
       globalRemoteRepos       = projectConfigRemoteRepos,
       globalLocalRepos        = projectConfigLocalRepos,
@@ -307,7 +307,7 @@ convertLegacyAllPackageFlags globalFlags configFlags
       installReorderGoals       = projectConfigReorderGoals,
       installCountConflicts     = projectConfigCountConflicts,
       installPerComponent       = projectConfigPerComponent,
-    --installIndependentGoals   = projectConfigIndependentGoals,
+      installIndependentGoals   = projectConfigIndependentGoals,
     --installShadowPkgs         = projectConfigShadowPkgs,
       installStrongFlags        = projectConfigStrongFlags,
       installAllowBootLibInstalls = projectConfigAllowBootLibInstalls
@@ -468,7 +468,7 @@ convertToLegacySharedConfig
     globalFlags = GlobalFlags {
       globalVersion           = mempty,
       globalNumericVersion    = mempty,
-      globalConfigFile        = mempty,
+      globalConfigFile        = projectConfigConfigFile,
       globalSandboxConfigFile = mempty,
       globalConstraintsFile   = mempty,
       globalRemoteRepos       = projectConfigRemoteRepos,
@@ -512,7 +512,7 @@ convertToLegacySharedConfig
       installUpgradeDeps           = mempty, --projectConfigUpgradeDeps,
       installReorderGoals          = projectConfigReorderGoals,
       installCountConflicts        = projectConfigCountConflicts,
-      installIndependentGoals      = mempty, --projectConfigIndependentGoals,
+      installIndependentGoals      = projectConfigIndependentGoals,
       installShadowPkgs            = mempty, --projectConfigShadowPkgs,
       installStrongFlags           = projectConfigStrongFlags,
       installAllowBootLibInstalls  = projectConfigAllowBootLibInstalls,
@@ -871,8 +871,8 @@ legacySharedConfigFieldDescrs =
       , "remote-build-reporting", "report-planning-failure"
       , "one-shot", "jobs", "keep-going", "offline", "per-component"
         -- solver flags:
-      , "max-backjumps", "reorder-goals", "count-conflicts", "strong-flags"
-      , "allow-boot-library-installs", "index-state"
+      , "max-backjumps", "reorder-goals", "count-conflicts", "independent-goals"
+      , "strong-flags", "allow-boot-library-installs", "index-state"
       ]
   . commandOptionsToFields
   ) (installOptions ParseArgs)

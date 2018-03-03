@@ -100,7 +100,7 @@ readBuildTreeRefsFromCache verbosity indexPath = do
   where
     buildTreeRef pkgEntry =
       case pkgEntry of
-         IndexUtils.NormalPackage _ _ _ _ -> Nothing
+         IndexUtils.NormalPackage _ _ _ _ _ -> Nothing
          IndexUtils.BuildTreeRef typ _ _ path _ -> Just $ BuildTreeRef typ path
 
 -- | Given a local build tree ref, serialise it to a tar archive entry.

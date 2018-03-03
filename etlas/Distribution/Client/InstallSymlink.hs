@@ -151,7 +151,7 @@ symlinkBinaries platform comp configFlags installFlags plan buildOutcomes =
       , exe <- PackageDescription.executables pkg
       , PackageDescription.buildable (PackageDescription.buildInfo exe) ]
 
-    pkgDescription (ConfiguredPackage _ (SourcePackage _ pkg _ _)
+    pkgDescription (ConfiguredPackage _ (SourcePackage _ pkg _ _ _)
                                       flags stanzas _) =
       case finalizePD flags (enableStanzas stanzas)
              (const True)

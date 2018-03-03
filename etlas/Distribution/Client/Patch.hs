@@ -21,7 +21,7 @@ import qualified Data.ByteString.Lazy as BS
 
 patchedPackageCabalFile :: PackageIdentifier
                         -> FilePath
-                        -> IO (Maybe BS.ByteString)
+                        -> IO (Maybe (FilePath, BS.ByteString))
 patchedPackageCabalFile
   (PackageIdentifier
     { pkgName = name
@@ -35,19 +35,20 @@ patchedTarPackageCabalFile :: FilePath
                            -> FilePath
                            -> IO (Maybe (FilePath, BS.ByteString))
 patchedTarPackageCabalFile tarFilePath patchesDir =
-  fmap (fmap (\bs -> (cabalFile, bs))) $ findCabalFilePatch cabalFile patchesDir
+  findCabalFilePatch cabalFile patchesDir
   where packageAndVersion = dropExtension . dropExtension $ tarFilePath
         cabalFile = packageAndVersion <.> "cabal"
 
 findCabalFilePatch :: FilePath
                    -> FilePath -- ^ Filepath of the patches directory
-                   -> IO (Maybe BS.ByteString)
+                   -> IO (Maybe (FilePath, BS.ByteString))
 findCabalFilePatch cabalFile patchesDir = do
   -- TODO: Speed this up with a cache?
   let cabalPatchLocation = patchesDir </> "patches" </> cabalFile
   exists <- doesFileExist cabalPatchLocation
   if exists
-  then fmap Just $ BS.readFile cabalPatchLocation
+  then fmap (\contents -> Just (cabalPatchLocation, contents)) $
+            BS.readFile cabalPatchLocation
   else return Nothing
 
 patchedExtractTarGzFile :: Verbosity

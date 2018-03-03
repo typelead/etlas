@@ -773,7 +773,7 @@ withSandboxPackageInfo verbosity configFlags globalFlags
 
   where
     toSourcePackage (path, pkgDesc) = SourcePackage
-      (packageId pkgDesc) pkgDesc (LocalUnpackedPackage path) Nothing
+      (packageId pkgDesc) pkgDesc (LocalUnpackedPackage path) Nothing Nothing
 
 -- | Same as 'withSandboxPackageInfo' if we're inside a sandbox and the
 -- identity otherwise.

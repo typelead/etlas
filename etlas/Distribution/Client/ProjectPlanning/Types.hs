@@ -175,6 +175,8 @@ data ElaboratedConfiguredPackage
 
        elabPkgDescription :: Cabal.PackageDescription,
 
+       elabPatchFiles :: [FilePath],
+
        -- | Where the package comes from, e.g. tarball, local dir etc. This
        --   is not the same as where it may be unpacked to for the build.
        elabPkgSourceLocation :: PackageLocation (Maybe FilePath),

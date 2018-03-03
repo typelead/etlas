@@ -65,10 +65,12 @@ import Distribution.Client.GlobalFlags
 import Distribution.Client.BuildReports.Types
          ( ReportLevel(..) )
 import Distribution.Client.Config
-         ( loadConfig, defaultConfigFile, defaultPatchesDir )
+         ( loadConfig, getConfigFilePath )
 
 import Distribution.Solver.Types.SourcePackage
 import Distribution.Solver.Types.Settings
+import Distribution.Solver.Types.PackageConstraint
+         ( PackageProperty(..) )
 
 import Distribution.Package
          ( PackageName, PackageId, packageId, UnitId )
@@ -147,7 +149,7 @@ lookupLocalPackageConfig field ProjectConfig {
 projectConfigWithBuilderRepoContext :: Verbosity
                                     -> BuildTimeSettings
                                     -> (RepoContext -> IO a) -> IO a
-projectConfigWithBuilderRepoContext verbosity BuildTimeSettings{..} f = do
+projectConfigWithBuilderRepoContext verbosity BuildTimeSettings{..} =
     withRepoContext'
       verbosity
       buildSettingRemoteRepos
@@ -158,7 +160,6 @@ projectConfigWithBuilderRepoContext verbosity BuildTimeSettings{..} f = do
       buildSettingPatchesDir
       buildSettingAutoUpdate
       buildSettingSendMetrics
-      f
 
 
 -- | Use a 'RepoContext', but only for the solver. The solver does not use the
@@ -172,7 +173,7 @@ projectConfigWithSolverRepoContext :: Verbosity
                                    -> (RepoContext -> IO a) -> IO a
 projectConfigWithSolverRepoContext verbosity
                                    ProjectConfigShared{..}
-                                   ProjectConfigBuildOnly{..} f = do
+                                   ProjectConfigBuildOnly{..} =
     withRepoContext'
       verbosity
       (fromNubList projectConfigRemoteRepos)
@@ -185,7 +186,6 @@ projectConfigWithSolverRepoContext verbosity
                          projectConfigPatchesDir)
       (fromFlagOrDefault True  projectConfigAutoUpdate)
       (fromFlagOrDefault False projectConfigSendMetrics)
-      f
 
 
 -- | Resolve the project configuration, with all its optional fields, into
@@ -220,7 +220,7 @@ resolveSolverSettings ProjectConfig{
     solverSettingStrongFlags       = fromFlag projectConfigStrongFlags
     solverSettingAllowBootLibInstalls = fromFlag projectConfigAllowBootLibInstalls
     solverSettingIndexState        = flagToMaybe projectConfigIndexState
-  --solverSettingIndependentGoals  = fromFlag projectConfigIndependentGoals
+    solverSettingIndependentGoals  = fromFlag projectConfigIndependentGoals
   --solverSettingShadowPkgs        = fromFlag projectConfigShadowPkgs
   --solverSettingReinstall         = fromFlag projectConfigReinstall
   --solverSettingAvoidReinstalls   = fromFlag projectConfigAvoidReinstalls
@@ -237,8 +237,8 @@ resolveSolverSettings ProjectConfig{
        projectConfigReorderGoals      = Flag (ReorderGoals False),
        projectConfigCountConflicts    = Flag (CountConflicts True),
        projectConfigStrongFlags       = Flag (StrongFlags False),
-       projectConfigAllowBootLibInstalls = Flag (AllowBootLibInstalls False)
-     --projectConfigIndependentGoals  = Flag (IndependentGoals False),
+       projectConfigAllowBootLibInstalls = Flag (AllowBootLibInstalls False),
+       projectConfigIndependentGoals  = Flag (IndependentGoals False)
      --projectConfigShadowPkgs        = Flag False,
      --projectConfigReinstall         = Flag False,
      --projectConfigAvoidReinstalls   = Flag False,
@@ -431,9 +431,10 @@ renderBadProjectRoot (BadProjectRootExplicitFile projectFile) =
 -- | Read all the config relevant for a project. This includes the project
 -- file if any, plus other global config.
 --
-readProjectConfig :: Verbosity -> DistDirLayout -> Rebuild ProjectConfig
-readProjectConfig verbosity distDirLayout = do
-    global <- readGlobalConfig             verbosity
+readProjectConfig :: Verbosity -> Flag FilePath -> Flag Bool -> DistDirLayout
+                  -> Rebuild ProjectConfig
+readProjectConfig verbosity configFileFlag sendMetricsFlag distDirLayout = do
+    global <- readGlobalConfig             verbosity configFileFlag sendMetricsFlag
     local  <- readProjectLocalConfig       verbosity distDirLayout
     freeze <- readProjectLocalFreezeConfig verbosity distDirLayout
     extra  <- readProjectLocalExtraConfig  verbosity distDirLayout
@@ -564,14 +565,12 @@ writeProjectConfigFile file =
 
 -- | Read the user's @~/.cabal/config@ file.
 --
-readGlobalConfig :: Verbosity -> Rebuild ProjectConfig
-readGlobalConfig verbosity = do
-    config     <- liftIO (loadConfig verbosity mempty mempty)
-    configFile <- liftIO defaultConfigFile
+readGlobalConfig :: Verbosity -> Flag FilePath -> Flag Bool -> Rebuild ProjectConfig
+readGlobalConfig verbosity configFileFlag sendMetricsFlag = do
+    config     <- liftIO (loadConfig verbosity configFileFlag sendMetricsFlag)
+    configFile <- liftIO (getConfigFilePath configFileFlag)
     monitorFiles [monitorFileHashed configFile]
     return (convertLegacyGlobalConfig config)
-    --TODO: do this properly, there's several possible locations
-    -- and env vars, and flags for selecting the global config
 
 
 reportParseResult :: Verbosity -> String -> FilePath -> ParseResult a -> IO a
@@ -909,7 +908,7 @@ mplusMaybeT ma mb = do
 -- paths.
 --
 readSourcePackage :: Verbosity -> ProjectPackageLocation
-                  -> Rebuild UnresolvedSourcePackage
+                  -> Rebuild (PackageSpecifier UnresolvedSourcePackage)
 readSourcePackage verbosity (ProjectPackageLocalCabalFile cabalFile) =
     readSourcePackage verbosity (ProjectPackageLocalDirectory dir cabalFile)
   where
@@ -919,15 +918,28 @@ readSourcePackage verbosity (ProjectPackageLocalDirectory dir cabalFile) = do
     monitorFiles [monitorFileHashed cabalFile]
     root <- askRoot
     pkgdesc <- liftIO $ readGenericPackageDescription verbosity (root </> cabalFile)
-    return SourcePackage {
+    return $ SpecificSourcePackage SourcePackage {
       packageInfoId        = packageId pkgdesc,
       packageDescription   = pkgdesc,
       packageSource        = LocalUnpackedPackage (root </> dir),
-      packageDescrOverride = Nothing
+      packageDescrOverride = Nothing,
+      packagePatch         = Nothing
     }
+
+readSourcePackage _ (ProjectPackageNamed (Dependency pkgname verrange)) =
+    return $ NamedPackage pkgname [PackagePropertyVersion verrange]
+
 readSourcePackage _verbosity _ =
     fail $ "TODO: add support for fetching and reading local tarballs, remote "
         ++ "tarballs, remote repos and passing named packages through"
+
+
+-- TODO: add something like this, here or in the project planning
+-- Based on the package location, which packages will be built inplace in the
+-- build tree vs placed in the store. This has various implications on what we
+-- can do with the package, e.g. can we run tests, ghci etc.
+--
+-- packageIsLocalToProject :: ProjectPackageLocation -> Bool
 
 
 ---------------------------------------------

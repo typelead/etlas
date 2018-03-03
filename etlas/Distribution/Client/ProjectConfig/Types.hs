@@ -156,6 +156,7 @@ data ProjectConfigBuildOnly
 data ProjectConfigShared
    = ProjectConfigShared {
        projectConfigDistDir           :: Flag FilePath,
+       projectConfigConfigFile        :: Flag FilePath,
        projectConfigProjectFile       :: Flag FilePath,
        projectConfigHcFlavor          :: Flag CompilerFlavor,
        projectConfigHcPath            :: Flag FilePath,
@@ -188,11 +189,11 @@ data ProjectConfigShared
        projectConfigCountConflicts    :: Flag CountConflicts,
        projectConfigStrongFlags       :: Flag StrongFlags,
        projectConfigAllowBootLibInstalls :: Flag AllowBootLibInstalls,
-       projectConfigPerComponent      :: Flag Bool
+       projectConfigPerComponent      :: Flag Bool,
+       projectConfigIndependentGoals  :: Flag IndependentGoals
 
        -- More things that only make sense for manual mode, not --local mode
        -- too much control!
-     --projectConfigIndependentGoals  :: Flag IndependentGoals,
      --projectConfigShadowPkgs        :: Flag Bool,
      --projectConfigReinstall         :: Flag Bool,
      --projectConfigAvoidReinstalls   :: Flag Bool,
@@ -364,10 +365,10 @@ data SolverSettings
        solverSettingCountConflicts    :: CountConflicts,
        solverSettingStrongFlags       :: StrongFlags,
        solverSettingAllowBootLibInstalls :: AllowBootLibInstalls,
-       solverSettingIndexState        :: Maybe IndexState
+       solverSettingIndexState        :: Maybe IndexState,
+       solverSettingIndependentGoals  :: IndependentGoals
        -- Things that only make sense for manual mode, not --local mode
        -- too much control!
-     --solverSettingIndependentGoals  :: IndependentGoals,
      --solverSettingShadowPkgs        :: Bool,
      --solverSettingReinstall         :: Bool,
      --solverSettingAvoidReinstalls   :: Bool,

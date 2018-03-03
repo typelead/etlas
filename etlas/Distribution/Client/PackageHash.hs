@@ -59,6 +59,7 @@ import qualified Data.Set as Set
 import           Data.Set (Set)
 
 import Data.Typeable
+import Data.Coerce       (coerce)
 import Data.Maybe        (catMaybes)
 import Data.List         (sortBy, intercalate)
 import Data.Map          (Map)
@@ -278,7 +279,7 @@ renderPackageHashInputs PackageHashInputs{
 -- there is some value in preventing intentional hash collisions in installed
 -- package ids.
 
-newtype HashValue = HashValue BS.ByteString
+newtype HashValue = HashValue { unHashValue :: BS.ByteString }
   deriving (Eq, Show, Typeable)
 
 instance Binary HashValue where
@@ -289,6 +290,11 @@ instance Binary HashValue where
     -- for stuff we hash ourselves, we can also get hashes from TUF
     -- and that can in principle use different hash functions in future.
     return (HashValue digest)
+
+instance Monoid HashValue where
+  mempty = hashValue LBS.empty
+  HashValue bs1 `mappend` HashValue bs2 = hashValue (LBS.fromChunks [bs1, bs2])
+  mconcat hashes = hashValue . LBS.fromChunks $ coerce hashes
 
 -- | Hash some data. Currently uses SHA256.
 --

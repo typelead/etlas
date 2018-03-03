@@ -30,6 +30,7 @@ module Distribution.Simple.Compiler (
         compilerCompatFlavor,
         compilerCompatVersion,
         compilerInfo,
+        compilerCommit,
 
         -- * Support for package databases
         PackageDB(..),
@@ -118,6 +119,11 @@ compilerFlavor = (\(CompilerId f _) -> f) . compilerId
 compilerVersion :: Compiler -> Version
 compilerVersion = (\(CompilerId _ v) -> v) . compilerId
 
+compilerCommit :: Compiler -> String
+compilerCommit compiler
+  | Just hash <- Map.lookup "Project Git commit id" (compilerProperties compiler)
+  = hash
+  | otherwise = ""
 
 -- | Is this compiler compatible with the compiler flavour we're interested in?
 --

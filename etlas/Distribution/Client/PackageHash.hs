@@ -24,6 +24,7 @@ module Distribution.Client.PackageHash (
     -- * Low level hash choice
     HashValue,
     hashValue,
+    hashString,
     showHashValue,
     readFileHashValue,
     hashFromTUF,
@@ -155,6 +156,7 @@ type PackageSourceHash = HashValue
 --
 data PackageHashConfigInputs = PackageHashConfigInputs {
        pkgHashCompilerId          :: CompilerId,
+       pkgHashCompilerCommit      :: String,
        pkgHashPlatform            :: Platform,
        pkgHashFlagAssignment      :: FlagAssignment, -- complete not partial
        pkgHashConfigureScriptArgs :: [String], -- just ./configure for build-type Configure
@@ -233,6 +235,7 @@ renderPackageHashInputs PackageHashInputs{
                                               . Set.toList) pkgHashDirectDeps
         -- and then all the config
       , entry "compilerid"  display pkgHashCompilerId
+      , entry "compiler-commit"  id pkgHashCompilerCommit
       , entry "platform"    display pkgHashPlatform
       , opt   "flags" []    showFlagAssignment pkgHashFlagAssignment
       , opt   "configure-script" [] unwords pkgHashConfigureScriptArgs
@@ -300,6 +303,9 @@ instance Monoid HashValue where
 --
 hashValue :: LBS.ByteString -> HashValue
 hashValue = HashValue . SHA256.hashlazy
+
+hashString :: String -> HashValue
+hashString = hashValue . LBS.pack
 
 showHashValue :: HashValue -> String
 showHashValue (HashValue digest) = BS.unpack (Base16.encode digest)

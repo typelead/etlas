@@ -834,6 +834,11 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
 --          [ (pkgid, )
 --          | (pkgid, RemoteTarballPackage ) <- allPkgLocations ]
 
+        hashesFromScmPkgs :: Map PackageId HashValue
+        hashesFromScmPkgs = Map.fromList
+          [ (pkgid, hashString (show scm))
+          | (pkgid, scm@ScmPackage {}, _patches) <- allPkgLocations ]
+
         -- Tarballs from repositories, either where the repository provides
         -- hashes as part of the repo metadata, or where we will have to
         -- download and hash the tarball.
@@ -945,6 +950,7 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
     -- Return the combination
     return $! hashesFromRepoMetadata
            <> hashesFromTarballFiles
+           <> hashesFromScmPkgs
 
 
 -- ------------------------------------------------------------
@@ -3386,6 +3392,7 @@ packageHashConfigInputs
 
     PackageHashConfigInputs {
       pkgHashCompilerId          = compilerId pkgConfigCompiler,
+      pkgHashCompilerCommit      = compilerCommit pkgConfigCompiler,
       pkgHashPlatform            = pkgConfigPlatform,
       pkgHashFlagAssignment      = elabFlagAssignment,
       pkgHashConfigureScriptArgs = elabConfigureScriptArgs,

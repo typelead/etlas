@@ -279,7 +279,7 @@ data PackageLocation local =
     -- locally cached copy. ie a package available from hackage
   | RepoTarballPackage Repo PackageId local
 
--- | A package available as a source control mangement (SCM) repository.
+    -- | A package available as a source control mangement (SCM) repository.
   | ScmPackage (Maybe Repo) [SourceRepo] PackageId local
   deriving (Show, Functor, Eq, Ord, Generic, Typeable)
 

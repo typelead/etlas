@@ -399,6 +399,7 @@ convertLegacyBuildOnlyFlags globalFlags configFlags
       globalWorldFile         = _,
       globalHttpTransport     = projectConfigHttpTransport,
       globalIgnoreExpiry      = projectConfigIgnoreExpiry,
+      globalStoreDir          = projectConfigStoreDir,
       globalAutoUpdate        = projectConfigAutoUpdate,
       globalSendMetrics       = projectConfigSendMetrics
     } = globalFlags
@@ -481,6 +482,7 @@ convertToLegacySharedConfig
       globalIgnoreExpiry      = projectConfigIgnoreExpiry,
       globalHttpTransport     = projectConfigHttpTransport,
       globalNix               = mempty,
+      globalStoreDir          = projectConfigStoreDir,
       globalPatchesDir        = projectConfigPatchesDir,
       globalAutoUpdate        = projectConfigAutoUpdate,
       globalSendMetrics       = projectConfigSendMetrics,
@@ -812,7 +814,7 @@ legacySharedConfigFieldDescrs =
       ]
   . filterFields
       [ "remote-repo-cache"
-      , "logs-dir", "ignore-expiry", "http-transport"
+      , "logs-dir", "store-dir", "ignore-expiry", "http-transport"
       ]
   . commandOptionsToFields
   ) (commandOptions (globalCommand []) ParseArgs)

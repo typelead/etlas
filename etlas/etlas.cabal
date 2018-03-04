@@ -122,6 +122,7 @@ library
         Distribution.Client.BinaryUtils
         Distribution.Client.SolverInstallPlan
         Distribution.Client.SourceFiles
+        Distribution.Client.Store
         Distribution.Client.Tar
         Distribution.Client.Targets
         Distribution.Client.TargetSelector
@@ -134,6 +135,7 @@ library
         Distribution.Client.World
         Distribution.Client.Win32SelfUpgrade
         Distribution.Client.Compat.ExecutablePath
+        Distribution.Client.Compat.FileLock
         Distribution.Client.Compat.FilePerms
         Distribution.Client.Compat.Prelude
         Distribution.Client.Compat.Process

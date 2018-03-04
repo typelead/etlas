@@ -185,9 +185,11 @@ showDepResolverParams p =
   ++ "\nconstraints: "
   ++   concatMap (("\n  " ++) . showLabeledConstraint)
        (depResolverConstraints p)
-  ++ "\npreferences: "
-  ++   concatMap (("\n  " ++) . showPackagePreference)
-       (depResolverPreferences p)
+  -- TODO: Figure out when to display this - it's really annoying to see this in -v3
+  --       outputs because 99% of the time we don't care about the preferences.
+  -- ++ "\npreferences: "
+  -- ++   concatMap (("\n  " ++) . showPackagePreference)
+  --      (depResolverPreferences p)
   ++ "\nstrategy: "          ++ show (depResolverPreferenceDefault        p)
   ++ "\nreorder goals: "     ++ show (asBool (depResolverReorderGoals     p))
   ++ "\ncount conflicts: "   ++ show (asBool (depResolverCountConflicts   p))

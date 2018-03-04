@@ -6,15 +6,20 @@
 -- and build artifacts.
 --
 module Distribution.Client.DistDirLayout (
-    -- 'DistDirLayout'
+    -- * 'DistDirLayout'
     DistDirLayout(..),
     DistDirParams(..),
     defaultDistDirLayout,
     ProjectRoot(..),
 
+    -- * 'StoreDirLayout'
+    StoreDirLayout(..),
+    defaultStoreDirLayout,
+
     -- * 'CabalDirLayout'
     CabalDirLayout(..),
-    defaultCabalDirLayout,
+    mkCabalDirLayout,
+    defaultCabalDirLayout
 ) where
 
 import Data.Maybe (fromMaybe)
@@ -23,12 +28,11 @@ import System.FilePath
 import Distribution.Package
          ( PackageId, ComponentId, UnitId )
 import Distribution.Compiler
-import Distribution.Simple.Compiler (PackageDB(..), OptimisationLevel(..))
+import Distribution.Simple.Compiler
+         ( PackageDB(..), PackageDBStack, OptimisationLevel(..) )
 import Distribution.Text
 import Distribution.Types.ComponentName
 import Distribution.System
-import Distribution.Client.Types
-         ( InstalledPackageId )
 
 -- | Information which can be used to construct the path to
 -- the build directory of a build.  This is LESS fine-grained
@@ -107,14 +111,30 @@ data DistDirLayout = DistDirLayout {
      }
 
 
+-- | The layout of a cabal nix-style store.
+--
+data StoreDirLayout = StoreDirLayout {
+       storeDirectory         :: CompilerId -> FilePath,
+       storePackageDirectory  :: CompilerId -> UnitId -> FilePath,
+       storePackageDBPath     :: CompilerId -> FilePath,
+       storePackageDB         :: CompilerId -> PackageDB,
+       storePackageDBStack    :: CompilerId -> PackageDBStack,
+       storeIncomingDirectory :: CompilerId -> FilePath,
+       storeIncomingLock      :: CompilerId -> UnitId -> FilePath
+     }
+
 
 --TODO: move to another module, e.g. CabalDirLayout?
+-- or perhaps rename this module to DirLayouts.
+
+-- | The layout of the user-wide cabal directory, that is the @~/.cabal@ dir
+-- on unix, and equivalents on other systems.
+--
+-- At the moment this is just a partial specification, but the idea is
+-- eventually to cover it all.
+--
 data CabalDirLayout = CabalDirLayout {
-       cabalStoreDirectory        :: CompilerId -> FilePath,
-       cabalStorePackageDirectory :: CompilerId -> InstalledPackageId
-                                                -> FilePath,
-       cabalStorePackageDBPath    :: CompilerId -> FilePath,
-       cabalStorePackageDB        :: CompilerId -> PackageDB,
+       cabalStoreDirLayout        :: StoreDirLayout,
 
        cabalLogsDirectory         :: FilePath,
        cabalWorldFile             :: FilePath
@@ -164,10 +184,14 @@ defaultDistDirLayout projectRoot mdistDirectory =
         display (distParamPlatform params) </>
         display (distParamCompilerId params) </>
         display (distParamPackageId params) </>
-        (case fmap componentNameString (distParamComponentName params) of
-            Nothing          -> ""
-            Just Nothing     -> ""
-            Just (Just name) -> "c" </> display name) </>
+        (case distParamComponentName params of
+            Nothing                  -> ""
+            Just CLibName            -> ""
+            Just (CSubLibName name)  -> "l" </> display name
+            Just (CFLibName name)    -> "f" </> display name
+            Just (CExeName name)     -> "x" </> display name
+            Just (CTestName name)    -> "t" </> display name
+            Just (CBenchName name)   -> "b" </> display name) </>
         (case distParamOptimization params of
             NoOptimisation -> "noopt"
             NormalOptimisation -> ""
@@ -195,25 +219,43 @@ defaultDistDirLayout projectRoot mdistDirectory =
     distPackageDB = SpecificPackageDB . distPackageDBPath
 
 
+defaultStoreDirLayout :: FilePath -> StoreDirLayout
+defaultStoreDirLayout storeRoot =
+    StoreDirLayout {..}
+  where
+    storeDirectory compid =
+      storeRoot </> display compid
+
+    storePackageDirectory compid ipkgid =
+      storeDirectory compid </> display ipkgid
+
+    storePackageDBPath compid =
+      storeDirectory compid </> "package.db"
+
+    storePackageDB compid =
+      SpecificPackageDB (storePackageDBPath compid)
+
+    storePackageDBStack compid =
+      [GlobalPackageDB, storePackageDB compid]
+
+    storeIncomingDirectory compid =
+      storeDirectory compid </> "incoming"
+
+    storeIncomingLock compid unitid =
+      storeIncomingDirectory compid </> display unitid <.> "lock"
 
 defaultCabalDirLayout :: FilePath -> CabalDirLayout
 defaultCabalDirLayout cabalDir =
+    mkCabalDirLayout cabalDir Nothing Nothing
+
+mkCabalDirLayout :: FilePath -- ^ Cabal directory
+                 -> Maybe FilePath -- ^ Store directory
+                 -> Maybe FilePath -- ^ Log directory
+                 -> CabalDirLayout
+mkCabalDirLayout cabalDir mstoreDir mlogDir =
     CabalDirLayout {..}
   where
-
-    cabalStoreDirectory compid =
-      cabalDir </> "store" </> display compid
-
-    cabalStorePackageDirectory compid ipkgid = 
-      cabalStoreDirectory compid </> display ipkgid
-
-    cabalStorePackageDBPath compid =
-      cabalStoreDirectory compid </> "package.db"
-
-    cabalStorePackageDB =
-      SpecificPackageDB . cabalStorePackageDBPath
-
-    cabalLogsDirectory = cabalDir </> "logs"
-
+    cabalStoreDirLayout =
+        defaultStoreDirLayout (fromMaybe (cabalDir </> "store") mstoreDir)
+    cabalLogsDirectory = fromMaybe (cabalDir </> "logs") mlogDir
     cabalWorldFile = cabalDir </> "world"
-

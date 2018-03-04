@@ -241,6 +241,7 @@ instance Semigroup SavedConfig where
         globalIgnoreExpiry      = combine globalIgnoreExpiry,
         globalHttpTransport     = combine globalHttpTransport,
         globalNix               = combine globalNix,
+        globalStoreDir          = combine globalStoreDir,
         globalPatchesDir        = combine globalPatchesDir,
         globalAutoUpdate        = combine globalAutoUpdate,
         globalSendMetrics       = combine globalSendMetrics,

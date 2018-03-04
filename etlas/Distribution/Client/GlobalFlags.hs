@@ -71,10 +71,11 @@ data GlobalFlags = GlobalFlags {
     globalIgnoreExpiry      :: Flag Bool,     -- ^ Ignore security expiry dates
     globalHttpTransport     :: Flag String,
     globalNix               :: Flag Bool,     -- ^ Integrate with Nix
+    globalStoreDir          :: Flag FilePath, -- ^ Path to store directory
     globalPatchesDir        :: Flag FilePath, -- ^ Patches directory
-    globalAutoUpdate        :: Flag Bool, -- ^ Automatically update package listing
-    globalSendMetrics       :: Flag Bool,  -- ^ Send telemetry
-    globalEtaVersion        :: Flag String -- ^ Version of Eta to use
+    globalAutoUpdate        :: Flag Bool,     -- ^ Automatically update package listing
+    globalSendMetrics       :: Flag Bool,     -- ^ Send telemetry
+    globalEtaVersion        :: Flag String    -- ^ Version of Eta to use
   } deriving Generic
 
 defaultGlobalFlags :: GlobalFlags
@@ -94,6 +95,7 @@ defaultGlobalFlags  = GlobalFlags {
     globalIgnoreExpiry      = Flag False,
     globalHttpTransport     = mempty,
     globalNix               = Flag False,
+    globalStoreDir          = mempty,
     globalPatchesDir        = mempty,
     globalAutoUpdate        = mempty,
     globalSendMetrics       = mempty,

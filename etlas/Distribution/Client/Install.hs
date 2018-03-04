@@ -141,8 +141,7 @@ import Distribution.Simple.InstallDirs as InstallDirs
          ( PathTemplate, fromPathTemplate, toPathTemplate, substPathTemplate
          , initialPathTemplateEnv, installDirsTemplateEnv )
 import Distribution.Simple.Configure (interpretPackageDbFlags)
-import Distribution.Simple.Register (registerPackage)
-import Distribution.Simple.Program.HcPkg (MultiInstance(..))
+import Distribution.Simple.Register (registerPackage, defaultRegisterOptions)
 import Distribution.Package
          ( PackageIdentifier(..), PackageId, packageName, packageVersion
          , Package(..), HasMungedPackageId(..), HasUnitId(..)
@@ -1474,9 +1473,9 @@ installUnpackedPackage verbosity installLock numJobs
                               (fromFlag (configUserInstall configFlags))
                               (configPackageDBs configFlags)
           forM_ ipkgs' $ \ipkg' ->
-              registerPackage verbosity comp progdb
-                                    NoMultiInstance
-                                    packageDBs ipkg'
+                registerPackage verbosity comp progdb
+                                packageDBs ipkg'
+                                defaultRegisterOptions
 
           return (Right (BuildResult docsResult testsResult (find ((==uid).installedUnitId) ipkgs')))
 

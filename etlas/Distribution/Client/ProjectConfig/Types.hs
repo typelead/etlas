@@ -144,6 +144,7 @@ data ProjectConfigBuildOnly
        projectConfigIgnoreExpiry          :: Flag Bool,
        projectConfigCacheDir              :: Flag FilePath,
        projectConfigLogsDir               :: Flag FilePath,
+       projectConfigStoreDir              :: Flag FilePath,
        projectConfigSendMetrics           :: Flag Bool,
        projectConfigAutoUpdate            :: Flag Bool
      }

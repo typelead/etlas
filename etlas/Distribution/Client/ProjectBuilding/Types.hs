@@ -77,9 +77,8 @@ data BuildStatus =
      --   unpacked and built.
    | BuildStatusUnpack FilePath
 
-     -- | The package exists in a local dir already, and just needs building
-     --   or rebuilding. So this can only happen for 'BuildInplaceOnly' style
-     --   packages.
+     -- | The package exists in a local dir or somewhere in the system, and just needs
+     --   building or rebuilding.
    | BuildStatusRebuild FilePath BuildStatusRebuild
 
      -- | The package exists in a local dir already, and is fully up to date.

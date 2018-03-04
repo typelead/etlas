@@ -211,9 +211,12 @@ rebuildTargetsDryRun distDirLayout@DistDirLayout{..} shared =
         Just (RepoTarballPackage _ _ tarball) ->
           dryRunTarballPkg pkg depsBuildStatus tarball
 
-        -- TODO: Make this more precise
-        Just (ScmPackage _ _ _ localPkgPath) ->
-          dryRunLocalPkg pkg depsBuildStatus localPkgPath
+        Just (ScmPackage _ _ _ srcdir) ->
+          case elabBuildStyle pkg of
+            BuildAndInstall  -> return $
+              BuildStatusRebuild srcdir
+              $ BuildStatusBuild Nothing BuildReasonDepsRebuilt
+            BuildInplaceOnly -> dryRunLocalPkg pkg depsBuildStatus srcdir
 
     dryRunTarballPkg :: ElaboratedConfiguredPackage
                      -> [BuildStatus]
@@ -673,14 +676,13 @@ rebuildTarget verbosity
               where
                 buildStatus = BuildStatusConfigure MonitorFirstRun
 
-    -- Note that this really is rebuild, not build. It can only happen for
-    -- 'BuildInplaceOnly' style packages. 'BuildAndInstall' style packages
-    -- would only start from download or unpack phases.
-    --
-    rebuildPhase buildStatus srcdir =
-        assert (elabBuildStyle pkg == BuildInplaceOnly) $
-
-          buildInplace buildStatus srcdir builddir
+    -- Note that this can be a first-time build if it happens
+    -- to a package from a git-indexed repository (like `etlas-index`).
+    rebuildPhase buildStatus srcdir
+      -- This case occurs for git repos, pre-downloaded tarballs, etc.
+      | elabBuildStyle pkg == BuildAndInstall
+      = buildAndInstall srcdir builddir
+      | otherwise = buildInplace buildStatus srcdir builddir
       where
         builddir = distBuildDirectory (elabDistDirParams sharedPackageConfig pkg)
 

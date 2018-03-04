@@ -20,7 +20,7 @@ import Distribution.Client.Setup
          ( GlobalFlags, ConfigFlags(..), ConfigExFlags, InstallFlags )
 import qualified Distribution.Client.Setup as Client
 import Distribution.Simple.Setup
-         ( HaddockFlags(..), fromFlagOrDefault, fromFlag )
+         ( HaddockFlags(..), fromFlagOrDefault )
 import Distribution.Simple.Command
          ( CommandUI(..), usageAlternatives )
 import Distribution.Verbosity
@@ -100,7 +100,7 @@ haddockAction (configFlags, configExFlags, installFlags, haddockFlags)
                                     TargetActionHaddock
                                     targets
                                     elaboratedPlan
-            return elaboratedPlan'
+            return (elaboratedPlan', targets)
 
     printPlan verbosity baseCtx buildCtx
 
@@ -120,7 +120,7 @@ haddockAction (configFlags, configExFlags, installFlags, haddockFlags)
 -- depending on the @--executables@ flag we also select all the buildable exes.
 -- We do similarly for test-suites, benchmarks and foreign libs.
 --
-selectPackageTargets  :: HaddockFlags -> TargetSelector PackageId
+selectPackageTargets  :: HaddockFlags -> TargetSelector
                       -> [AvailableTarget k] -> Either TargetProblem [k]
 selectPackageTargets haddockFlags targetSelector targets
 
@@ -151,10 +151,17 @@ selectPackageTargets haddockFlags targetSelector targets
     isRequested (TargetAllPackages (Just _)) _ = True
     isRequested _ LibKind    = True
 --  isRequested _ SubLibKind = True --TODO: what about sublibs?
-    isRequested _ FLibKind   = fromFlag (haddockForeignLibs haddockFlags)
-    isRequested _ ExeKind    = fromFlag (haddockExecutables haddockFlags)
-    isRequested _ TestKind   = fromFlag (haddockTestSuites  haddockFlags)
-    isRequested _ BenchKind  = fromFlag (haddockBenchmarks  haddockFlags)
+
+    -- TODO/HACK, we encode some defaults here as new-haddock's logic;
+    -- make sure this matches the defaults applied in
+    -- "Distribution.Client.ProjectPlanning"; this may need more work
+    -- to be done properly
+    --
+    -- See also https://github.com/haskell/cabal/pull/4886
+    isRequested _ FLibKind   = fromFlagOrDefault False (haddockForeignLibs haddockFlags)
+    isRequested _ ExeKind    = fromFlagOrDefault False (haddockExecutables haddockFlags)
+    isRequested _ TestKind   = fromFlagOrDefault False (haddockTestSuites  haddockFlags)
+    isRequested _ BenchKind  = fromFlagOrDefault False (haddockBenchmarks  haddockFlags)
 
 
 -- | For a 'TargetComponent' 'TargetSelector', check if the component can be
@@ -163,11 +170,11 @@ selectPackageTargets haddockFlags targetSelector targets
 -- For the @haddock@ command we just need the basic checks on being buildable
 -- etc.
 --
-selectComponentTarget :: PackageId -> ComponentName -> SubComponentTarget
+selectComponentTarget :: SubComponentTarget
                       -> AvailableTarget k -> Either TargetProblem k
-selectComponentTarget pkgid cname subtarget =
+selectComponentTarget subtarget =
     either (Left . TargetProblemCommon) Right
-  . selectComponentTargetBasic pkgid cname subtarget
+  . selectComponentTargetBasic subtarget
 
 
 -- | The various error conditions that can occur when matching a
@@ -177,10 +184,10 @@ data TargetProblem =
      TargetProblemCommon       TargetProblemCommon
 
      -- | The 'TargetSelector' matches targets but none are buildable
-   | TargetProblemNoneEnabled (TargetSelector PackageId) [AvailableTarget ()]
+   | TargetProblemNoneEnabled TargetSelector [AvailableTarget ()]
 
      -- | There are no targets at all
-   | TargetProblemNoTargets   (TargetSelector PackageId)
+   | TargetProblemNoTargets   TargetSelector
   deriving (Eq, Show)
 
 reportTargetProblems :: Verbosity -> [TargetProblem] -> IO a

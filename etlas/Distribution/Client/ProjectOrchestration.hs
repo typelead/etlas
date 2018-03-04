@@ -114,6 +114,10 @@ import           Distribution.Client.TargetSelector
 import           Distribution.Client.DistDirLayout
 import           Distribution.Client.Config (defaultCabalDir)
 import           Distribution.Client.Setup hiding (packageName)
+import           Distribution.Types.ComponentName
+                   ( componentNameString )
+import           Distribution.Types.UnqualComponentName
+                   ( UnqualComponentName, packageNameToUnqualComponentName )
 
 import           Distribution.Solver.Types.OptionalStanza
 
@@ -223,7 +227,11 @@ data ProjectBuildContext = ProjectBuildContext {
 
       -- | The result of the dry-run phase. This tells us about each member of
       -- the 'elaboratedPlanToExecute'.
-      pkgsBuildStatus        :: BuildStatusMap
+      pkgsBuildStatus        :: BuildStatusMap,
+
+      -- | The targets selected by @selectPlanSubset@. This is useful eg. in
+      -- CmdRun, where we need a valid target to execute.
+      targetsMap             :: TargetsMap
     }
 
 
@@ -232,7 +240,7 @@ data ProjectBuildContext = ProjectBuildContext {
 runProjectPreBuildPhase
     :: Verbosity
     -> ProjectBaseContext
-    -> (ElaboratedInstallPlan -> IO ElaboratedInstallPlan)
+    -> (ElaboratedInstallPlan -> IO (ElaboratedInstallPlan, TargetsMap))
     -> IO ProjectBuildContext
 runProjectPreBuildPhase
     verbosity
@@ -259,7 +267,7 @@ runProjectPreBuildPhase
     -- Now given the specific targets the user has asked for, decide
     -- which bits of the plan we will want to execute.
     --
-    elaboratedPlan' <- selectPlanSubset elaboratedPlan
+    (elaboratedPlan', targets) <- selectPlanSubset elaboratedPlan
 
     -- Check which packages need rebuilding.
     -- This also gives us more accurate reasons for the --dry-run output.
@@ -277,7 +285,8 @@ runProjectPreBuildPhase
       elaboratedPlanOriginal = elaboratedPlan,
       elaboratedPlanToExecute = elaboratedPlan'',
       elaboratedShared,
-      pkgsBuildStatus
+      pkgsBuildStatus,
+      targetsMap = targets
     }
 
 
@@ -381,7 +390,7 @@ runProjectPostBuildPhase verbosity
 -- possible to for different selectors to match the same target. This extra
 -- information is primarily to help make helpful error messages.
 --
-type TargetsMap = Map UnitId [(ComponentTarget, [TargetSelector PackageId])]
+type TargetsMap = Map UnitId [(ComponentTarget, [TargetSelector])]
 
 -- | Given a set of 'TargetSelector's, resolve which 'UnitId's and
 -- 'ComponentTarget's they ought to refer to.
@@ -416,18 +425,18 @@ type TargetsMap = Map UnitId [(ComponentTarget, [TargetSelector PackageId])]
 -- a basis for their own @selectComponentTarget@ implementation.
 --
 resolveTargets :: forall err.
-                  (forall k. TargetSelector PackageId
+                  (forall k. TargetSelector
                           -> [AvailableTarget k]
                           -> Either err [k])
-               -> (forall k. PackageId -> ComponentName -> SubComponentTarget
+               -> (forall k. SubComponentTarget
                           -> AvailableTarget k
                           -> Either err  k )
                -> (TargetProblemCommon -> err)
                -> ElaboratedInstallPlan
-               -> [TargetSelector PackageId]
+               -> [TargetSelector]
                -> Either [err] TargetsMap
 resolveTargets selectPackageTargets selectComponentTarget liftProblem
-               installPlan targetSelectors =
+               installPlan =
     --TODO: [required eventually]
     -- we cannot resolve names of packages other than those that are
     -- directly in the current plan. We ought to keep a set of the known
@@ -435,71 +444,170 @@ resolveTargets selectPackageTargets selectComponentTarget liftProblem
     -- really need that until we can do something sensible with packages
     -- outside of the project.
 
-    case partitionEithers
-           [ fmap ((,) targetSelector) (checkTarget targetSelector)
-           | targetSelector <- targetSelectors ] of
-      ([], targets) -> Right
-                     . Map.map nubComponentTargets
-                     $ Map.fromListWith (++)
-                         [ (uid, [(ct, ts)])
-                         | (ts, cts) <- targets
-                         , (uid, ct) <- cts ]
-
-      (problems, _) -> Left problems
+      fmap mkTargetsMap
+    . checkErrors
+    . map (\ts -> (,) ts <$> checkTarget ts)
   where
-    -- TODO [required eventually] currently all build targets refer to packages
-    -- inside the project. Ultimately this has to be generalised to allow
-    -- referring to other packages and targets.
-    checkTarget :: TargetSelector PackageId
-                -> Either err [(UnitId, ComponentTarget)]
+    mkTargetsMap :: [(TargetSelector, [(UnitId, ComponentTarget)])]
+                 -> TargetsMap
+    mkTargetsMap targets =
+        Map.map nubComponentTargets
+      $ Map.fromListWith (++)
+          [ (uid, [(ct, ts)])
+          | (ts, cts) <- targets
+          , (uid, ct) <- cts ]
+
+    AvailableTargetIndexes{..} = availableTargetIndexes installPlan
+
+    checkTarget :: TargetSelector -> Either err [(UnitId, ComponentTarget)]
 
     -- We can ask to build any whole package, project-local or a dependency
-    checkTarget bt@(TargetPackage _ pkgid mkfilter)
+    checkTarget bt@(TargetPackage _ [pkgid] mkfilter)
       | Just ats <- fmap (maybe id filterTargetsKind mkfilter)
-                  $ Map.lookup pkgid availableTargetsByPackage
-      = case selectPackageTargets bt ats of
-          Left  e  -> Left e
-          Right ts -> Right [ (unitid, ComponentTarget cname WholeComponent)
-                            | (unitid, cname) <- ts ]
+                  $ Map.lookup pkgid availableTargetsByPackageId
+      = fmap (componentTargets WholeComponent)
+      $ selectPackageTargets bt ats
 
       | otherwise
       = Left (liftProblem (TargetProblemNoSuchPackage pkgid))
 
+    checkTarget (TargetPackage _ _ _)
+      = error "TODO: add support for multiple packages in a directory"
+      -- For the moment this error cannot happen here, because it gets
+      -- detected when the package config is being constructed. This case
+      -- will need handling properly when we do add support.
+      --
+      -- TODO: how should this use case play together with the
+      -- '--cabal-file' option of 'configure' which allows using multiple
+      -- .cabal files for a single package?
+
     checkTarget bt@(TargetAllPackages mkfilter) =
-      let ats = maybe id filterTargetsKind mkfilter
-              $ filter availableTargetLocalToProject
-              $ concat (Map.elems availableTargetsByPackage)
-       in case selectPackageTargets bt ats of
-            Left  e  -> Left e
-            Right ts -> Right [ (unitid, ComponentTarget cname WholeComponent)
-                              | (unitid, cname) <- ts ]
+        fmap (componentTargets WholeComponent)
+      . selectPackageTargets bt
+      . maybe id filterTargetsKind mkfilter
+      . filter availableTargetLocalToProject
+      $ concat (Map.elems availableTargetsByPackageId)
 
     checkTarget (TargetComponent pkgid cname subtarget)
-      | Just ats <- Map.lookup (pkgid, cname) availableTargetsByComponent
-      = case partitionEithers
-               (map (selectComponentTarget pkgid cname subtarget) ats) of
-          (e:_,_) -> Left e
-          ([],ts) -> Right [ (unitid, ctarget)
-                           | let ctarget = ComponentTarget cname subtarget
-                           , (unitid, _) <- ts ]
+      | Just ats <- Map.lookup (pkgid, cname)
+                               availableTargetsByPackageIdAndComponentName
+      = fmap (componentTargets subtarget)
+      $ selectComponentTargets subtarget ats
 
-      | Map.member pkgid availableTargetsByPackage
+      | Map.member pkgid availableTargetsByPackageId
       = Left (liftProblem (TargetProblemNoSuchComponent pkgid cname))
 
       | otherwise
       = Left (liftProblem (TargetProblemNoSuchPackage pkgid))
 
-    --TODO: check if the package is in the plan, even if it's not local
+    checkTarget (TargetComponentUnknown pkgname ecname subtarget)
+      | Just ats <- case ecname of
+          Left ucname ->
+            Map.lookup (pkgname, ucname)
+                       availableTargetsByPackageNameAndUnqualComponentName
+          Right cname ->
+            Map.lookup (pkgname, cname)
+                       availableTargetsByPackageNameAndComponentName
+      = fmap (componentTargets subtarget)
+      $ selectComponentTargets subtarget ats
+
+      | Map.member pkgname availableTargetsByPackageName
+      = Left (liftProblem (TargetProblemUnknownComponent pkgname ecname))
+
+      | otherwise
+      = Left (liftProblem (TargetNotInProject pkgname))
+
+    checkTarget bt@(TargetPackageNamed pkgname mkfilter)
+      | Just ats <- fmap (maybe id filterTargetsKind mkfilter)
+                  $ Map.lookup pkgname availableTargetsByPackageName
+      = fmap (componentTargets WholeComponent)
+      . selectPackageTargets bt
+      $ ats
+
+      | otherwise
+      = Left (liftProblem (TargetNotInProject pkgname))
     --TODO: check if the package is in hackage and return different
     -- error cases here so the commands can handle things appropriately
 
-    availableTargetsByPackage   :: Map PackageId                  [AvailableTarget (UnitId, ComponentName)]
-    availableTargetsByComponent :: Map (PackageId, ComponentName) [AvailableTarget (UnitId, ComponentName)]
-    availableTargetsByComponent = availableTargets installPlan
-    availableTargetsByPackage   = Map.mapKeysWith
-                                    (++) (\(pkgid, _cname) -> pkgid)
-                                    availableTargetsByComponent
-                      `Map.union` availableTargetsEmptyPackages
+    componentTargets :: SubComponentTarget
+                     -> [(b, ComponentName)]
+                     -> [(b, ComponentTarget)]
+    componentTargets subtarget =
+      map (fmap (\cname -> ComponentTarget cname subtarget))
+
+    selectComponentTargets :: SubComponentTarget
+                           -> [AvailableTarget k]
+                           -> Either err [k]
+    selectComponentTargets subtarget =
+        either (Left . head) Right
+      . checkErrors
+      . map (selectComponentTarget subtarget)
+
+    checkErrors :: [Either e a] -> Either [e] [a]
+    checkErrors = (\(es, xs) -> if null es then Right xs else Left es)
+                . partitionEithers
+
+
+data AvailableTargetIndexes = AvailableTargetIndexes {
+       availableTargetsByPackageIdAndComponentName
+         :: AvailableTargetsMap (PackageId, ComponentName),
+
+       availableTargetsByPackageId
+         :: AvailableTargetsMap PackageId,
+
+       availableTargetsByPackageName
+         :: AvailableTargetsMap PackageName,
+
+       availableTargetsByPackageNameAndComponentName
+         :: AvailableTargetsMap (PackageName, ComponentName),
+
+       availableTargetsByPackageNameAndUnqualComponentName
+         :: AvailableTargetsMap (PackageName, UnqualComponentName)
+     }
+type AvailableTargetsMap k = Map k [AvailableTarget (UnitId, ComponentName)]
+
+-- We define a bunch of indexes to help 'resolveTargets' with resolving
+-- 'TargetSelector's to specific 'UnitId's.
+--
+-- They are all derived from the 'availableTargets' index.
+-- The 'availableTargetsByPackageIdAndComponentName' is just that main index,
+-- while the others are derived by re-grouping on the index key.
+--
+-- They are all constructed lazily because they are not necessarily all used.
+--
+availableTargetIndexes :: ElaboratedInstallPlan -> AvailableTargetIndexes
+availableTargetIndexes installPlan = AvailableTargetIndexes{..}
+  where
+    availableTargetsByPackageIdAndComponentName =
+      availableTargets installPlan
+
+    availableTargetsByPackageId =
+                  Map.mapKeysWith
+                    (++) (\(pkgid, _cname) -> pkgid)
+                    availableTargetsByPackageIdAndComponentName
+      `Map.union` availableTargetsEmptyPackages
+
+    availableTargetsByPackageName =
+      Map.mapKeysWith
+        (++) packageName
+        availableTargetsByPackageId
+
+    availableTargetsByPackageNameAndComponentName =
+      Map.mapKeysWith
+        (++) (\(pkgid, cname) -> (packageName pkgid, cname))
+        availableTargetsByPackageIdAndComponentName
+
+    availableTargetsByPackageNameAndUnqualComponentName =
+      Map.mapKeysWith
+        (++) (\(pkgid, cname) -> let pname  = packageName pkgid
+                                     cname' = unqualComponentName pname cname
+                                  in (pname, cname'))
+        availableTargetsByPackageIdAndComponentName
+     where
+       unqualComponentName :: PackageName -> ComponentName -> UnqualComponentName
+       unqualComponentName pkgname =
+           fromMaybe (packageNameToUnqualComponentName pkgname)
+         . componentNameString
 
     -- Add in all the empty packages. These do not appear in the
     -- availableTargetsByComponent map, since that only contains components
@@ -563,12 +671,15 @@ forgetTargetsDetail = map forgetTargetDetail
 -- buildable and isn't a test suite or benchmark that is disabled. This
 -- can also be used to do these basic checks as part of a custom impl that
 --
-selectComponentTargetBasic :: PackageId
-                           -> ComponentName
-                           -> SubComponentTarget
+selectComponentTargetBasic :: SubComponentTarget
                            -> AvailableTarget k
                            -> Either TargetProblemCommon k
-selectComponentTargetBasic pkgid cname subtarget AvailableTarget {..} =
+selectComponentTargetBasic subtarget
+                           AvailableTarget {
+                             availableTargetPackageId     = pkgid,
+                             availableTargetComponentName = cname,
+                             availableTargetStatus
+                           } =
     case availableTargetStatus of
       TargetDisabledByUser ->
         Left (TargetOptionalStanzaDisabledByUser pkgid cname subtarget)
@@ -591,6 +702,8 @@ data TargetProblemCommon
    | TargetComponentNotBuildable          PackageId ComponentName SubComponentTarget
    | TargetOptionalStanzaDisabledByUser   PackageId ComponentName SubComponentTarget
    | TargetOptionalStanzaDisabledBySolver PackageId ComponentName SubComponentTarget
+   | TargetProblemUnknownComponent        PackageName
+                                          (Either UnqualComponentName ComponentName)
 
     -- The target matching stuff only returns packages local to the project,
     -- so these lookups should never fail, but if 'resolveTargets' is called
@@ -886,6 +999,7 @@ dieOnBuildFailures verbosity plan buildOutcomes
           ReplFailed      _ -> "repl failed for "    ++ pkgstr
           HaddocksFailed  _ -> "Failed to build documentation for " ++ pkgstr
           TestsFailed     _ -> "Tests failed for " ++ pkgstr
+          BenchFailed     _ -> "Benchmarks failed for " ++ pkgstr
           InstallFailed   _ -> "Failed to build "  ++ pkgstr
           DependentFailed depid
                             -> "Failed to build " ++ display (packageId pkg)
@@ -969,6 +1083,7 @@ dieOnBuildFailures verbosity plan buildOutcomes
         ReplFailed      e -> Just e
         HaddocksFailed  e -> Just e
         TestsFailed     e -> Just e
+        BenchFailed     e -> Just e
         InstallFailed   e -> Just e
         DependentFailed _ -> Nothing
 

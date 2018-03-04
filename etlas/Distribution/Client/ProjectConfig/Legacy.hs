@@ -101,6 +101,7 @@ data LegacyProjectConfig = LegacyProjectConfig {
        legacyPackagesNamed     :: [Dependency],
 
        legacySharedConfig      :: LegacySharedConfig,
+       legacyAllConfig         :: LegacyPackageConfig,
        legacyLocalConfig       :: LegacyPackageConfig,
        legacySpecificConfig    :: MapMappend PackageName LegacyPackageConfig
      } deriving Generic
@@ -225,6 +226,7 @@ convertLegacyProjectConfig
     legacyPackagesNamed,
     legacySharedConfig = LegacySharedConfig globalFlags configShFlags
                                             configExFlags installSharedFlags,
+    legacyAllConfig,
     legacyLocalConfig  = LegacyPackageConfig configFlags installPerPkgFlags
                                              haddockFlags,
     legacySpecificConfig
@@ -237,15 +239,18 @@ convertLegacyProjectConfig
       projectPackagesNamed         = legacyPackagesNamed,
 
       projectConfigBuildOnly       = configBuildOnly,
-      projectConfigShared          = configAllPackages,
+      projectConfigShared          = configPackagesShared,
       projectConfigProvenance      = mempty,
+      projectConfigAllPackages     = configAllPackages,
       projectConfigLocalPackages   = configLocalPackages,
       projectConfigSpecificPackage = fmap perPackage legacySpecificConfig
     }
   where
+    configAllPackages   = convertLegacyPerPackageFlags g i h
+                            where LegacyPackageConfig g i h = legacyAllConfig
     configLocalPackages = convertLegacyPerPackageFlags
                             configFlags installPerPkgFlags haddockFlags
-    configAllPackages   = convertLegacyAllPackageFlags
+    configPackagesShared= convertLegacyAllPackageFlags
                             globalFlags (configFlags <> configShFlags)
                             configExFlags installSharedFlags
     configBuildOnly     = convertLegacyBuildOnlyFlags
@@ -436,6 +441,7 @@ convertToLegacyProjectConfig
       projectPackagesOptional,
       projectPackagesRepo,
       projectPackagesNamed,
+      projectConfigAllPackages,
       projectConfigLocalPackages,
       projectConfigSpecificPackage
     } =
@@ -445,6 +451,8 @@ convertToLegacyProjectConfig
       legacyPackagesRepo     = projectPackagesRepo,
       legacyPackagesNamed    = projectPackagesNamed,
       legacySharedConfig     = convertToLegacySharedConfig projectConfig,
+      legacyAllConfig        = convertToLegacyPerPackageConfig
+                                 projectConfigAllPackages,
       legacyLocalConfig      = convertToLegacyAllPackageConfig projectConfig
                             <> convertToLegacyPerPackageConfig
                                  projectConfigLocalPackages,
@@ -1042,6 +1050,7 @@ legacyPackageConfigFieldDescrs =
 legacyPackageConfigSectionDescrs :: [SectionDescr LegacyProjectConfig]
 legacyPackageConfigSectionDescrs =
     [ packageRepoSectionDescr
+    , allPackagesOptionsSectionDescr
     , packageSpecificOptionsSectionDescr
     , liftSection
         legacyLocalConfig
@@ -1085,27 +1094,49 @@ packageRepoSectionDescr =
                              repoSubdir   = Nothing
                            }
     }
+packageSpecificOptionsFieldDescrs :: [FieldDescr LegacyPackageConfig]
+packageSpecificOptionsFieldDescrs =
+    legacyPackageConfigFieldDescrs
+ ++ programOptionsFieldDescrs
+      (configProgramArgs . legacyConfigureFlags)
+      (\args pkgconf -> pkgconf {
+          legacyConfigureFlags = (legacyConfigureFlags pkgconf) {
+            configProgramArgs  = args
+          }
+        }
+      )
+ ++ liftFields
+      legacyConfigureFlags
+      (\flags pkgconf -> pkgconf {
+          legacyConfigureFlags = flags
+        }
+      )
+      programLocationsFieldDescrs
+
+allPackagesOptionsSectionDescr :: SectionDescr LegacyProjectConfig
+allPackagesOptionsSectionDescr =
+    SectionDescr {
+      sectionName        = "all-packages",
+      sectionFields      = packageSpecificOptionsFieldDescrs,
+      sectionSubsections = [],
+      sectionGet         = (\x->[("", x)])
+                         . legacyAllConfig,
+      sectionSet         =
+        \lineno unused pkgsconf projconf -> do
+          unless (null unused) $
+            syntaxError lineno "the section 'all-packages' takes no arguments"
+          return projconf {
+            legacyAllConfig = legacyAllConfig projconf <> pkgsconf
+          },
+      sectionEmpty       = mempty
+    }
+
 
 packageSpecificOptionsSectionDescr :: SectionDescr LegacyProjectConfig
 packageSpecificOptionsSectionDescr =
     SectionDescr {
       sectionName        = "package",
-      sectionFields      = legacyPackageConfigFieldDescrs
-                        ++ programOptionsFieldDescrs
-                             (configProgramArgs . legacyConfigureFlags)
-                             (\args pkgconf -> pkgconf {
-                                 legacyConfigureFlags = (legacyConfigureFlags pkgconf) {
-                                   configProgramArgs  = args
-                                 }
-                               }
-                             )
-                        ++ liftFields
-                             legacyConfigureFlags
-                             (\flags pkgconf -> pkgconf {
-                                 legacyConfigureFlags = flags
-                               }
-                             )
-                             programLocationsFieldDescrs,
+      sectionFields      = packageSpecificOptionsFieldDescrs,
       sectionSubsections = [],
       sectionGet         = \projconf ->
                              [ (display pkgname, pkgconf)

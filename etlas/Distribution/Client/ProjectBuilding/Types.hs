@@ -203,6 +203,7 @@ data BuildFailureReason = DependentFailed PackageId
                         | ReplFailed      SomeException
                         | HaddocksFailed  SomeException
                         | TestsFailed     SomeException
+                        | BenchFailed     SomeException
                         | InstallFailed   SomeException
   deriving Show
 

@@ -371,6 +371,7 @@ packageFileMonitorKeyValues elab =
         elab {
             elabBuildTargets  = [],
             elabTestTargets   = [],
+            elabBenchTargets   = [],
             elabReplTarget    = Nothing,
             elabBuildHaddocks = False
         }
@@ -1194,6 +1195,10 @@ buildInplaceUnpackedPackage verbosity
           annotateFailureNoLog TestsFailed $
             setup testCommand testFlags testArgs
 
+        whenBench $
+          annotateFailureNoLog BenchFailed $
+            setup benchCommand benchFlags benchArgs
+
         -- Repl phase
         --
         whenRepl $
@@ -1225,13 +1230,18 @@ buildInplaceUnpackedPackage verbosity
 
     whenRebuild action
       | null (elabBuildTargets pkg)
-      -- NB: we have to build the test suite!
-      , null (elabTestTargets pkg) = return ()
+      -- NB: we have to build the test/bench suite!
+      , null (elabTestTargets pkg)
+      , null (elabBenchTargets pkg) = return ()
       | otherwise                   = action
 
     whenTest action
       | null (elabTestTargets pkg) = return ()
       | otherwise                  = action
+
+    whenBench action
+      | null (elabBenchTargets pkg) = return ()
+      | otherwise                   = action
 
     whenRepl action
       | isNothing (elabReplTarget pkg) = return ()
@@ -1264,6 +1274,11 @@ buildInplaceUnpackedPackage verbosity
     testFlags    _   = setupHsTestFlags pkg pkgshared
                                          verbosity builddir
     testArgs         = setupHsTestArgs  pkg
+
+    benchCommand     = Cabal.benchmarkCommand
+    benchFlags    _  = setupHsBenchFlags pkg pkgshared
+                                          verbosity builddir
+    benchArgs        = setupHsBenchArgs  pkg
 
     replCommand      = Cabal.replCommand defaultProgramDb
     replFlags _      = setupHsReplFlags pkg pkgshared

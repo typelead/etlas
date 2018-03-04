@@ -22,6 +22,8 @@ import Distribution.Simple.Utils
          ( wrapText )
 import qualified Distribution.Client.Setup as Client
 
+import qualified Data.Map as Map
+
 configureCommand :: CommandUI (ConfigFlags, ConfigExFlags
                               ,InstallFlags, HaddockFlags)
 configureCommand = Client.installCommand {
@@ -94,7 +96,7 @@ configureAction (configFlags, configExFlags, installFlags, haddockFlags)
             -- pick (ignoring, for example, executables in libraries
             -- we depend on). But we don't want it to fail, so actually we
             -- have to do it slightly differently from build.
-            return elaboratedPlan
+            return (elaboratedPlan, Map.empty)
 
     let baseCtx' = baseCtx {
                       buildSettings = (buildSettings baseCtx) {

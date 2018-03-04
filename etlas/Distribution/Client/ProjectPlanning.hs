@@ -347,7 +347,7 @@ rebuildProjectConfig verbosity
         createDirectoryIfMissingVerbose verbosity True distDirectory
         createDirectoryIfMissingVerbose verbosity True distProjectCacheDirectory
 
-      mapM (readSourcePackage verbosity) localCabalFiles
+      mapM (readSourcePackage verbosity distDirLayout) localCabalFiles
 
 
 -- | Return an up-to-date elaborated install plan.
@@ -588,7 +588,7 @@ rebuildInstallPlan verbosity
                        -> (Compiler, Platform, ProgramDb)
                        -> PkgConfigDb
                        -> SolverInstallPlan
-                       -> [PackageSpecifier (SourcePackage loc)]
+                       -> [PackageSpecifier UnresolvedSourcePackage]
                        -> Rebuild ( ElaboratedInstallPlan
                                   , ElaboratedSharedConfig )
     phaseElaboratePlan ProjectConfig {
@@ -796,8 +796,8 @@ getPackageSourceHashes verbosity withRepoCtx solverPlan = do
 
         hashesFromScmPkgs :: Map PackageId HashValue
         hashesFromScmPkgs = Map.fromList
-          [ (pkgid, hashString (show scm))
-          | (pkgid, scm@ScmPackage {}, _patches) <- allPkgLocations ]
+          [ (pkgid, hashString (show sourceRepos))
+          | (pkgid, ScmPackage _ sourceRepos _ _ , _patches) <- allPkgLocations ]
 
         -- Tarballs from repositories, either where the repository provides
         -- hashes as part of the repo metadata, or where we will have to
@@ -1167,7 +1167,7 @@ elaborateInstallPlan
   -> DistDirLayout
   -> StoreDirLayout
   -> SolverInstallPlan
-  -> [PackageSpecifier (SourcePackage loc)]
+  -> [PackageSpecifier UnresolvedSourcePackage]
   -> Map PackageId PackageSourceHash
   -> InstallDirs.InstallDirTemplates
   -> ProjectConfigShared
@@ -1815,9 +1815,12 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
         --TODO: localPackages is a misnomer, it's all project packages
         -- here is where we decide which ones will be local!
       where
-        shouldBeLocal :: PackageSpecifier (SourcePackage loc) -> Maybe PackageId
+        shouldBeLocal :: PackageSpecifier UnresolvedSourcePackage -> Maybe PackageId
         shouldBeLocal NamedPackage{}              = Nothing
-        shouldBeLocal (SpecificSourcePackage pkg) = Just (packageId pkg)
+        shouldBeLocal (SpecificSourcePackage pkg)
+          | ScmPackage {} <- packageSource pkg
+          = Nothing
+          | otherwise = Just (packageId pkg)
         -- TODO: It's not actually obvious for all of the
         -- 'ProjectPackageLocation's that they should all be local. We might
         -- need to provide the user with a choice.

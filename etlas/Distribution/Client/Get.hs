@@ -104,9 +104,9 @@ get verbosity repoCtxt globalFlags getFlags userTargets = do
       branchers <- findUsableBranchers
       mapM_ (\pkg -> forkPackage verbosity branchers
                        (prefix </> (display (packageName pkg)))
-                       kind (packageId pkg) (PD.sourceRepos $
-                                             PD.packageDescription $
-                                             packageDescription pkg)) pkgs
+                       kind (Right (packageId pkg))
+                       (PD.sourceRepos $ PD.packageDescription $
+                        packageDescription pkg)) pkgs
 
     unpack :: [UnresolvedSourcePackage] -> IO ()
     unpack pkgs = do

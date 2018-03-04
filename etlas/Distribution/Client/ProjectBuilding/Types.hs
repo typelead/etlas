@@ -10,6 +10,7 @@ module Distribution.Client.ProjectBuilding.Types (
     BuildStatus(..),
     buildStatusRequiresBuild,
     buildStatusToString,
+    defaultBuildStatusRebuild,
     BuildStatusRebuild(..),
     BuildReason(..),
     MonitorChangedReason(..),
@@ -157,6 +158,8 @@ data BuildReason =
      --
    | BuildReasonEphemeralTargets
 
+defaultBuildStatusRebuild :: BuildStatusRebuild
+defaultBuildStatusRebuild = BuildStatusBuild Nothing BuildReasonDepsRebuilt
 
 ------------------------------------------------------------------------------
 -- Build outcomes: result of the build

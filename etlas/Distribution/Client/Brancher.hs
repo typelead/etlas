@@ -28,7 +28,7 @@ import Distribution.Text(display)
 import Distribution.Package
          ( PackageId )
 import Distribution.Simple.Utils
-         ( notice, die', rawSystemExitCode )
+         ( notice, info, die', rawSystemExitCode, rawSystemStdInOut )
 import qualified Distribution.PackageDescription as PD
 
 import Data.Maybe
@@ -85,13 +85,16 @@ forkPackage :: Verbosity
                -- be created.
             -> (Maybe PD.RepoKind)
                -- ^ Which repo to choose.
-            -> PackageId
+            -> Either String PackageId
                -- ^ The package to fork.
             -> [PD.SourceRepo]
                -- ^ The set of repos to choose from.
             -> IO ()
 forkPackage verbosity branchers prefix kind pkgid' repos = do
-    let pkgid = display pkgid'
+    let pkgid =
+          case pkgid' of
+            Left desc -> desc
+            Right pkg -> display pkg
         destdir = prefix
 
     destDirExists <- doesDirectoryExist destdir
@@ -152,7 +155,7 @@ branchBzr = Brancher "bzr" $ \repo -> do
          Just tag -> ["branch", src, dst, "-r", "tag:" ++ tag]
          Nothing -> ["branch", src, dst]
     return $ BranchCmd $ \verbosity dst -> do
-        notice verbosity ("bzr: branch " ++ show src)
+        info verbosity ("bzr: branch " ++ show src)
         rawSystemExitCode verbosity "bzr" (args dst)
 
 -- | Branch driver for Darcs.
@@ -163,7 +166,7 @@ branchDarcs = Brancher "darcs" $ \repo -> do
          Just tag -> ["get", src, dst, "-t", tag]
          Nothing -> ["get", src, dst]
     return $ BranchCmd $ \verbosity dst -> do
-        notice verbosity ("darcs: get " ++ show src)
+        info verbosity ("darcs: get " ++ show src)
         rawSystemExitCode verbosity "darcs" (args dst)
 
 -- | Branch driver for Git.
@@ -176,8 +179,12 @@ branchGit = Brancher "git" $ \repo -> do
            Just t -> ["--branch", t]
            Nothing -> []
     return $ BranchCmd $ \verbosity dst -> do
-        notice verbosity ("git: clone " ++ show src)
-        rawSystemExitCode verbosity "git" (["clone", src, dst] ++ branchArgs)
+        info verbosity ("git: clone " ++ show src)
+        (output, errors, exit) <- rawSystemStdInOut verbosity "git" (["clone", src, dst] ++ branchArgs)
+          Nothing Nothing Nothing False
+        when (exit /= ExitSuccess) $
+           notice verbosity $ "[" ++ show exit ++ "]:\n" ++ errors ++ "\n"
+        return exit
 
 -- | Branch driver for Mercurial.
 branchHg :: Brancher
@@ -191,7 +198,7 @@ branchHg = Brancher "hg" $ \repo -> do
          Nothing -> []
     let args dst = ["clone", src, dst] ++ branchArgs ++ tagArgs
     return $ BranchCmd $ \verbosity dst -> do
-        notice verbosity ("hg: clone " ++ show src)
+        info verbosity ("hg: clone " ++ show src)
         rawSystemExitCode verbosity "hg" (args dst)
 
 -- | Branch driver for Subversion.
@@ -200,5 +207,5 @@ branchSvn = Brancher "svn" $ \repo -> do
     src <- PD.repoLocation repo
     let args dst = ["checkout", src, dst]
     return $ BranchCmd $ \verbosity dst -> do
-        notice verbosity ("svn: checkout " ++ show src)
+        info verbosity ("svn: checkout " ++ show src)
         rawSystemExitCode verbosity "svn" (args dst)

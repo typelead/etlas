@@ -23,6 +23,7 @@ module Distribution.Client.FetchUtils (
     checkRepoTarballFetched,
     fetchRepoTarball,
     fetchSourceRepo,
+    downloadSourceRepo,
 
     -- ** fetching packages asynchronously
     asyncFetchPackages,
@@ -178,8 +179,8 @@ fetchPackage verbosity repoCtxt loc = case loc of
       return path
 
 
-  -- | Fetch a source control management repo package if we don't have it already.
-  --
+-- | Fetch a source control management repo package if we don't have it already.
+--
 fetchSourceRepo :: Verbosity -> Repo -> PackageId
                 -> [PD.SourceRepo] -> IO FilePath
 fetchSourceRepo verbosity repo pkgid sourceRepos = do
@@ -187,14 +188,17 @@ fetchSourceRepo verbosity repo pkgid sourceRepos = do
   if fetched
     then do info verbosity $ repoDir ++ " has already been downloaded."
             return repoDir
-    else do notice verbosity $ "Downloading " ++ repoDir ++ "..."
-            downloadSourceRepo
+    else do notice verbosity $ "Downloading " ++ display pkgid ++ "..."
+            downloadSourceRepo verbosity repoDir (Right pkgid) sourceRepos
             return repoDir
   where
     repoDir = packageDir repo pkgid
-    downloadSourceRepo = do
-      branchers <- findUsableBranchers
-      forkPackage verbosity branchers repoDir Nothing pkgid sourceRepos
+
+downloadSourceRepo :: Verbosity -> FilePath -> Either String PackageId
+                   -> [PD.SourceRepo] -> IO ()
+downloadSourceRepo verbosity targetDir ePkgDesc sourceRepos = do
+  branchers <- findUsableBranchers
+  forkPackage verbosity branchers targetDir Nothing ePkgDesc sourceRepos
 
 -- | Fetch a repo package if we don't have it already.
 --

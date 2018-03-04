@@ -56,6 +56,8 @@ import Distribution.Client.ProjectConfig.Legacy
 import Distribution.Client.RebuildMonad
 import Distribution.Client.Glob
          ( isTrivialFilePathGlob )
+import Distribution.Client.FetchUtils (downloadSourceRepo)
+import Distribution.Client.PackageHash (hashString, showHashValue)
 
 import Distribution.Client.Types
 import Distribution.Client.DistDirLayout
@@ -105,7 +107,7 @@ import Distribution.Client.Utils
 import Distribution.Utils.NubList
          ( fromNubList )
 import Distribution.Verbosity
-         ( Verbosity, verbose )
+         ( Verbosity, verbose, lessVerbose )
 import Distribution.Text
 import Distribution.ParseUtils
          ( ParseResult(..), locatedErrorMsg, showPWarning )
@@ -907,14 +909,14 @@ mplusMaybeT ma mb = do
 -- Note here is where we convert from project-root relative paths to absolute
 -- paths.
 --
-readSourcePackage :: Verbosity -> ProjectPackageLocation
+readSourcePackage :: Verbosity -> DistDirLayout -> ProjectPackageLocation
                   -> Rebuild (PackageSpecifier UnresolvedSourcePackage)
-readSourcePackage verbosity (ProjectPackageLocalCabalFile cabalFile) =
-    readSourcePackage verbosity (ProjectPackageLocalDirectory dir cabalFile)
+readSourcePackage verbosity distDirLayout (ProjectPackageLocalCabalFile cabalFile) =
+    readSourcePackage verbosity distDirLayout (ProjectPackageLocalDirectory dir cabalFile)
   where
     dir = takeDirectory cabalFile
 
-readSourcePackage verbosity (ProjectPackageLocalDirectory dir cabalFile) = do
+readSourcePackage verbosity _distDirLayout (ProjectPackageLocalDirectory dir cabalFile) = do
     monitorFiles [monitorFileHashed cabalFile]
     root <- askRoot
     pkgdesc <- liftIO $ readGenericPackageDescription verbosity (root </> cabalFile)
@@ -926,13 +928,42 @@ readSourcePackage verbosity (ProjectPackageLocalDirectory dir cabalFile) = do
       packagePatch         = Nothing
     }
 
-readSourcePackage _ (ProjectPackageNamed (Dependency pkgname verrange)) =
+readSourcePackage _verbosity _distDirLayout
+  (ProjectPackageNamed (Dependency pkgname verrange)) =
     return $ NamedPackage pkgname [PackagePropertyVersion verrange]
 
-readSourcePackage _verbosity _ =
-    fail $ "TODO: add support for fetching and reading local tarballs, remote "
-        ++ "tarballs, remote repos and passing named packages through"
+readSourcePackage verbosity distDirLayout (ProjectPackageRemoteRepo sourceRepo) = do
+    root <- askRoot
+    let sourceRepoLocation
+          | Just location <- repoLocation sourceRepo
+          = location
+          | otherwise = show sourceRepo
+        destDir = root </> distTempDirectory distDirLayout </> "scm" </>
+                    showHashValue (hashString (show [sourceRepo]))
+    cabalFile <- liftIO $ do
+      exists <- doesDirectoryExist destDir
+      when (not (exists)) $
+        downloadSourceRepo verbosity destDir
+          (Left sourceRepoLocation) [sourceRepo]
+      files <- getDirectoryContents destDir
+      let cabalFiles = filter (\file -> takeExtension file == ".cabal") files
+      case length cabalFiles of
+        0 -> die' verbosity $ "No cabal file found for " ++ sourceRepoLocation
+        1 -> return ()
+        _ -> die' verbosity $ "Multiple cabal files found for " ++ sourceRepoLocation
+      return $ head cabalFiles
+    pkgdesc <- liftIO $ readGenericPackageDescription verbosity (destDir </> cabalFile)
+    let pkgid = packageId pkgdesc
+    return $ SpecificSourcePackage SourcePackage {
+      packageInfoId        = pkgid,
+      packageDescription   = pkgdesc,
+      packageSource        = ScmPackage Nothing [sourceRepo] pkgid (Just destDir),
+      packageDescrOverride = Nothing,
+      packagePatch         = Nothing
+    }
 
+readSourcePackage _verbosity _distDirLayout _projectPackageLocation =
+  fail "TODO: Add support for local and remote tarballs."
 
 -- TODO: add something like this, here or in the project planning
 -- Based on the package location, which packages will be built inplace in the

@@ -213,9 +213,8 @@ rebuildTargetsDryRun distDirLayout@DistDirLayout{..} shared =
 
         Just (ScmPackage _ _ _ srcdir) ->
           case elabBuildStyle pkg of
-            BuildAndInstall  -> return $
-              BuildStatusRebuild srcdir
-              $ BuildStatusBuild Nothing BuildReasonDepsRebuilt
+            BuildAndInstall  -> return $ BuildStatusRebuild srcdir
+                                  defaultBuildStatusRebuild
             BuildInplaceOnly -> dryRunLocalPkg pkg depsBuildStatus srcdir
 
     dryRunTarballPkg :: ElaboratedConfiguredPackage
@@ -660,9 +659,8 @@ rebuildTarget verbosity
         downsrcloc <- annotateFailureNoLog DownloadFailed $
                         waitAsyncPackageDownload verbosity downloadMap pkg
         case downsrcloc of
-          DownloadedTarball tarball -> unpackTarballPhase tarball
-          --TODO: [nice to have] git/darcs repos etc
-
+          DownloadedTarball    tarball -> unpackTarballPhase tarball
+          DownloadedRepository srcdir  -> rebuildPhase defaultBuildStatusRebuild srcdir
 
     unpackTarballPhase tarball =
         withTarballLocalDirectory
@@ -756,15 +754,17 @@ waitAsyncPackageDownload verbosity downloadMap elab = do
       Just loc -> return loc
       Nothing  -> fail "waitAsyncPackageDownload: unexpected source location"
 
-data DownloadedSourceLocation = DownloadedTarball FilePath
+data DownloadedSourceLocation = DownloadedTarball    FilePath
+                              | DownloadedRepository FilePath
                               --TODO: [nice to have] git/darcs repos etc
 
 downloadedSourceLocation :: PackageLocation FilePath
                          -> Maybe DownloadedSourceLocation
 downloadedSourceLocation pkgloc =
     case pkgloc of
-      RemoteTarballPackage _ tarball -> Just (DownloadedTarball tarball)
-      RepoTarballPackage _ _ tarball -> Just (DownloadedTarball tarball)
+      RemoteTarballPackage _ tarball -> Just (DownloadedTarball    tarball)
+      RepoTarballPackage _ _ tarball -> Just (DownloadedTarball    tarball)
+      ScmPackage _ _ _ srcdir        -> Just (DownloadedRepository srcdir)
       _                              -> Nothing
 
 

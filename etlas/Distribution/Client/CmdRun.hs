@@ -30,6 +30,8 @@ import Distribution.Types.ComponentName
          ( showComponentName )
 import Distribution.Text
          ( display )
+import Distribution.System
+         ( buildOS, OS(..) )
 import Distribution.Verbosity
          ( Verbosity, normal )
 import Distribution.Simple.Utils
@@ -203,11 +205,14 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags)
         ++ exeName
         ++ ":\n"
         ++ unlines (fmap (\p -> " - in package " ++ display (elabUnitId p)) elabPkgs)
-    let exePath = binDirectoryFor (distDirLayout baseCtx)
+    let exeNameExt = case buildOS of
+                       Windows -> exeName <.> "cmd"
+                       _       -> exeName
+        exePath = binDirectoryFor (distDirLayout baseCtx)
                                   (elaboratedShared buildCtx)
                                   pkg
                                   exeName
-               </> exeName
+               </> exeNameExt 
     let args = drop 1 targetStrings
     runProgramInvocation
       verbosity

@@ -52,13 +52,14 @@ import GHC.IO.Exception
 #if defined(mingw32_HOST_OS)
 
 #if defined(i386_HOST_ARCH)
-## define WINDOWS_CCONV stdcall
-## define PTR_SIZE      4
+# define WINDOWS_CCONV stdcall
+# define PTR_SIZE      4
 #elif defined(x86_64_HOST_ARCH)
-## define WINDOWS_CCONV ccall
-## define PTR_SIZE      8
+# define WINDOWS_CCONV ccall
+# define PTR_SIZE      8
 #else
 # error Unknown mingw32 arch
+
 #endif
 
 -- #include <windows.h>
@@ -141,11 +142,11 @@ lockImpl h ctx mode block = do
     -- not an error", however e.g. Windows 10 doesn't accept maximum possible
     -- value (a pair of MAXDWORDs) for mysterious reasons. Work around that by
     -- trying 2^32-1.
-    fix $ \retry -> c_LockFileEx wh flags 0 0xffffffff 0x0 ovrlpd >>= \case
+    fix $ \retry -> c_LockFileEx wh (fromIntegral flags) 0 0xffffffff 0x0 ovrlpd >>= \case
       True  -> return True
       False -> getLastError >>= \err -> if
-        | not block && err == eRROR_LOCK_VIOLATION -> return False
-        | err == eRROR_OPERATION_ABORTED -> retry
+        | not block && err == (fromIntegral eRROR_LOCK_VIOLATION) -> return False
+        | err == (fromIntegral eRROR_OPERATION_ABORTED) -> retry
         | otherwise -> failWith ctx err
   where
     -- See https://msdn.microsoft.com/en-us/library/windows/desktop/bb773368(v=vs.85).aspx

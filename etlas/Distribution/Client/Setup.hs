@@ -180,11 +180,11 @@ globalCommand commands = CommandUI {
           , "register"
           , "sandbox"
           , "exec"
-          , "new-build"
-          , "new-configure"
+          , "old-build"
+          , "old-configure"
           , "new-repl"
-          , "new-freeze"
-          , "new-run"
+          , "old-freeze"
+          , "old-run"
           , "new-test"
           , "new-bench"
           , "new-haddock"
@@ -219,6 +219,7 @@ globalCommand commands = CommandUI {
         , par
         , addCmd "configure"
         , addCmd "build"
+        , addCmd "deps"
         , addCmd "clean"
         , par
         , addCmd "run"
@@ -245,15 +246,16 @@ globalCommand commands = CommandUI {
         , addCmd "exec"
         , addCmdCustom "repl" "Open interpreter with access to sandbox packages."
         , par
-        , startGroup "new-style projects (beta)"
-        , addCmd "new-build"
-        , addCmd "new-configure"
-        , addCmd "new-repl"
-        , addCmd "new-run"
-        , addCmd "new-test"
-        , addCmd "new-bench"
-        , addCmd "new-freeze"
-        , addCmd "new-haddock"
+        , startGroup "old-style command (deprecated)"
+        , addCmd "old-build"
+        , addCmd "old-configure"
+        , addCmd "old-deps"
+        -- , addCmd "new-repl"
+        , addCmd "old-run"
+        -- , addCmd "new-test"
+        -- , addCmd "new-bench"
+        , addCmd "old-freeze"
+        -- , addCmd "new-haddock"
         ] ++ if null otherCmds then [] else par
                                            :startGroup "other"
                                            :[addCmd n | n <- otherCmds])
@@ -386,14 +388,15 @@ globalCommand commands = CommandUI {
 
 configureCommand :: CommandUI ConfigFlags
 configureCommand = c
-  { commandDefaultFlags = mempty
+  { commandName = "old-configure"
+  , commandDefaultFlags = mempty
   , commandNotes = Just $ \pname -> (case commandNotes c of
          Nothing -> ""
          Just n  -> n pname ++ "\n")
        ++ "Examples:\n"
-       ++ "  " ++ pname ++ " configure\n"
+       ++ "  " ++ pname ++ " old-configure\n"
        ++ "    Configure with defaults;\n"
-       ++ "  " ++ pname ++ " configure --enable-tests -fcustomflag\n"
+       ++ "  " ++ pname ++ " old-configure --enable-tests -fcustomflag\n"
        ++ "    Configure building package including tests,\n"
        ++ "    with some package-specific flag.\n"
   }
@@ -626,6 +629,7 @@ buildExOptions _showOrParseArgs =
 
 buildCommand :: CommandUI (BuildFlags, BuildExFlags)
 buildCommand = parent {
+    commandName = "old-build",
     commandDefaultFlags = (commandDefaultFlags parent, mempty),
     commandOptions      =
       \showOrParseArgs -> liftOptions fst setFst
@@ -835,7 +839,7 @@ defaultFreezeFlags = FreezeFlags {
 
 freezeCommand :: CommandUI FreezeFlags
 freezeCommand = CommandUI {
-    commandName         = "freeze",
+    commandName         = "old-freeze",
     commandSynopsis     = "Freeze dependencies.",
     commandDescription  = Just $ \_ -> wrapText $
          "Calculates a valid set of dependencies and their exact versions. "
@@ -846,7 +850,7 @@ freezeCommand = CommandUI {
       ++ "\n"
       ++ "An existing `cabal.config` is ignored and overwritten.\n",
     commandNotes        = Nothing,
-    commandUsage        = usageFlags "freeze",
+    commandUsage        = usageFlags "old-freeze",
     commandDefaultFlags = defaultFreezeFlags,
     commandOptions      = \ showOrParseArgs -> [
          optionVerbosity freezeVerbosity
@@ -1167,7 +1171,7 @@ runOptions _showOrParseArgs =
 
 runCommand :: CommandUI (BuildFlags, BuildExFlags, RunFlags)
 runCommand = CommandUI {
-    commandName         = "run",
+    commandName         = "old-run",
     commandSynopsis     = "Builds and runs an executable.",
     commandDescription  = Just $ \pname -> wrapText $
          "Builds and then runs the specified executable. If no executable is "
@@ -1178,9 +1182,9 @@ runCommand = CommandUI {
       ++ "test-suite and get its full output.\n",
     commandNotes        = Just $ \pname ->
           "Examples:\n"
-       ++ "  " ++ pname ++ " run\n"
+       ++ "  " ++ pname ++ " old-run\n"
        ++ "    Run the only executable in the current package;\n"
-       ++ "  " ++ pname ++ " run foo -- --fooflag\n"
+       ++ "  " ++ pname ++ " old-run foo -- --fooflag\n"
        ++ "    Works similar to `./foo --fooflag`.\n",
     commandUsage        = usageAlternatives "run"
         ["[FLAGS] [EXECUTABLE] [-- EXECUTABLE_FLAGS]"],

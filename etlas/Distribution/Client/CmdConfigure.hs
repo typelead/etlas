@@ -27,9 +27,9 @@ import qualified Data.Map as Map
 configureCommand :: CommandUI (ConfigFlags, ConfigExFlags
                               ,InstallFlags, HaddockFlags)
 configureCommand = Client.installCommand {
-  commandName         = "new-configure",
+  commandName         = "configure",
   commandSynopsis     = "Add extra project configuration",
-  commandUsage        = usageAlternatives "new-configure" [ "[FLAGS]" ],
+  commandUsage        = usageAlternatives "configure" [ "[FLAGS]" ],
   commandDescription  = Just $ \_ -> wrapText $
         "Adjust how the project is built by setting additional package flags "
      ++ "and other flags.\n\n"
@@ -38,28 +38,28 @@ configureCommand = Client.installCommand {
      ++ "file (or '$project_file.local', if '--project-file' is specified) "
      ++ "which extends the configuration from the 'cabal.project' file "
      ++ "(if any). This combination is used as the project configuration for "
-     ++ "all other commands (such as 'new-build', 'new-repl' etc) though it "
+     ++ "all other commands (such as 'build', 'new-repl' etc) though it "
      ++ "can be extended/overridden on a per-command basis.\n\n"
 
-     ++ "The new-configure command also checks that the project configuration "
+     ++ "The configure command also checks that the project configuration "
      ++ "will work. In particular it checks that there is a consistent set of "
      ++ "dependencies for the project as a whole.\n\n"
 
      ++ "The 'cabal.project.local' file persists across 'new-clean' but is "
-     ++ "overwritten on the next use of the 'new-configure' command. The "
+     ++ "overwritten on the next use of the 'configure' command. The "
      ++ "intention is that the 'cabal.project' file should be kept in source "
      ++ "control but the 'cabal.project.local' should not.\n\n"
 
-     ++ "It is never necessary to use the 'new-configure' command. It is "
+     ++ "It is never necessary to use the 'configure' command. It is "
      ++ "merely a convenience in cases where you do not want to specify flags "
-     ++ "to 'new-build' (and other commands) every time and yet do not want "
+     ++ "to 'build' (and other commands) every time and yet do not want "
      ++ "to alter the 'cabal.project' persistently.",
   commandNotes        = Just $ \pname ->
         "Examples:\n"
-     ++ "  " ++ pname ++ " new-configure --with-compiler ghc-7.10.3\n"
+     ++ "  " ++ pname ++ " configure --with-compiler ghc-7.10.3\n"
      ++ "    Adjust the project configuration to use the given compiler\n"
      ++ "    program and check the resulting configuration works.\n"
-     ++ "  " ++ pname ++ " new-configure\n"
+     ++ "  " ++ pname ++ " configure\n"
      ++ "    Reset the local configuration to empty and check the overall\n"
      ++ "    project configuration works.\n\n"
 
@@ -89,14 +89,14 @@ configureAction (configFlags, configExFlags, installFlags, haddockFlags)
     writeProjectLocalExtraConfig (distDirLayout baseCtx)
                                  cliConfig
 
-    buildCtx <-
+    (buildCtx, _) <-
       runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
 
             -- TODO: Select the same subset of targets as 'CmdBuild' would
             -- pick (ignoring, for example, executables in libraries
             -- we depend on). But we don't want it to fail, so actually we
             -- have to do it slightly differently from build.
-            return (elaboratedPlan, Map.empty)
+            return (elaboratedPlan, Map.empty, ())
 
     let baseCtx' = baseCtx {
                       buildSettings = (buildSettings baseCtx) {

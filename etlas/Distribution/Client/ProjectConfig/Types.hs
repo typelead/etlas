@@ -46,7 +46,7 @@ import Distribution.PackageDescription
          ( FlagAssignment, SourceRepo(..) )
 import Distribution.Simple.Compiler
          ( Compiler, CompilerFlavor
-         , OptimisationLevel(..), ProfDetailLevel, DebugInfoLevel(..) )
+         , OptimisationLevel(..), ProfDetailLevel, DebugInfoLevel(..), PackageDB(..) )
 import Distribution.Simple.Setup
          ( Flag, AllowNewer(..), AllowOlder(..) )
 import Distribution.Simple.InstallDirs
@@ -174,7 +174,7 @@ data ProjectConfigShared
      --projectConfigInstallDirs       :: InstallDirs (Flag PathTemplate),
      --TODO: [required eventually] decide what to do with InstallDirs
      -- currently we don't allow it to be specified in the config file
-     --projectConfigPackageDBs        :: [Maybe PackageDB],
+       projectConfigPackageDBs        :: [Maybe PackageDB],
 
        -- configuration used both by the solver and other phases
        projectConfigRemoteRepos       :: NubList RemoteRepo,     -- ^ Available Hackage servers.

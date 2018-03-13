@@ -175,7 +175,7 @@ defaultDistDirLayout projectRoot mdistDirectory =
     distProjectFile ext      = projectFile <.> ext
 
     distDirectory = distProjectRootDirectory
-                </> fromMaybe "dist-newstyle" mdistDirectory
+                </> fromMaybe "dist" mdistDirectory
     --TODO: switch to just dist at some point, or some other new name
 
     distBuildRootDirectory   = distDirectory </> "build"

@@ -240,8 +240,8 @@ data ProjectBuildContext = ProjectBuildContext {
 runProjectPreBuildPhase
     :: Verbosity
     -> ProjectBaseContext
-    -> (ElaboratedInstallPlan -> IO (ElaboratedInstallPlan, TargetsMap))
-    -> IO ProjectBuildContext
+    -> (ElaboratedInstallPlan -> IO (ElaboratedInstallPlan, TargetsMap, a))
+    -> IO (ProjectBuildContext, a)
 runProjectPreBuildPhase
     verbosity
     ProjectBaseContext {
@@ -267,7 +267,7 @@ runProjectPreBuildPhase
     -- Now given the specific targets the user has asked for, decide
     -- which bits of the plan we will want to execute.
     --
-    (elaboratedPlan', targets) <- selectPlanSubset elaboratedPlan
+    (elaboratedPlan', targets, a) <- selectPlanSubset elaboratedPlan
 
     -- Check which packages need rebuilding.
     -- This also gives us more accurate reasons for the --dry-run output.
@@ -281,13 +281,13 @@ runProjectPreBuildPhase
                              pkgsBuildStatus elaboratedPlan'
     debugNoWrap verbosity (InstallPlan.showInstallPlan elaboratedPlan'')
 
-    return ProjectBuildContext {
-      elaboratedPlanOriginal = elaboratedPlan,
-      elaboratedPlanToExecute = elaboratedPlan'',
-      elaboratedShared,
-      pkgsBuildStatus,
-      targetsMap = targets
-    }
+    return (ProjectBuildContext {
+               elaboratedPlanOriginal = elaboratedPlan,
+               elaboratedPlanToExecute = elaboratedPlan'',
+               elaboratedShared,
+               pkgsBuildStatus,
+               targetsMap = targets
+               }, a)
 
 
 -- | Build phase: now do it.

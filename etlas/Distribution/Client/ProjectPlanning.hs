@@ -560,7 +560,18 @@ rebuildInstallPlan verbosity
                            localPackages localPackagesEnabledStanzas
             return (plan, pkgConfigDB)
       where
-        corePackageDbs = [GlobalPackageDB]
+        -- Note: In the presence of extra package dbs, we add in the storePackageDbs
+        --       because it is likely that the packages in the extra package dbs
+        --       depend on them. We may want to add this behind an additional flag
+        --       if this causes problems.
+        corePackageDbs
+          | null extraPackageDbs = [GlobalPackageDB]
+          | otherwise = [GlobalPackageDB]
+                     ++ filter (/= GlobalPackageDB) (extraPackageDbs ++ storePackageDbs)
+        -- TODO: catMaybes seems like the wrong behavior here. I think we need something
+        --       that strips off the list until the last Nothing.
+        extraPackageDbs = catMaybes (projectConfigPackageDBs projectConfigShared)
+        storePackageDbs = storePackageDBStack cabalStoreDirLayout (compilerId compiler)
         withRepoCtx    = projectConfigWithSolverRepoContext verbosity
                            projectConfigShared
                            projectConfigBuildOnly
@@ -1791,7 +1802,8 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
         perpkg = maybe mempty f (Map.lookup (packageName pkg) perPackageConfig)
 
     inplacePackageDbs = storePackageDbs
-                     ++ [ distPackageDB (compilerId compiler) ]
+                     ++ [distPackageDB (compilerId compiler)]
+                     ++ (catMaybes $ projectConfigPackageDBs sharedPackageConfig)
 
     storePackageDbs   = storePackageDBStack (compilerId compiler)
 
@@ -2124,11 +2136,11 @@ instantiateInstallPlan plan =
 -- Build targets
 --
 
--- Refer to ProjectPlanning.Types for details of these important types:
-
+-- | Refer to ProjectPlanning.Types for details of these important types:
+--
 -- data ComponentTarget = ...
 -- data SubComponentTarget = ...
-
+--
 -- One step in the build system is to translate higher level intentions like
 -- "build this package", "test that package", or "repl that component" into
 -- a more detailed specification of exactly which components to build (or other

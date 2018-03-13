@@ -63,9 +63,9 @@ import Control.Monad (when)
 
 runCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
 runCommand = Client.installCommand {
-  commandName         = "new-run",
+  commandName         = "run",
   commandSynopsis     = "Run an executable.",
-  commandUsage        = usageAlternatives "new-run"
+  commandUsage        = usageAlternatives "run"
                           [ "[TARGET] [FLAGS] [-- EXECUTABLE_FLAGS]" ],
   commandDescription  = Just $ \pname -> wrapText $
         "Runs the specified executable-like component (an executable, a test, "
@@ -87,13 +87,13 @@ runCommand = Client.installCommand {
      ++ "'cabal.project.local' and other files.",
   commandNotes        = Just $ \pname ->
         "Examples:\n"
-     ++ "  " ++ pname ++ " new-run\n"
+     ++ "  " ++ pname ++ " run\n"
      ++ "    Run the executable-like in the package in the current directory\n"
-     ++ "  " ++ pname ++ " new-run foo-tool\n"
+     ++ "  " ++ pname ++ " run foo-tool\n"
      ++ "    Run the named executable-like (in any package in the project)\n"
-     ++ "  " ++ pname ++ " new-run pkgfoo:foo-tool\n"
+     ++ "  " ++ pname ++ " run pkgfoo:foo-tool\n"
      ++ "    Run the executable-like 'foo-tool' in the package 'pkgfoo'\n"
-     ++ "  " ++ pname ++ " new-run foo -O2 -- dothing --fooflag\n"
+     ++ "  " ++ pname ++ " run foo -O2 -- dothing --fooflag\n"
      ++ "    Build with '-O2' and run the program, passing it extra arguments.\n\n"
 
      ++ cmdCommonHelpTextNewBuildBeta
@@ -119,7 +119,7 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags)
                    =<< readTargetSelectors (localPackages baseCtx)
                          (take 1 targetStrings) -- Drop the exe's args.
 
-    buildCtx <-
+    (buildCtx, _) <-
       runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
 
             when (buildSettingOnlyDeps (buildSettings baseCtx)) $
@@ -155,7 +155,7 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags)
                                     TargetActionBuild
                                     targets
                                     elaboratedPlan
-            return (elaboratedPlan', targets)
+            return (elaboratedPlan', targets, ())
 
     (selectedUnitId, selectedComponent) <-
       -- Slight duplication with 'runProjectPreBuildPhase'.
@@ -212,7 +212,7 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags)
                                   (elaboratedShared buildCtx)
                                   pkg
                                   exeName
-               </> exeNameExt 
+               </> exeNameExt
     let args = drop 1 targetStrings
     runProgramInvocation
       verbosity

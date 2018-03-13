@@ -34,7 +34,7 @@ import Distribution.Solver.Types.ConstraintSource
 import Distribution.Package
 import Distribution.Types.Dependency
 import Distribution.PackageDescription
-         ( SourceRepo(..), RepoKind(..) 
+         ( SourceRepo(..), RepoKind(..)
          , dispFlagAssignment, parseFlagAssignment )
 import Distribution.PackageDescription.Parse
          ( sourceRepoFieldDescrs )
@@ -44,7 +44,7 @@ import Distribution.Simple.Setup
          ( Flag(Flag), toFlag, fromFlagOrDefault
          , ConfigFlags(..), configureOptions
          , HaddockFlags(..), haddockOptions, defaultHaddockFlags
-         , programDbPaths', splitArgs
+         , programDbPaths', splitArgs, showPackageDb, readPackageDb
          , AllowNewer(..), AllowOlder(..), RelaxDeps(..) )
 import Distribution.Client.Setup
          ( GlobalFlags(..), globalCommand
@@ -288,7 +288,7 @@ convertLegacyAllPackageFlags globalFlags configFlags
       configHcPkg               = projectConfigHcPkg,
     --configInstallDirs         = projectConfigInstallDirs,
     --configUserInstall         = projectConfigUserInstall,
-    --configPackageDBs          = projectConfigPackageDBs,
+      configPackageDBs          = projectConfigPackageDBs,
       configAllowOlder          = projectConfigAllowOlder,
       configAllowNewer          = projectConfigAllowNewer
     } = configFlags
@@ -587,7 +587,7 @@ convertToLegacyAllPackageConfig
       configCabalFilePath       = mempty,
       configVerbosity           = mempty,
       configUserInstall         = mempty, --projectConfigUserInstall,
-      configPackageDBs          = mempty, --projectConfigPackageDBs,
+      configPackageDBs          = projectConfigPackageDBs,
       configGHCiLib             = mempty,
       configSplitObjs           = mempty,
       configStripExes           = mempty,
@@ -932,6 +932,10 @@ legacyPackageConfigFieldDescrs =
           dispFlagAssignment parseFlagAssignment
           configConfigurationsFlags
           (\v conf -> conf { configConfigurationsFlags = v })
+      , newLineListField "package-dbs"
+          (showTokenQ . showPackageDb) (fmap readPackageDb parseTokenQ)
+          configPackageDBs
+          (\v conf -> conf { configPackageDBs = v })
       ]
   . filterFields
       [ "with-compiler", "with-hc-pkg"

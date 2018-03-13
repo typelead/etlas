@@ -46,7 +46,7 @@ replCommand = Client.installCommand {
   commandUsage        = usageAlternatives "new-repl" [ "[TARGET] [FLAGS]" ],
   commandDescription  = Just $ \_ -> wrapText $
         "Open an interactive session for a component within the project. The "
-     ++ "available targets are the same as for the 'new-build' command: "
+     ++ "available targets are the same as for the 'build' command: "
      ++ "individual components within packages in the project, including "
      ++ "libraries, executables, test-suites or benchmarks. Packages can "
      ++ "also be specified in which case the library component in the "
@@ -95,7 +95,7 @@ replAction (configFlags, configExFlags, installFlags, haddockFlags)
     targetSelectors <- either (reportTargetSelectorProblems verbosity) return
                    =<< readTargetSelectors (localPackages baseCtx) targetStrings
 
-    buildCtx <-
+    (buildCtx, _) <-
       runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
 
             when (buildSettingOnlyDeps (buildSettings baseCtx)) $
@@ -124,7 +124,7 @@ replAction (configFlags, configExFlags, installFlags, haddockFlags)
                                     TargetActionRepl
                                     targets
                                     elaboratedPlan
-            return (elaboratedPlan', targets)
+            return (elaboratedPlan', targets, ())
 
     printPlan verbosity baseCtx buildCtx
 

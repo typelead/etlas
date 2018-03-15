@@ -388,8 +388,7 @@ globalCommand commands = CommandUI {
 
 configureCommand :: CommandUI ConfigFlags
 configureCommand = c
-  { commandName = "old-configure"
-  , commandDefaultFlags = mempty
+  { commandDefaultFlags = mempty
   , commandNotes = Just $ \pname -> (case commandNotes c of
          Nothing -> ""
          Just n  -> n pname ++ "\n")
@@ -535,6 +534,7 @@ defaultConfigExFlags = mempty { configSolver     = Flag defaultSolver }
 
 configureExCommand :: CommandUI (ConfigFlags, ConfigExFlags)
 configureExCommand = configureCommand {
+    commandName         = "old-configure",
     commandDefaultFlags = (mempty, defaultConfigExFlags),
     commandOptions      = \showOrParseArgs ->
          liftOptions fst setFst

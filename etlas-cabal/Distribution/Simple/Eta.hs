@@ -250,9 +250,10 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
                         }
           vanillaOpts' = vanillaOptsNoJavaLib `mappend` linkJavaLibOpts
           sharedOpts  = vanillaOpts' `mappend` mempty {
-                            ghcOptShared = toFlag True,
-                            ghcOptExtra       = toNubListR $
-                                                etaSharedOptions libBi
+                            -- Libs should never have the -shared flag
+                            -- ghcOptShared = toFlag True,
+                            ghcOptExtraDefault = toNubListR ["-staticlib"],
+                            ghcOptExtra = toNubListR $ etaSharedOptions libBi
                           }
           vanillaOpts = vanillaOpts' {
                             ghcOptExtraDefault = toNubListR ["-staticlib"]

@@ -186,11 +186,12 @@ getInstalledPackages' verbosity packagedbs progdb =
          return (packagedb, pkgs)
     | packagedb <- packagedbs ]
 
+trimEnd :: String -> String
+trimEnd = reverse . dropWhile isSpace . reverse
+
 getLibDir :: Verbosity -> ProgramDb -> IO FilePath
 getLibDir verbosity progDb =
-    (reverse . dropWhile isSpace . reverse) `fmap`
-     getDbProgramOutput verbosity etaProgram
-     progDb ["--print-libdir"]
+  trimEnd `fmap` getDbProgramOutput verbosity etaProgram progDb ["--print-libdir"]
 
 -- getLibDir' :: Verbosity -> ConfiguredProgram -> IO FilePath
 -- getLibDir' verbosity etaProg =
@@ -199,9 +200,13 @@ getLibDir verbosity progDb =
 
 -- | Return the 'FilePath' to the global GHC package database.
 getGlobalPackageDB :: Verbosity -> ConfiguredProgram -> IO FilePath
-getGlobalPackageDB verbosity etaProg =
-    (reverse . dropWhile isSpace . reverse) `fmap`
-     getProgramOutput verbosity etaProg ["--print-global-package-db"]
+getGlobalPackageDB verbosity etaProg
+  | Just version <- programVersion etaProg
+  , version >= mkVersion [0,7,1]
+  = trimEnd `fmap` getProgramOutput verbosity etaProg ["--print-global-package-db"]
+  | otherwise
+  = ((</> "package.conf.d") . trimEnd)
+    `fmap` getProgramOutput verbosity etaProg ["--print-libdir"]
 
 buildLib, replLib :: Verbosity -> Cabal.Flag (Maybe Int) -> PackageDescription
                   -> LocalBuildInfo -> Library -> ComponentLocalBuildInfo

@@ -38,10 +38,9 @@ import Distribution.Verbosity
          ( Verbosity, normal )
 import qualified Distribution.Simple.PackageIndex as PackageIndex
 import Distribution.Simple.Utils
-         ( wrapText, die', ordNub, info, notice, findFile )
+         ( wrapText, die', ordNub, notice, findFile )
 import Distribution.Client.ProjectPlanning
-         ( ElaboratedConfiguredPackage(..), ElaboratedSharedConfig(..),
-           ElaboratedInstallPlan )
+         ( ElaboratedConfiguredPackage(..), ElaboratedSharedConfig(..) )
 import Distribution.Client.InstallPlan
          ( toList, foldPlanPackage )
 import qualified Distribution.Client.InstallPlan as InstallPlan
@@ -50,6 +49,8 @@ import Distribution.InstalledPackageInfo
 import Distribution.Types.UnitId
          ( UnitId )
 import Distribution.Types.ForeignLib
+import Distribution.Types.PackageId
+import Distribution.Types.PackageName
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -167,7 +168,7 @@ depsAction (configFlags, configExFlags, installFlags, haddockFlags)
 
             return (elaboratedPlan'', targets, pkg)
 
-    (selectedUnitId, selectedComponent) <-
+    (_selectedUnitId, selectedComponent) <-
       -- Slight duplication with 'runProjectPreBuildPhase'.
       singleExeOrElse
         (die' verbosity $ "No or multiple targets given, but the run "
@@ -180,31 +181,7 @@ depsAction (configFlags, configExFlags, installFlags, haddockFlags)
     runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
 
     let elaboratedPlan = elaboratedPlanToExecute buildCtx
-        matchingElaboratedConfiguredPackages =
-          matchingPackagesByUnitId
-            selectedUnitId
-            elaboratedPlan
 
-    -- -- In the common case, we expect @matchingElaboratedConfiguredPackages@
-    -- -- to consist of a single element that provides a single way of building
-    -- -- an appropriately-named executable. In that case we take that
-    -- -- package and continue.
-    -- --
-    -- -- However, multiple packages/components could provide that
-    -- -- executable, or it's possible we don't find the executable anywhere
-    -- -- in the build plan. I suppose in principle it's also possible that
-    -- -- a single package provides an executable in two different ways,
-    -- -- though that's probably a bug if. Anyway it's a good lint to report
-    -- -- an error in all of these cases, even if some seem like they
-    -- -- shouldn't happen.
-    -- pkg <- case matchingElaboratedConfiguredPackages of
-    --   [] -> die' verbosity $ "Selected " ++ display selectedUnitId
-    --   [elabPkg] -> do
-    --     info verbosity $ "Selecting " ++ display selectedUnitId
-    --     return elabPkg
-    --   elabPkgs -> die' verbosity
-    --     $ "Multiple matching components found:"
-    --     ++ unlines (fmap (\p -> " - in package " ++ display (elabUnitId p)) elabPkgs)
     let elabShared = elaboratedShared buildCtx
         compiler   = pkgConfigCompiler      elabShared
         progdb     = pkgConfigCompilerProgs elabShared
@@ -229,24 +206,31 @@ depsAction (configFlags, configExFlags, installFlags, haddockFlags)
 
     let planPackageUnitIds =
           map (foldPlanPackage installedUnitId elabUnitId) $ toList elaboratedPlan
-        packageInfos =
-          catMaybes $ map (PackageIndex.lookupUnitId packageIndex) planPackageUnitIds
+        extractPackageName = unPackageName . pkgName
+        packageName   = extractPackageName . sourcePackageId
+        packageInfos  = lookupUnitIds planPackageUnitIds
+        lookupUnitIds = catMaybes . map (PackageIndex.lookupUnitId packageIndex)
 
     when (length packageInfos /= length planPackageUnitIds) $ do
       die' verbosity $
            "There were packages in the elaborated install plan that were missing"
         ++ " from the installed package index."
 
-    let transitiveMavenDeps =
-          concatMap extraLibraries packageInfos
-        componentMavenDeps =
+    let componentMavenDeps =
           extraLibsComponent selectedComponent (elabPkgDescription pkg)
-        allMavenDeps = componentMavenDeps ++ transitiveMavenDeps
+        renderList = intercalate ":"
 
-    transitiveJars <- fmap concat $ mapM hsLibraryPaths packageInfos
+    notice verbosity $ "maven-dependencies," ++ renderList componentMavenDeps
 
-    mapM_ (notice verbosity . ("file:" ++))  transitiveJars
-    mapM_ (notice verbosity . ("maven:" ++)) allMavenDeps
+    forM_ packageInfos $ \packageInfo -> do
+      let mavenDeps    = extraLibraries packageInfo
+          dependencies = map packageName . lookupUnitIds $ depends packageInfo
+          thisPackageName = packageName packageInfo
+      libraryJars <- hsLibraryPaths packageInfo
+      notice verbosity $ "dependency," ++ thisPackageName
+                      ++ "," ++ renderList mavenDeps
+                      ++ "," ++ renderList libraryJars
+                      ++ "," ++ renderList dependencies
 
   where
     verbosity = fromFlagOrDefault normal (configVerbosity configFlags)
@@ -264,21 +248,6 @@ singleExeOrElse action targetsMap =
   case Set.toList . distinctTargetComponents $ targetsMap of
     [(unitId, componentName)] -> return (unitId, componentName)
     _          -> action
-
--- | Filter the 'ElaboratedInstallPlan' keeping only the
--- 'ElaboratedConfiguredPackage's that match the specified
--- 'UnitId'.
-matchingPackagesByUnitId :: UnitId
-                         -> ElaboratedInstallPlan
-                         -> [ElaboratedConfiguredPackage]
-matchingPackagesByUnitId uid =
-          catMaybes
-          . fmap (foldPlanPackage
-                    (const Nothing)
-                    (\x -> if elabUnitId x == uid
-                           then Just x
-                           else Nothing))
-          . toList
 
 -- | Return the extraLibs field of the corresponding component.
 extraLibsComponent :: ComponentName -> PackageDescription -> [String]

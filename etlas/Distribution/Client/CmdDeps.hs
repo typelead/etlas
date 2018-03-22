@@ -55,6 +55,7 @@ import Distribution.Types.PackageName
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe
+import Data.List
 import System.FilePath
 import System.Directory hiding (findFile)
 import Control.Monad
@@ -212,9 +213,11 @@ depsAction (configFlags, configExFlags, installFlags, haddockFlags)
         lookupUnitIds = catMaybes . map (PackageIndex.lookupUnitId packageIndex)
 
     when (length packageInfos /= length planPackageUnitIds) $ do
-      die' verbosity $
-           "There were packages in the elaborated install plan that were missing"
-        ++ " from the installed package index."
+      let difference = planPackageUnitIds \\ map installedUnitId packageInfos
+      die' verbosity $ unlines [
+           "The following packages in the elaborated install plan are missing"
+        ++ " from the installed package index:",
+           show difference ]
 
     let componentMavenDeps =
           extraLibsComponent selectedComponent (elabPkgDescription pkg)

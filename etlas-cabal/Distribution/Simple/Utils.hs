@@ -929,7 +929,7 @@ findFile searchPath fileName =
   findFirstFile id
     [ path </> fileName
     | path <- nub searchPath]
-  >>= maybe (die $ fileName ++ " doesn't exist") return
+  >>= maybe (die $ fileName ++ " doesn't exist in " ++ show searchPath) return
 
 -- | Find a file by looking in a search path with one of a list of possible
 -- file extensions. The file base name should be given and it will be tried

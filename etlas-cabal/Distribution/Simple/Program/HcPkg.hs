@@ -55,6 +55,7 @@ import Distribution.Text
 import Distribution.Types.ComponentId
 import Distribution.Types.PackageId
 import Distribution.Types.UnitId
+import Distribution.Version
 import Distribution.Verbosity
 import Distribution.Compat.Exception
 
@@ -158,6 +159,8 @@ register hpi verbosity packagedbs pkgInfo registerOptions
     --
   | registerMultiInstance registerOptions
   , recacheMultiInstance hpi
+  , maybe False (\version -> version >= mkVersion [0,7,1])
+    $ programVersion (hcPkgProgram hpi)
   = do let pkgdb = last packagedbs
        writeRegistrationFileDirectly verbosity hpi pkgdb pkgInfo
        recache hpi verbosity pkgdb

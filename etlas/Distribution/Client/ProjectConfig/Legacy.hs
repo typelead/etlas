@@ -278,7 +278,8 @@ convertLegacyAllPackageFlags globalFlags configFlags
       globalSandboxConfigFile = _, -- ??
       globalRemoteRepos       = projectConfigRemoteRepos,
       globalLocalRepos        = projectConfigLocalRepos,
-      globalPatchesDir        = projectConfigPatchesDir
+      globalPatchesDir        = projectConfigPatchesDir,
+      globalEtaVersion        = projectConfigEtaVersion
     } = globalFlags
 
     ConfigFlags {
@@ -494,7 +495,7 @@ convertToLegacySharedConfig
       globalPatchesDir        = projectConfigPatchesDir,
       globalAutoUpdate        = projectConfigAutoUpdate,
       globalSendMetrics       = projectConfigSendMetrics,
-      globalEtaVersion        = mempty
+      globalEtaVersion        = projectConfigEtaVersion
     }
 
     configFlags = mempty {
@@ -823,6 +824,7 @@ legacySharedConfigFieldDescrs =
   . filterFields
       [ "remote-repo-cache"
       , "logs-dir", "store-dir", "ignore-expiry", "http-transport"
+      , "patches-dir", "select-eta", "auto-update", "send-metrics"
       ]
   . commandOptionsToFields
   ) (commandOptions (globalCommand []) ParseArgs)

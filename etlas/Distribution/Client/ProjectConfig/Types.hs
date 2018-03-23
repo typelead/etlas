@@ -167,6 +167,7 @@ data ProjectConfigShared
        projectConfigHcPath            :: Flag FilePath,
        projectConfigHcPkg             :: Flag FilePath,
        projectConfigHaddockIndex      :: Flag PathTemplate,
+       projectConfigEtaVersion        :: Flag String,
 
        -- Things that only make sense for manual mode, not --local mode
        -- too much control!

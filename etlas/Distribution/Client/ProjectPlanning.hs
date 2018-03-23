@@ -444,7 +444,8 @@ rebuildInstallPlan verbosity
                              projectConfigShared = ProjectConfigShared {
                                projectConfigHcFlavor,
                                projectConfigHcPath,
-                               projectConfigHcPkg
+                               projectConfigHcPkg,
+                               projectConfigEtaVersion
                              },
                              projectConfigLocalPackages = PackageConfig {
                                packageConfigProgramPaths,
@@ -454,7 +455,7 @@ rebuildInstallPlan verbosity
                            } = do
         progsearchpath <- liftIO $ getSystemSearchPath
         rerunIfChanged verbosity fileMonitorCompiler
-                       (hcFlavor, hcPath, hcPkg, progsearchpath,
+                       (hcFlavor, hcPath, hcPkg, etaVersion, progsearchpath,
                         packageConfigProgramPaths,
                         packageConfigProgramArgs,
                         packageConfigProgramPathExtra) $ do
@@ -475,10 +476,11 @@ rebuildInstallPlan verbosity
 
           return result
       where
-        hcFlavor = flagToMaybe projectConfigHcFlavor
-        hcPath   = flagToMaybe projectConfigHcPath
-        hcPkg    = flagToMaybe projectConfigHcPkg
-        progdb   =
+        hcFlavor   = flagToMaybe projectConfigHcFlavor
+        hcPath     = flagToMaybe projectConfigHcPath
+        hcPkg      = flagToMaybe projectConfigHcPkg
+        etaVersion = flagToMaybe projectConfigEtaVersion
+        progdb     =
             userSpecifyPaths (Map.toList (getMapLast packageConfigProgramPaths))
           . userSpecifyArgss (Map.toList (getMapMappend packageConfigProgramArgs))
           . modifyProgramSearchPath

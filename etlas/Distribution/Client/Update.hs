@@ -57,11 +57,11 @@ import Network.URI (uriPath)
 import qualified Hackage.Security.Client as Sec
 
 -- | 'update' downloads the package list from all known servers
-update :: Verbosity -> UpdateFlags -> RepoContext -> Bool -> IO ()
-update verbosity _ repoCtxt _ | null (repoContextRepos repoCtxt) = do
+update :: Verbosity -> UpdateFlags -> RepoContext -> FilePath -> Bool -> IO ()
+update verbosity _ repoCtxt _ _ | null (repoContextRepos repoCtxt) = do
   warn verbosity $ "No remote package servers have been specified. Usually "
                 ++ "you would have one specified in the config file."
-update verbosity updateFlags repoCtxt firstTime = do
+update verbosity updateFlags repoCtxt binariesPath firstTime = do
   let repos       = repoContextRepos repoCtxt
       remoteRepos = catMaybes (map maybeRepoRemote repos)
       remoteRepoName' repo
@@ -76,7 +76,7 @@ update verbosity updateFlags repoCtxt firstTime = do
             $ "Downloading the latest package lists from: "
             : map (("- " ++) . remoteRepoName') remoteRepos
   jobCtrl <- newParallelJobControl (length repos)
-  mapM_ (spawnJob jobCtrl . updateRepo verbosity updateFlags repoCtxt) repos
+  mapM_ (spawnJob jobCtrl . updateRepo verbosity updateFlags repoCtxt binariesPath) repos
   mapM_ (\_ -> collectJob jobCtrl) repos
 
   -- Update the Eta Hackage patches repository
@@ -84,13 +84,13 @@ update verbosity updateFlags repoCtxt firstTime = do
   -- Send metrics if enabled
   sendMetrics verbosity repoCtxt firstTime
 
-updateRepo :: Verbosity -> UpdateFlags -> RepoContext -> Repo -> IO ()
-updateRepo verbosity updateFlags repoCtxt repo = do
+updateRepo :: Verbosity -> UpdateFlags -> RepoContext -> FilePath -> Repo -> IO ()
+updateRepo verbosity updateFlags repoCtxt binariesPath repo = do
   transport <- repoContextGetTransport repoCtxt
   case repo of
     RepoLocal{..} -> return ()
     RepoRemote{..} -> do
-      downloadResult <- downloadIndex transport verbosity repoRemote repoLocalDir
+      downloadResult <- downloadIndex verbosity transport repoRemote repoLocalDir binariesPath
       case downloadResult of
         FileAlreadyInCache -> return ()
         FileDownloaded indexPath -> do

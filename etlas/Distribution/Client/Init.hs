@@ -100,14 +100,15 @@ import Distribution.Client.Setup
 initCabal :: Verbosity
           -> PackageDBStack
           -> RepoContext
+          -> FilePath
           -> Compiler
           -> ProgramDb
           -> InitFlags
           -> IO ()
-initCabal verbosity packageDBs repoCtxt comp progdb initFlags = do
+initCabal verbosity packageDBs repoCtxt binariesPath comp progdb initFlags = do
 
   installedPkgIndex <- getInstalledPackages verbosity comp packageDBs progdb
-  sourcePkgDb <- getSourcePackages verbosity repoCtxt
+  sourcePkgDb <- getSourcePackages verbosity repoCtxt binariesPath
 
   hSetBuffering stdout NoBuffering
 

@@ -113,6 +113,7 @@ chooseCabalVersion configFlags maybeVersion =
 configure :: Verbosity
           -> PackageDBStack
           -> RepoContext
+          -> FilePath
           -> Compiler
           -> Platform
           -> ProgramDb
@@ -120,11 +121,11 @@ configure :: Verbosity
           -> ConfigExFlags
           -> [String]
           -> IO ()
-configure verbosity packageDBs repoCtxt comp platform progdb
+configure verbosity packageDBs repoCtxt binariesPath comp platform progdb
   configFlags configExFlags extraArgs = do
 
   installedPkgIndex <- getInstalledPackages verbosity comp packageDBs progdb
-  sourcePkgDb       <- getSourcePackages    verbosity repoCtxt
+  sourcePkgDb       <- getSourcePackages    verbosity repoCtxt binariesPath
   pkgConfigDb       <- readPkgConfigDb      verbosity progdb
 
   checkConfigExFlags verbosity installedPkgIndex

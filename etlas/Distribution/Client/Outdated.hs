@@ -57,10 +57,10 @@ import System.Exit                                   (exitFailure)
 import Control.Exception                             (throwIO)
 
 -- | Entry point for the 'outdated' command.
-outdated :: Verbosity -> OutdatedFlags -> RepoContext
+outdated :: Verbosity -> OutdatedFlags -> RepoContext -> FilePath
          -> Compiler -> Platform
          -> IO ()
-outdated verbosity0 outdatedFlags repoContext comp platform = do
+outdated verbosity0 outdatedFlags repoContext binariesPath comp platform = do
   let freezeFile    = fromFlagOrDefault False (outdatedFreezeFile outdatedFlags)
       newFreezeFile = fromFlagOrDefault False
                       (outdatedNewFreezeFile outdatedFlags)
@@ -78,7 +78,7 @@ outdated verbosity0 outdatedFlags repoContext comp platform = do
                           in \pkgname -> pkgname `S.member` minorSet
       verbosity     = if quiet then silent else verbosity0
 
-  sourcePkgDb <- IndexUtils.getSourcePackages verbosity repoContext
+  sourcePkgDb <- IndexUtils.getSourcePackages verbosity repoContext binariesPath
   let pkgIndex = packageIndex sourcePkgDb
   deps <- if freezeFile
           then depsFromFreezeFile verbosity

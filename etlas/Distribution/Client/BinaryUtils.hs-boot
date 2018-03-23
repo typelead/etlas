@@ -4,4 +4,4 @@ import Distribution.Client.HttpUtils ( HttpTransport )
 import Distribution.Verbosity        ( Verbosity )
 import System.FilePath               ( FilePath )
 
-updateBinaryPackageCaches :: HttpTransport -> Verbosity -> FilePath -> IO ()
+updateBinaryPackageCaches :: Verbosity -> HttpTransport -> FilePath -> FilePath -> IO ()

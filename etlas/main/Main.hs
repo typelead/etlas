@@ -375,6 +375,7 @@ configureAction (configFlags, configExFlags) extraArgs globalFlags = do
     let configFlags'   = savedConfigureFlags   config `mappend` configFlags
         configExFlags' = savedConfigureExFlags config `mappend` configExFlags
         globalFlags'   = savedGlobalFlags      config `mappend` globalFlags
+        binariesPath   = fromFlag $ globalBinariesDir globalFlags'
     (comp, platform, progdb) <- configCompilerAuxEx configFlags'
 
     -- If we're working inside a sandbox and the user has set the -w option, we
@@ -406,7 +407,7 @@ configureAction (configFlags, configExFlags) extraArgs globalFlags = do
 
     maybeWithSandboxDirOnSearchPath useSandbox $
       withRepoContext verbosity globalFlags' $ \repoContext ->
-        configure verbosity packageDBs repoContext
+        configure verbosity packageDBs repoContext binariesPath
                   comp platform progdb configFlags'' configExFlags' extraArgs
 
 reconfigureAction :: (ConfigFlags, ConfigExFlags)
@@ -481,7 +482,8 @@ selectAction :: SelectFlags -> [String] -> Action
 selectAction selectFlags extraArgs globalFlags' = do
   -- TODO: Make this respect sandboxes?
   savedConfig <- fmap snd $ loadConfigOrSandboxConfig verbosity globalFlags'
-  let globalFlags = savedGlobalFlags savedConfig `mappend` globalFlags'
+  let globalFlags  = savedGlobalFlags savedConfig `mappend` globalFlags'
+      binariesPath = fromFlag $ globalBinariesDir globalFlags
   when (installed && not list) $
     die' verbosity "Must use --list when using --installed."
   if list
@@ -494,7 +496,7 @@ selectAction selectFlags extraArgs globalFlags' = do
     when (null extraArgs) $ die' verbosity "Expected a version identifier."
     case version of
       "local"  -> do
-        setLocalEtaPointerFile
+        setLocalEtaPointerFile binariesPath
         notice verbosity "Will select the version of Eta available on the PATH."
       "latest" -> selectLatest verbosity globalFlags savedConfig >> return ()
       _ -> selectVersion verbosity globalFlags savedConfig version True >> return ()
@@ -887,11 +889,13 @@ listAction listFlags extraArgs globalFlags = do
                            `mappend` listPackageDBs listFlags
         }
       globalFlags' = savedGlobalFlags    config `mappend` globalFlags
+      binariesPath = fromFlag (globalBinariesDir globalFlags')
   (comp, _, progdb) <- configCompilerAux' configFlags
   withRepoContext verbosity globalFlags' $ \repoContext ->
     List.list verbosity
        (configPackageDB' configFlags)
        repoContext
+       binariesPath
        comp
        progdb
        listFlags
@@ -928,8 +932,9 @@ updateAction updateFlags extraArgs globalFlags = do
   (_useSandbox, config) <- loadConfigOrSandboxConfig verbosity
                            (globalFlags { globalRequireSandbox = Flag False })
   let globalFlags' = savedGlobalFlags config `mappend` globalFlags
+      binariesPath = fromFlag $ globalBinariesDir globalFlags'
   withRepoContext verbosity globalFlags' $ \repoContext ->
-    update verbosity updateFlags repoContext False
+    update verbosity updateFlags repoContext binariesPath False
 
 upgradeAction :: (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
               -> [String] -> Action
@@ -1014,9 +1019,10 @@ outdatedAction outdatedFlags _extraArgs globalFlags = do
   (_useSandbox, config) <- loadConfigOrSandboxConfig verbosity globalFlags
   let configFlags  = savedConfigureFlags config
       globalFlags' = savedGlobalFlags config `mappend` globalFlags
+      binariesPath = fromFlag (globalBinariesDir globalFlags')
   (comp, platform, _progdb) <- configCompilerAux' configFlags
   withRepoContext verbosity globalFlags' $ \repoContext ->
-    outdated verbosity outdatedFlags repoContext
+    outdated verbosity outdatedFlags repoContext binariesPath
              comp platform
 
 uploadAction :: UploadFlags -> [String] -> Action
@@ -1205,12 +1211,14 @@ initAction initFlags extraArgs globalFlags = do
                            (globalFlags { globalRequireSandbox = Flag False })
   let configFlags  = savedConfigureFlags config
   let globalFlags' = savedGlobalFlags    config `mappend` globalFlags
+      binariesPath = fromFlag (globalBinariesDir globalFlags')
   (comp, _, progdb) <- configCompilerAux' configFlags
     { configVerbosity = fmap Verbosity.moreVerbose (configVerbosity configFlags) }
   withRepoContext verbosity globalFlags' $ \repoContext ->
     initCabal verbosity
             (configPackageDB' configFlags)
             repoContext
+            binariesPath
             comp
             progdb
             initFlags

@@ -333,6 +333,10 @@ globalCommand commands = CommandUI {
          "Specify explicit patches directory."
          globalPatchesDir (\v flags -> flags { globalPatchesDir = v })
          (reqArgFlag "DIR")
+      ,option [] ["binaries-dir"]
+         "Specify location to store binary executables and packages."
+         globalBinariesDir (\v flags -> flags { globalBinariesDir = v })
+         (reqArgFlag "DIR")
       ,option [] ["select-eta"]
          "Select which version of Eta to use with this invocation."
          globalEtaVersion (\v flags -> flags { globalEtaVersion = v })

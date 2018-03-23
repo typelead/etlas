@@ -117,7 +117,7 @@ getFreezePkgs verbosity packageDBs repoCtxt comp platform progdb mSandboxPkgInfo
       globalFlags freezeFlags = do
 
     installedPkgIndex <- getInstalledPackages verbosity comp packageDBs progdb
-    sourcePkgDb       <- getSourcePackages    verbosity repoCtxt
+    sourcePkgDb       <- getSourcePackages    verbosity repoCtxt binariesPath
     pkgConfigDb       <- readPkgConfigDb      verbosity progdb
 
     pkgSpecifiers <- resolveUserTargets verbosity repoCtxt
@@ -130,6 +130,7 @@ getFreezePkgs verbosity packageDBs repoCtxt comp platform progdb mSandboxPkgInfo
                verbosity comp platform mSandboxPkgInfo freezeFlags
                installedPkgIndex sourcePkgDb pkgConfigDb pkgSpecifiers
   where
+    binariesPath = fromFlag (globalBinariesDir globalFlags)
     sanityCheck pkgSpecifiers = do
       when (not . null $ [n | n@(NamedPackage _ _) <- pkgSpecifiers]) $
         die' verbosity $ "internal error: 'resolveUserTargets' returned "

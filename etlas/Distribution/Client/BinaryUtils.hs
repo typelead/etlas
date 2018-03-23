@@ -46,14 +46,14 @@ import Control.Monad
 import Data.List
 import Data.Maybe
 
-updateBinaryPackageCaches :: HttpTransport -> Verbosity -> FilePath -> IO ()
-updateBinaryPackageCaches transport verbosity cacheDir = do
+updateBinaryPackageCaches :: Verbosity -> HttpTransport -> FilePath -> FilePath -> IO ()
+updateBinaryPackageCaches verbosity transport cacheDir binariesPath = do
   uris <- remoteBinaryUris (Left cacheDir)
   notice verbosity $ "Updating binary package index."
   forM_ uris $ \uri -> do
     case getURIDomain uri of
       Just domain -> do
-        let indexFile = topLevelIndexFile domain
+        let indexFile = topLevelIndexFile binariesPath domain
         createDirectoryIfMissingVerbose verbosity True (takeDirectory indexFile)
         downloadURIWithMsg "Unable to download top-level index file."
           transport verbosity (uriWithPath uri topLevelIndexPath) indexFile
@@ -61,9 +61,9 @@ updateBinaryPackageCaches transport verbosity cacheDir = do
 
       Nothing -> die' verbosity $ "Invalid domain name for URL: " ++ show uri
 
-getBasePackageBinaryPaths :: Verbosity -> HttpTransport -> BinaryPackageDb
+getBasePackageBinaryPaths :: Verbosity -> HttpTransport -> FilePath -> BinaryPackageDb
                           -> Maybe Version -> IO [FilePath]
-getBasePackageBinaryPaths verbosity transport binaryPkgDb mVersion = do
+getBasePackageBinaryPaths verbosity transport binariesPath binaryPkgDb mVersion = do
 
   when (isNothing mVersion) $
     die' verbosity "getBasePackageBinaryPaths: Unable to determine eta version."
@@ -73,14 +73,15 @@ getBasePackageBinaryPaths verbosity transport binaryPkgDb mVersion = do
       mUri       = getArbitraryURI binaryPkgDb
       uri        = fromJust mUri
       domain     = fromJust (getURIDomain uri)
-      indexFile  = basePackageIndexFile domain eVersion
+      indexFile  = basePackageIndexFile binariesPath domain eVersion
 
   when (isNothing mUri) $
     dieWithError verbosity "Your binary cache seems to be empty."
 
   exists <- ifConditionElseRetry
               (doesFileExist indexFile)
-              (downloadVersionIndex transport verbosity domain uri eVersion)
+              (downloadVersionIndex verbosity transport binariesPath
+                 domain uri eVersion)
 
   when (not exists) $
     dieWithError verbosity $ "The binary cache index file for "
@@ -90,7 +91,7 @@ getBasePackageBinaryPaths verbosity transport binaryPkgDb mVersion = do
   forM packageLines $ \line -> do
     case simpleParse line of
       Just pkgId -> do
-        result <- tryDownloadBinary verbosity transport binaryPkgDb pkgId
+        result <- tryDownloadBinary verbosity transport binariesPath binaryPkgDb pkgId
         case result of
           Just path -> return path
           Nothing   ->
@@ -99,11 +100,12 @@ getBasePackageBinaryPaths verbosity transport binaryPkgDb mVersion = do
       Nothing ->
         dieWithError verbosity "Your binary cache index file seems to corrupted."
 
-etaPointerFile :: FilePath
-etaPointerFile = defaultBinariesPath </> "eta"
+etaPointerFile :: FilePath -> FilePath
+etaPointerFile binariesPath = binariesPath </> "eta"
 
-setLocalEtaPointerFile :: IO ()
-setLocalEtaPointerFile = writeFile etaPointerFile $ unlines $ replicate 2 programOnPath
+setLocalEtaPointerFile :: FilePath -> IO ()
+setLocalEtaPointerFile binariesPath =
+  writeFile (etaPointerFile binariesPath) $ unlines $ replicate 2 programOnPath
 
 -- The constant that denotes that you should use the `eta` that's on the path.
 programOnPath :: String
@@ -120,15 +122,17 @@ numEtaPrograms = 2
 findEtaInBinaryIndex :: String -> Int -> GlobalFlags -> Verbosity -> ProgramSearchPath -> IO (Maybe (FilePath, [FilePath]))
 findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
   savedConfig <- fmap snd $ loadConfigOrSandboxConfig verbosity globalFlags'
-  let globalFlags = savedGlobalFlags savedConfig `mappend` globalFlags'
-      etaVersion  = flagToMaybe $ globalEtaVersion globalFlags
+  let globalFlags  = savedGlobalFlags savedConfig `mappend` globalFlags'
+      etaVersion   = flagToMaybe $ globalEtaVersion globalFlags
+      binariesPath = fromFlag $ globalBinariesDir globalFlags
   case etaVersion of
     Nothing -> do
       -- TODO: Synchronize access to this file
-      exists <- doesFileExist etaPointerFile
+      let etaPtrFile = etaPointerFile binariesPath
+      exists <- doesFileExist etaPtrFile
       if exists
       then do
-        pointerLines <- readLines etaPointerFile
+        pointerLines <- readLines etaPtrFile
         case nth n pointerLines of
           Just progPath
             | progPath == programOnPath -> do
@@ -143,6 +147,7 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
       mResult <- selectVersion verbosity globalFlags savedConfig version False
       return $ mResult >>= nthProgram n
   where initEtaPointer globalFlags savedConfig = do
+          let binariesPath = fromFlag $ globalBinariesDir globalFlags
           notice verbosity $
             "Discovering the installation paths for your Eta executables..."
           result <- defaultCodePath
@@ -150,9 +155,9 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
             Just (path, _paths) -> do
               notice verbosity $
                 "Found installed '" ++ prog ++ "' at " ++ path ++ "."
-              createDirectoryIfMissingVerbose verbosity True (takeDirectory etaPointerFile)
-              writeFile etaPointerFile $ unlines
-                                       $ replicate numEtaPrograms programOnPath
+              let etaPtrFile = etaPointerFile binariesPath
+              createDirectoryIfMissingVerbose verbosity True (takeDirectory etaPtrFile)
+              writeFile etaPtrFile $ unlines $ replicate numEtaPrograms programOnPath
               return result
             Nothing -> do
               notice verbosity $
@@ -217,13 +222,14 @@ tryUpdateIfFailed verbosity globalFlags repoCtxt savedConfig f = do
   result <- f globalFlags repoCtxt savedConfig
   if isNothing result
   then do
-    exists <- doesDirectoryExist defaultBinariesPath
+    exists <- doesDirectoryExist binariesPath
     if exists
     then return Nothing
     else do
-      update verbosity (commandDefaultFlags updateCommand) repoCtxt True
+      update verbosity (commandDefaultFlags updateCommand) repoCtxt binariesPath True
       tryUpdateIfFailed verbosity globalFlags repoCtxt savedConfig f
   else return result
+  where binariesPath = fromFlag (globalBinariesDir globalFlags)
 
 withMaybeRepoCtxt :: Verbosity -> GlobalFlags -> Maybe RepoContext -> (RepoContext -> IO a) -> IO a
 withMaybeRepoCtxt verbosity globalFlags mRepoCtxt f
@@ -239,7 +245,7 @@ withVersions verbosity globalFlags mRepoCtxt savedConfig f =
       first uris $ \uri -> do
         case getURIDomain uri of
           Just domain -> do
-            let indexFile = topLevelIndexFile domain
+            let indexFile = topLevelIndexFile (binariesDirFrom globalFlags) domain
             ifTrue (doesFileExist indexFile) $ do
               versions <- readLines indexFile
               f globalFlags repoCtxt savedConfig uri domain versions
@@ -247,8 +253,10 @@ withVersions verbosity globalFlags mRepoCtxt savedConfig f =
 
 installVersion :: Verbosity -> GlobalFlags -> RepoContext -> SavedConfig -> URI -> String -> String -> Bool -> IO (Maybe [FilePath])
 installVersion verbosity globalFlags repoCtxt savedConfig uri domain version global = do
-  let installedFile   = etaInstalledFile domain version
-      binaryIndexFile = etaBinariesIndexFile domain (Left version)
+  let binariesPath    = fromFlag $ globalBinariesDir globalFlags
+      etaPtrFile      = etaPointerFile binariesPath
+      installedFile   = etaInstalledFile binariesPath domain version
+      binaryIndexFile = etaBinariesIndexFile binariesPath domain (Left version)
   exists <- doesFileExist installedFile
   if exists
   then do
@@ -256,21 +264,23 @@ installVersion verbosity globalFlags repoCtxt savedConfig uri domain version glo
     let programPaths = lines pathsFile
     when global $ do
       selectedVersionMessage verbosity version
-      writeFile etaPointerFile pathsFile
+      writeFile etaPtrFile pathsFile
     return $ Just programPaths
   else do
     ifTrue (ifConditionElseRetry
               (doesFileExist binaryIndexFile)
               (do transport <- repoContextGetTransport repoCtxt
-                  downloadVersionIndex transport verbosity domain uri (Left version))) $ do
+                  downloadVersionIndex verbosity transport binariesPath domain uri
+                    (Left version))) $ do
       programs     <- readLines binaryIndexFile
-      programPaths <- downloadPrograms verbosity repoCtxt domain uri version programs
+      programPaths <- downloadPrograms verbosity repoCtxt binariesPath domain uri
+                        version programs
       selectedVersionMessage verbosity version
       installBootLibraries verbosity (readVersion version)
         repoCtxt savedConfig globalFlags programPaths
       let pathsFile = unlines programPaths
       writeFile installedFile $ pathsFile
-      when global $ writeFile etaPointerFile $ pathsFile
+      when global $ writeFile etaPtrFile $ pathsFile
       return $ Just programPaths
 
 selectedVersionMessage :: Verbosity -> String -> IO ()
@@ -278,19 +288,20 @@ selectedVersionMessage verbosity version =
   notice verbosity $
     "Selected " ++ userReadableVersion version ++ "."
 
-downloadPrograms :: Verbosity -> RepoContext -> String -> URI -> String -> [String] -> IO [FilePath]
-downloadPrograms verbosity repoCtxt domain uri version programs = do
+downloadPrograms :: Verbosity -> RepoContext -> FilePath -> String -> URI
+                 -> String -> [String] -> IO [FilePath]
+downloadPrograms verbosity repoCtxt binariesPath domain uri version programs = do
   transport <- repoContextGetTransport repoCtxt
   forM programs $ \prog -> do
     notice verbosity $ "Downloading executable '" ++ prog ++ "'..."
-    let progFile = etaProgFile domain prog eVersion
+    let progFile = etaProgFile binariesPath domain prog eVersion
     downloadURIWithMsg ("Failed to download executable '" ++ prog ++ "'.")
       transport verbosity (uriWithPath uri (etaProgPath prog eVersion)) progFile
     setFileExecutable progFile
     when (prog == "eta") $ do
       libPath <- (head . lines) <$>
                    rawSystemStdout verbosity progFile ["--print-libdir"]
-      let commitFile = commitHashFile domain eVersion
+      let commitFile = commitHashFile binariesPath domain eVersion
       void $ downloadURIAllowFail (const $ return ())
         transport verbosity (uriWithPath uri (commitHashPath eVersion)) commitFile
       exists <- doesFileExist commitFile
@@ -309,8 +320,9 @@ listVersions verbosity globalFlags savedConfig installed = do
         toHumanReadable ver = reverse (drop 1 rest) ++ ('b' : reverse build)
           where (build, rest)= break (== '.') (reverse ver)
         installedOnly domain version
-          | installed = doesFileExist $ etaInstalledFile domain version
+          | installed = doesFileExist $ etaInstalledFile binariesPath domain version
           | otherwise = return True
+        binariesPath = fromFlag $ globalBinariesDir globalFlags
 
 nthProgram :: Int -> [FilePath] -> Maybe (FilePath, [FilePath])
 nthProgram n programPaths = fmap (\x -> (x,[])) $ nth n programPaths
@@ -350,10 +362,12 @@ installBootLibraries
   -> [FilePath]
   -> IO ()
 installBootLibraries verbosity mVersion repos config globalFlags programPaths = do
+  let binariesPath = fromFlag $ globalBinariesDir globalFlags
   transport <- repoContextGetTransport repos
   dist <- findSavedDistPref config mempty
-  binaryPkgDb <- getBinaryPackages verbosity repos mVersion
-  paths <- getBasePackageBinaryPaths verbosity transport binaryPkgDb mVersion
+  binaryPkgDb <- getBinaryPackages verbosity repos binariesPath mVersion
+  paths <- getBasePackageBinaryPaths verbosity transport binariesPath
+             binaryPkgDb mVersion
   let (configFlags', configExFlags', installFlags', haddockFlags')
         = commandDefaultFlags Setup.installCommand
       -- TODO: This seems to override the saved config flags. Fix this.

@@ -237,8 +237,9 @@ fetchRepoTarball verbosity repoCtxt repo pkgid = do
 -- hackage-security. You probably don't want to call this directly;
 -- use 'updateRepo' instead.
 --
-downloadIndex :: HttpTransport -> Verbosity -> RemoteRepo -> FilePath -> IO DownloadResult
-downloadIndex transport verbosity remoteRepo cacheDir
+downloadIndex :: Verbosity -> HttpTransport -> RemoteRepo -> FilePath -> FilePath
+              -> IO DownloadResult
+downloadIndex verbosity transport remoteRepo cacheDir binariesPath
   | remoteRepoGitIndexed remoteRepo = do
     exists <- doesDirectoryExist cacheDir
     (gitProg, _, _) <- requireProgramVersion verbosity
@@ -251,7 +252,7 @@ downloadIndex transport verbosity remoteRepo cacheDir
     if exists
     then runGit ["-C", cacheDir, "pull"]
     else runGit ["clone", "--depth=1", show (remoteRepoURI remoteRepo), cacheDir]
-    updateBinaryPackageCaches transport verbosity cacheDir
+    updateBinaryPackageCaches verbosity transport cacheDir binariesPath
     return FileAlreadyInCache
 
   | otherwise = do

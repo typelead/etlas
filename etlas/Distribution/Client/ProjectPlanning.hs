@@ -541,7 +541,7 @@ rebuildInstallPlan verbosity
           installedPkgIndex <- getInstalledPackages verbosity
                                                     compiler progdb platform
                                                     corePackageDbs
-          sourcePkgDb       <- getSourcePackages verbosity withRepoCtx
+          sourcePkgDb       <- getSourcePackages verbosity withRepoCtx binariesPath
                                  (solverSettingIndexState solverSettings)
           pkgConfigDB       <- getPkgConfigDb verbosity progdb
 
@@ -577,6 +577,7 @@ rebuildInstallPlan verbosity
         withRepoCtx    = projectConfigWithSolverRepoContext verbosity
                            projectConfigShared
                            projectConfigBuildOnly
+        binariesPath = Cabal.fromFlag $ projectConfigBinariesDir projectConfigBuildOnly
         solverSettings = resolveSolverSettings projectConfig
         logMsg message rest = debugNoWrap verbosity message >> rest
 
@@ -744,13 +745,14 @@ getPackageDBContents verbosity compiler progdb platform packagedb = do
 -}
 
 getSourcePackages :: Verbosity -> (forall a. (RepoContext -> IO a) -> IO a)
-                  -> Maybe IndexUtils.IndexState -> Rebuild SourcePackageDb
-getSourcePackages verbosity withRepoCtx idxState = do
+                  -> FilePath -> Maybe IndexUtils.IndexState
+                  -> Rebuild SourcePackageDb
+getSourcePackages verbosity withRepoCtx binariesPath idxState = do
     (sourcePkgDb, repos) <-
       liftIO $
         withRepoCtx $ \repoctx -> do
           sourcePkgDb <- IndexUtils.getSourcePackagesAtIndexState verbosity
-                                                                  repoctx idxState
+                           repoctx binariesPath idxState
           return (sourcePkgDb, repoContextRepos repoctx)
 
     mapM_ needIfExists

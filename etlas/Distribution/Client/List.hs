@@ -79,14 +79,15 @@ import System.Directory
 getPkgList :: Verbosity
            -> PackageDBStack
            -> RepoContext
+           -> FilePath
            -> Compiler
            -> ProgramDb
            -> ListFlags
            -> [String]
            -> IO [PackageDisplayInfo]
-getPkgList verbosity packageDBs repoCtxt comp progdb listFlags pats = do
+getPkgList verbosity packageDBs repoCtxt binariesPath comp progdb listFlags pats = do
     installedPkgIndex <- getInstalledPackages verbosity comp packageDBs progdb
-    sourcePkgDb       <- getSourcePackages verbosity repoCtxt
+    sourcePkgDb       <- getSourcePackages verbosity repoCtxt binariesPath
     let sourcePkgIndex = packageIndex sourcePkgDb
         prefs name = fromMaybe anyVersion
                        (Map.lookup name (packagePreferences sourcePkgDb))
@@ -135,13 +136,15 @@ getPkgList verbosity packageDBs repoCtxt comp progdb listFlags pats = do
 list :: Verbosity
      -> PackageDBStack
      -> RepoContext
+     -> FilePath
      -> Compiler
      -> ProgramDb
      -> ListFlags
      -> [String]
      -> IO ()
-list verbosity packageDBs repos comp progdb listFlags pats = do
-    matches <- getPkgList verbosity packageDBs repos comp progdb listFlags pats
+list verbosity packageDBs repos binariesPath comp progdb listFlags pats = do
+    matches <- getPkgList verbosity packageDBs repos binariesPath comp
+                 progdb listFlags pats
 
     if simpleOutput
       then putStr $ unlines
@@ -178,7 +181,7 @@ info verbosity packageDBs repoCtxt comp progdb
      globalFlags _listFlags userTargets = do
 
     installedPkgIndex <- getInstalledPackages verbosity comp packageDBs progdb
-    sourcePkgDb       <- getSourcePackages verbosity repoCtxt
+    sourcePkgDb       <- getSourcePackages verbosity repoCtxt binariesPath
     let sourcePkgIndex = packageIndex sourcePkgDb
         prefs name = fromMaybe anyVersion
                        (Map.lookup name (packagePreferences sourcePkgDb))
@@ -206,6 +209,7 @@ info verbosity packageDBs repoCtxt comp progdb
     putStr $ unlines (map showPackageDetailedInfo pkgsinfo)
 
   where
+    binariesPath = fromFlag (globalBinariesDir globalFlags)
     gatherPkgInfo :: (PackageName -> VersionRange) ->
                      InstalledPackageIndex ->
                      PackageIndex.PackageIndex UnresolvedSourcePackage ->

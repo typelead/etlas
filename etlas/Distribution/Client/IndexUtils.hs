@@ -211,9 +211,9 @@ filterCache (IndexStateTime ts0) cache0 = (cache, IndexStateInfo{..})
 -- 'Repo'.
 --
 -- This is a higher level wrapper used internally in etlas.
-getSourcePackages :: Verbosity -> RepoContext -> IO SourcePackageDb
-getSourcePackages verbosity repoCtxt =
-    getSourcePackagesAtIndexState verbosity repoCtxt Nothing
+getSourcePackages :: Verbosity -> RepoContext -> FilePath -> IO SourcePackageDb
+getSourcePackages verbosity repoCtxt binariesPath =
+    getSourcePackagesAtIndexState verbosity repoCtxt binariesPath Nothing
 
 -- | Variant of 'getSourcePackages' which allows getting the source
 -- packages at a particular 'IndexState'.
@@ -224,9 +224,9 @@ getSourcePackages verbosity repoCtxt =
 -- TODO: Enhance to allow specifying per-repo 'IndexState's and also
 -- report back per-repo 'IndexStateInfo's (in order for @new-freeze@
 -- to access it)
-getSourcePackagesAtIndexState :: Verbosity -> RepoContext -> Maybe IndexState
-                           -> IO SourcePackageDb
-getSourcePackagesAtIndexState verbosity repoCtxt _
+getSourcePackagesAtIndexState :: Verbosity -> RepoContext -> FilePath
+                              -> Maybe IndexState -> IO SourcePackageDb
+getSourcePackagesAtIndexState verbosity repoCtxt _ _
   | null (repoContextRepos repoCtxt) = do
       -- In the test suite, we routinely don't have any remote package
       -- servers, so don't bleat about it
@@ -237,7 +237,7 @@ getSourcePackagesAtIndexState verbosity repoCtxt _
         packageIndex       = mempty,
         packagePreferences = mempty
       }
-getSourcePackagesAtIndexState verbosity repoCtxt mb_idxState = do
+getSourcePackagesAtIndexState verbosity repoCtxt binariesPath mb_idxState = do
   let describeState IndexStateHead        = "most recent state"
       describeState (IndexStateTime time) = "historical state as of " ++ display time
 
@@ -261,7 +261,7 @@ getSourcePackagesAtIndexState verbosity repoCtxt mb_idxState = do
     (\(e :: SomeException) -> info verbosity $ "Failed to send metrics.\n"
                                             ++ show e) $ do
     if autoUpdate
-    then update silent (commandDefaultFlags updateCommand) repoCtxt False
+    then update silent (commandDefaultFlags updateCommand) repoCtxt binariesPath False
          -- Update will already send metrics so no need to send again.
     else sendMetrics verbosity repoCtxt False
 

@@ -73,6 +73,7 @@ data GlobalFlags = GlobalFlags {
     globalNix               :: Flag Bool,     -- ^ Integrate with Nix
     globalStoreDir          :: Flag FilePath, -- ^ Path to store directory
     globalPatchesDir        :: Flag FilePath, -- ^ Patches directory
+    globalBinariesDir       :: Flag FilePath, -- ^ Binaries directory
     globalAutoUpdate        :: Flag Bool,     -- ^ Automatically update package listing
     globalSendMetrics       :: Flag Bool,     -- ^ Send telemetry
     globalEtaVersion        :: Flag String    -- ^ Version of Eta to use
@@ -97,6 +98,7 @@ defaultGlobalFlags  = GlobalFlags {
     globalNix               = Flag False,
     globalStoreDir          = mempty,
     globalPatchesDir        = mempty,
+    globalBinariesDir       = mempty,
     globalAutoUpdate        = mempty,
     globalSendMetrics       = mempty,
     globalEtaVersion        = mempty

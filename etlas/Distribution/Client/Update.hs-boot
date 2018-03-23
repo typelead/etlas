@@ -4,4 +4,4 @@ import Distribution.Verbosity (Verbosity)
 import Distribution.Client.Setup (UpdateFlags)
 import Distribution.Client.GlobalFlags (RepoContext)
 
-update :: Verbosity -> UpdateFlags -> RepoContext -> Bool -> IO ()
+update :: Verbosity -> UpdateFlags -> RepoContext -> FilePath -> Bool -> IO ()

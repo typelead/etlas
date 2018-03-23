@@ -281,11 +281,13 @@ makeInstallContext verbosity
   (packageDBs, repoCtxt, comp, _, progdb,_,_,
    globalFlags, _, configExFlags, installFlags, _) mUserTargets = do
 
-    let idxState = flagToMaybe (installIndexState installFlags)
+    let idxState     = flagToMaybe (installIndexState installFlags)
+        binariesPath = fromFlag $ globalBinariesDir globalFlags
 
     installedPkgIndex <- getInstalledPackages verbosity comp packageDBs progdb
-    sourcePkgDb       <- getSourcePackagesAtIndexState verbosity repoCtxt idxState
-    binaryPkgDb       <- getBinaryPackages verbosity repoCtxt $ do
+    sourcePkgDb       <- getSourcePackagesAtIndexState verbosity repoCtxt
+                           binariesPath idxState
+    binaryPkgDb       <- getBinaryPackages verbosity repoCtxt binariesPath $ do
                            prog <- lookupProgram etaProgram progdb
                            programVersion prog
     pkgConfigDb       <- readPkgConfigDb      verbosity progdb
@@ -1108,7 +1110,8 @@ performInstallations verbosity
                      installPlan $ \rpkg ->
     installReadyPackage platform cinfo configFlags
                         rpkg $ \configFlags' src pkg pkgoverride ->
-      fetchSourcePackage verbosity repoCtxt binaryPkgDb fetchLimit noBinary src $ \src' ->
+      fetchSourcePackage verbosity repoCtxt binariesPath binaryPkgDb fetchLimit
+          noBinary src $ \src' ->
         installLocalPackage verbosity (packageId pkg) src' distPref patchesDir $ \mpath ->
           installUnpackedPackage verbosity installLock numJobs
                                  (setupScriptOptions installedPkgIndex
@@ -1127,10 +1130,11 @@ performInstallations verbosity
     keepGoing       = fromFlag (installKeepGoing installFlags)
     distPref        = fromFlagOrDefault (useDistPref defaultSetupScriptOptions)
                       (configDistPref configFlags)
-    noBinary       = fromFlag (installOverrideReinstall installFlags) ||
-                     fromFlag (installReinstall         installFlags) ||
-                     fromFlag (installAllowBootLibInstalls installFlags)
-                     == AllowBootLibInstalls True
+    noBinary        = fromFlag (installOverrideReinstall installFlags) ||
+                      fromFlag (installReinstall         installFlags) ||
+                      fromFlag (installAllowBootLibInstalls installFlags)
+                      == AllowBootLibInstalls True
+    binariesPath    = fromFlag (globalBinariesDir globalFlags)
 
     setupScriptOptions index lock rpkg =
       configureSetupScript
@@ -1284,13 +1288,15 @@ installReadyPackage platform cinfo configFlags
 fetchSourcePackage
   :: Verbosity
   -> RepoContext
+  -> FilePath
   -> BinaryPackageDb
   -> JobLimit
   -> Bool
   -> UnresolvedPkgLoc
   -> (ResolvedPkgLoc -> IO BuildOutcome)
   -> IO BuildOutcome
-fetchSourcePackage verbosity repoCtxt binaryPkgDb fetchLimit noBinary src installPkg = do
+fetchSourcePackage verbosity repoCtxt binariesPath binaryPkgDb fetchLimit noBinary
+                   src installPkg = do
   case getPackageId src of
     Just pkgId -> do
       -- A remote package
@@ -1298,7 +1304,7 @@ fetchSourcePackage verbosity repoCtxt binaryPkgDb fetchLimit noBinary src instal
                 then return Nothing -- Don't download binaries on reinstall
                 else do
                   transport <- repoContextGetTransport repoCtxt
-                  tryDownloadBinary verbosity transport binaryPkgDb pkgId
+                  tryDownloadBinary verbosity transport binariesPath binaryPkgDb pkgId
       case result of
         Just filePath -> installPkg (LocalTarballPackage filePath True)
         Nothing ->

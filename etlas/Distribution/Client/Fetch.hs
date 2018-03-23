@@ -85,7 +85,7 @@ fetch verbosity packageDBs repoCtxt comp platform progdb
     mapM_ (checkTarget verbosity) userTargets
 
     installedPkgIndex <- getInstalledPackages verbosity comp packageDBs progdb
-    sourcePkgDb       <- getSourcePackages    verbosity repoCtxt
+    sourcePkgDb       <- getSourcePackages    verbosity repoCtxt binariesPath
     pkgConfigDb       <- readPkgConfigDb      verbosity progdb
 
     pkgSpecifiers <- resolveUserTargets verbosity repoCtxt
@@ -113,7 +113,8 @@ fetch verbosity packageDBs repoCtxt comp platform progdb
              else mapM_ (fetchPackage verbosity repoCtxt . packageSource) pkgs'
 
   where
-    dryRun = fromFlag (fetchDryRun fetchFlags)
+    dryRun       = fromFlag (fetchDryRun fetchFlags)
+    binariesPath = fromFlag (globalBinariesDir globalFlags)
 
 planPackages :: Verbosity
              -> Compiler

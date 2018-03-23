@@ -72,7 +72,7 @@ get verbosity repoCtxt globalFlags getFlags userTargets = do
 
   let idxState = flagToMaybe $ getIndexState getFlags
 
-  sourcePkgDb <- getSourcePackagesAtIndexState verbosity repoCtxt idxState
+  sourcePkgDb <- getSourcePackagesAtIndexState verbosity repoCtxt binariesPath idxState
 
   pkgSpecifiers <- resolveUserTargets verbosity repoCtxt
                    (fromFlag $ globalWorldFile globalFlags)
@@ -94,6 +94,8 @@ get verbosity repoCtxt globalFlags getFlags userTargets = do
     resolverParams sourcePkgDb pkgSpecifiers =
         --TODO: add command-line constraint and preference args for unpack
         standardInstallPolicy mempty sourcePkgDb pkgSpecifiers
+
+    binariesPath = fromFlag $ globalBinariesDir globalFlags
 
     prefix = fromFlagOrDefault "" (getDestDir getFlags)
 

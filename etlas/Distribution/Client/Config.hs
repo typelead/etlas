@@ -31,6 +31,7 @@ module Distribution.Client.Config (
     defaultLogsDir,
     defaultUserInstall,
     defaultPatchesDir,
+    defaultBinariesDir,
 
     baseSavedConfig,
     commentSavedConfig,
@@ -243,6 +244,7 @@ instance Semigroup SavedConfig where
         globalNix               = combine globalNix,
         globalStoreDir          = combine globalStoreDir,
         globalPatchesDir        = combine globalPatchesDir,
+        globalBinariesDir       = combine globalBinariesDir,
         globalAutoUpdate        = combine globalAutoUpdate,
         globalSendMetrics       = combine globalSendMetrics,
         globalEtaVersion        = combine globalEtaVersion
@@ -439,10 +441,11 @@ instance Semigroup SavedConfig where
 --
 baseSavedConfig :: IO SavedConfig
 baseSavedConfig = do
-  userPrefix <- defaultCabalDir
-  logsDir    <- defaultLogsDir
-  worldFile  <- defaultWorldFile
-  patchesDir <- defaultPatchesDir
+  userPrefix  <- defaultCabalDir
+  logsDir     <- defaultLogsDir
+  worldFile   <- defaultWorldFile
+  patchesDir  <- defaultPatchesDir
+  binariesDir <- defaultBinariesDir
   return mempty {
     savedConfigureFlags  = mempty {
       configHcFlavor     = toFlag defaultCompiler,
@@ -456,6 +459,7 @@ baseSavedConfig = do
       globalLogsDir      = toFlag logsDir,
       globalWorldFile    = toFlag worldFile,
       globalPatchesDir   = toFlag patchesDir,
+      globalBinariesDir  = toFlag binariesDir,
       globalAutoUpdate   = toFlag True,
       globalSendMetrics  = toFlag False
     }
@@ -469,17 +473,19 @@ baseSavedConfig = do
 --
 initialSavedConfig :: IO SavedConfig
 initialSavedConfig = do
-  cacheDir   <- defaultCacheDir
-  logsDir    <- defaultLogsDir
-  worldFile  <- defaultWorldFile
-  extraPath  <- defaultExtraPath
-  patchesDir <- defaultPatchesDir
+  cacheDir    <- defaultCacheDir
+  logsDir     <- defaultLogsDir
+  worldFile   <- defaultWorldFile
+  extraPath   <- defaultExtraPath
+  patchesDir  <- defaultPatchesDir
+  binariesDir <- defaultBinariesDir
   return mempty {
     savedGlobalFlags     = mempty {
       globalCacheDir     = toFlag cacheDir,
       globalRemoteRepos  = toNubList defaultRemoteRepos,
       globalWorldFile    = toFlag worldFile,
       globalPatchesDir   = toFlag patchesDir,
+      globalBinariesDir  = toFlag binariesDir,
       globalAutoUpdate   = toFlag True,
       globalSendMetrics  = toFlag False
     },
@@ -515,6 +521,11 @@ defaultPatchesDir :: IO FilePath
 defaultPatchesDir = do
   dir <- defaultCabalDir
   return $ dir </> "patches"
+
+defaultBinariesDir :: IO FilePath
+defaultBinariesDir = do
+  dir <- defaultCabalDir
+  return $ dir </> "binaries"
 
 -- | Default position of the world file
 defaultWorldFile :: IO FilePath

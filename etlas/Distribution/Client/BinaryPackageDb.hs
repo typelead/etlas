@@ -8,6 +8,7 @@ import Distribution.Client.HttpUtils
 import Distribution.Client.Types
 
 import Distribution.Simple.Utils
+import Distribution.Simple.Setup ( fromFlag )
 import Distribution.System
 import Distribution.Verbosity
 import Distribution.Version
@@ -118,37 +119,33 @@ uriWithPath uri path = uri { uriPath = joinBase $ map makeUniform path }
 
 -- Local Paths
 
-defaultBinariesPath :: FilePath
-defaultBinariesPath = unsafePerformIO $ do
-  dir <- defaultCabalDir
-  return $ dir </> "binaries"
+topLevelIndexFile :: FilePath -> URIDomain -> FilePath
+topLevelIndexFile binariesPath uriName =
+  binariesPath </> uriName </> topLevelIndexPath
 
-topLevelIndexFile :: URIDomain -> FilePath
-topLevelIndexFile uriName = defaultBinariesPath </> uriName </> topLevelIndexPath
+commitHashFile :: FilePath -> URIDomain -> Either String Version -> FilePath
+commitHashFile binariesPath uriName version =
+  binariesPath </> uriName </> eEtaVersion version </> "commit-hash"
 
-commitHashFile :: URIDomain -> Either String Version -> FilePath
-commitHashFile uriName version =
-  defaultBinariesPath </> uriName </> eEtaVersion version </> "commit-hash"
+packageIndexFile :: FilePath -> URIDomain -> Either String Version -> FilePath
+packageIndexFile binariesPath uriName version =
+  binariesPath </> uriName </> packageIndexPath version
 
-packageIndexFile :: URIDomain -> Either String Version -> FilePath
-packageIndexFile uriName version
-  = defaultBinariesPath </> uriName </> packageIndexPath version
+basePackageIndexFile :: FilePath -> URIDomain -> Either String Version -> FilePath
+basePackageIndexFile binariesPath uriName version =
+  binariesPath </> uriName </> basePackageIndexPath version
 
-basePackageIndexFile :: URIDomain -> Either String Version -> FilePath
-basePackageIndexFile uriName version
-  = defaultBinariesPath </> uriName </> basePackageIndexPath version
+etaBinariesIndexFile :: FilePath -> URIDomain -> Either String Version -> FilePath
+etaBinariesIndexFile binariesPath uriName version =
+  binariesPath </> uriName </> etaBinariesIndexPath version
 
-etaBinariesIndexFile :: URIDomain -> Either String Version -> FilePath
-etaBinariesIndexFile uriName version
-  = defaultBinariesPath </> uriName </> etaBinariesIndexPath version
+etaProgFile :: FilePath -> URIDomain -> String -> Either String Version -> FilePath
+etaProgFile binariesPath uriName prog version =
+  binariesPath </> uriName </> etaProgPath prog version
 
-etaProgFile :: URIDomain -> String -> Either String Version -> FilePath
-etaProgFile uriName prog version
-  = defaultBinariesPath </> uriName </> etaProgPath prog version
-
-etaInstalledFile :: URIDomain -> String -> FilePath
-etaInstalledFile uriName version
-  = defaultBinariesPath </> uriName </> version </> "installed"
+etaInstalledFile :: FilePath -> URIDomain -> String -> FilePath
+etaInstalledFile binariesPath uriName version =
+  binariesPath </> uriName </> version </> "installed"
 
 readBinaryIndexFile :: (PackageName -> URI) -> FilePath -> IO BinaryPackageDb
 readBinaryIndexFile mkUri indexFilePath =
@@ -164,24 +161,27 @@ etaVersionedPath version = "eta-" ++ display version
 eEtaVersion :: Either String Version -> String
 eEtaVersion = either id etaVersionedPath
 
-fetchBinaryPackageDb :: Verbosity -> RepoContext -> Version -> URI -> IO BinaryPackageDb
-fetchBinaryPackageDb verbosity repoCtxt version uri
+fetchBinaryPackageDb :: Verbosity -> RepoContext -> FilePath -> Version -> URI
+                     -> IO BinaryPackageDb
+fetchBinaryPackageDb verbosity repoCtxt binariesPath version uri
   | Just uriName <- getURIDomain uri
-  , let indexFile = packageIndexFile uriName (Right version)
+  , let indexFile = packageIndexFile binariesPath uriName (Right version)
         genMkEntry pkgName = uriWithPath uri $
           etaVersionedPath version </> "packages" </> (pkgName ++ "-bin.tar.gz")
   = fmap (fromMaybe mempty) $
       ifTrue (ifConditionElseRetry
                 (doesFileExist indexFile)
                 (do transport <- repoContextGetTransport repoCtxt
-                    checkAndDownloadVersionIndex transport verbosity uriName uri (Right version))) $
+                    checkAndDownloadVersionIndex verbosity transport binariesPath
+                      uriName uri (Right version))) $
         fmap Just $ readBinaryIndexFile genMkEntry indexFile
   | otherwise = do
       info verbosity $ "The url " ++ show uri ++ " is not valid."
       return mempty
 
-getBinaryPackages :: Verbosity -> RepoContext -> Maybe Version -> IO BinaryPackageDb
-getBinaryPackages verbosity repoCtxt etaVersion' = do
+getBinaryPackages :: Verbosity -> RepoContext -> FilePath -> Maybe Version
+                  -> IO BinaryPackageDb
+getBinaryPackages verbosity repoCtxt binariesPath etaVersion' = do
   when (isNothing etaVersion') $
     die' verbosity "Unable to determine eta version."
 
@@ -190,17 +190,17 @@ getBinaryPackages verbosity repoCtxt etaVersion' = do
   fmap (mconcat . concat) $
     forM (gitIndexedRepos repoCtxt) $ \repo -> do
       uris <- remoteBinaryUris (Right repo)
-      mapM (fetchBinaryPackageDb verbosity repoCtxt etaVersion) uris
+      mapM (fetchBinaryPackageDb verbosity repoCtxt binariesPath etaVersion) uris
 
-cachedBinaryPackagePath :: URI -> FilePath
-cachedBinaryPackagePath uri =
-  defaultBinariesPath </> (fromJust $ getURIDomain uri) ++ uriPath uri
+cachedBinaryPackagePath :: FilePath -> URI -> FilePath
+cachedBinaryPackagePath binariesPath uri =
+  binariesPath </> (fromJust $ getURIDomain uri) ++ uriPath uri
 
-tryDownloadBinary :: Verbosity -> HttpTransport -> BinaryPackageDb -> PackageId
-                  -> IO (Maybe FilePath)
-tryDownloadBinary verbosity transport binaryPkgDb pkgid
+tryDownloadBinary :: Verbosity -> HttpTransport -> FilePath -> BinaryPackageDb
+                  -> PackageId -> IO (Maybe FilePath)
+tryDownloadBinary verbosity transport binariesPath binaryPkgDb pkgid
   | Just (uri:_) <- lookupBinaryPackageDb pkgid binaryPkgDb
-  = do let cached = cachedBinaryPackagePath uri
+  = do let cached = cachedBinaryPackagePath binariesPath uri
        exists <- doesFileExist cached
        if not exists
        then do
@@ -218,19 +218,22 @@ downloadURIAllowFail handler transport verbosity uri path =
   catch (downloadURI transport (lessVerbose verbosity) uri path >> return Nothing)
         (fmap Just . handler)
 
-checkAndDownloadVersionIndex :: HttpTransport -> Verbosity -> URIDomain -> URI -> Either String Version -> IO ()
-checkAndDownloadVersionIndex transport verbosity domain uri eVersion =
+checkAndDownloadVersionIndex :: Verbosity -> HttpTransport -> FilePath
+                             -> URIDomain -> URI -> Either String Version -> IO ()
+checkAndDownloadVersionIndex verbosity transport binariesPath domain uri eVersion =
   fmap (fromMaybe ()) $
     ifTrue (doesFileExist indexFile) $
       ifTrue ((any (== (eEtaVersion eVersion))) `fmap` readLines indexFile) $
-        fmap Just $ downloadVersionIndex transport verbosity domain uri eVersion
-  where indexFile = topLevelIndexFile domain
+        fmap Just $ downloadVersionIndex verbosity transport binariesPath
+                      domain uri eVersion
+  where indexFile = topLevelIndexFile binariesPath domain
 
-downloadVersionIndex :: HttpTransport -> Verbosity -> URIDomain -> URI -> Either String Version -> IO ()
-downloadVersionIndex transport verbosity domain uri eVersion = do
-  let pkgIdxFile         = packageIndexFile     domain eVersion
-      basePkgIdxFile     = basePackageIndexFile domain eVersion
-      etaBinaryIdxFile   = etaBinariesIndexFile domain eVersion
+downloadVersionIndex :: Verbosity -> HttpTransport -> FilePath -> URIDomain -> URI
+                     -> Either String Version -> IO ()
+downloadVersionIndex verbosity transport binariesPath domain uri eVersion = do
+  let pkgIdxFile         = packageIndexFile binariesPath domain eVersion
+      basePkgIdxFile     = basePackageIndexFile binariesPath domain eVersion
+      etaBinaryIdxFile   = etaBinariesIndexFile binariesPath domain eVersion
       msgWithVersion msg = "[" ++ userReadableVersion (eEtaVersion eVersion)
                         ++ "] Unable to download " ++ msg
   createDirectoryIfMissingVerbose verbosity True (takeDirectory pkgIdxFile)
@@ -263,3 +266,6 @@ ifTrue :: Monad m => m Bool -> m (Maybe a) -> m (Maybe a)
 ifTrue mb action = do
   b <- mb
   if b then action else return Nothing
+
+binariesDirFrom :: GlobalFlags -> FilePath
+binariesDirFrom globalFlags = fromFlag $ globalBinariesDir globalFlags

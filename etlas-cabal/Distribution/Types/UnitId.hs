@@ -103,7 +103,7 @@ mkLegacyUnitId = newSimpleUnitId . mkComponentId . display
 
 -- | Returns library name prefixed with HS, suitable for filenames
 getHSLibraryName :: UnitId -> String
-getHSLibraryName uid = "HS" ++ display uid
+getHSLibraryName uid = display uid
 
 -- | A 'UnitId' for a definite package.  The 'DefUnitId' invariant says
 -- that a 'UnitId' identified this way is definite; i.e., it has no

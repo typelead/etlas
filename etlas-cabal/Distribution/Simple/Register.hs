@@ -252,7 +252,7 @@ generateRegistrationInfo verbosity pkg lib lbi clbi inplace reloc binary distPre
   return installedPkgInfo
   where computeAbiHashFromJar = do
           buildContents <- getDirectoryContents (distPref </> "build")
-          let jarName = "HS" ++ (display (package pkg))
+          let jarName = display (package pkg)
           case filter (jarName `isPrefixOf`) buildContents of
             [x]
               | Just suffix <- stripPrefix (jarName ++ "-") x

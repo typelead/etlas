@@ -483,17 +483,19 @@ installLib    :: Verbosity
 installLib verbosity lbi targetDir _dynlibTargetDir builtDir _pkg lib clbi = do
   copyModuleFiles "hi"
   when hasLib $ do
-    mapM_ (installOrdinary builtDir targetDir) jarLibNames
+    mapM_ (installOrdinaryIfExists builtDir targetDir) jarLibNames
     mapM_ (installOrdinaryIfExists builtDir targetDir) ffiMapNames
   where
     installOrdinaryIfExists srcDir dstDir name = do
       exists <- doesFileExist $ srcDir </> name
       when exists $ installOrdinary srcDir dstDir name
+
     installOrdinary srcDir dstDir name = do
       createDirectoryIfMissingVerbose verbosity True dstDir
       installOrdinaryFile verbosity src dst
       where src = srcDir </> name
-            dst = dstDir </> name
+            dst = dstDir </> (fromMaybe name $ stripPrefix "HS" name)
+     -- The stripPrefix "HS" bit is for backwards compat
 
     copyModuleFiles ext =
       findModuleFiles [builtDir] [ext] (allLibModules lib clbi)
@@ -501,7 +503,7 @@ installLib verbosity lbi targetDir _dynlibTargetDir builtDir _pkg lib clbi = do
 
     _cid = compilerId (compiler lbi)
     libUids = [componentUnitId clbi]
-    jarLibNames = map mkJarName libUids
+    jarLibNames = map mkJarName libUids ++ map (("HS" ++) . mkJarName) libUids
     ffiMapNames = map mkFFIMapName libUids
 
     hasLib    = not $ null (allLibModules lib clbi)

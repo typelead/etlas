@@ -253,9 +253,12 @@ generateRegistrationInfo verbosity pkg lib lbi clbi inplace reloc binary distPre
   where computeAbiHashFromJar = do
           buildContents <- getDirectoryContents (distPref </> "build")
           let jarName = display (package pkg)
-          case filter (jarName `isPrefixOf`) buildContents of
+              hsJarName = "HS" ++ jarName -- For backwards compat
+          case filter (jarName `isPrefixOf`)   buildContents
+            ++ filter (hsJarName `isPrefixOf`) buildContents of
             [x]
               | Just suffix <- stripPrefix (jarName ++ "-") x
+                           <|> stripPrefix (hsJarName ++ "-") x
               , (hash,_) <- break (=='.') suffix
               -> return (mkAbiHash hash)
             _ -> die' verbosity $

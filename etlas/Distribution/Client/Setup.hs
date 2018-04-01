@@ -162,6 +162,7 @@ globalCommand commands = CommandUI {
           , "configure"
           , "reconfigure"
           , "build"
+          , "docs"
           , "clean"
           , "run"
           , "repl"
@@ -187,7 +188,6 @@ globalCommand commands = CommandUI {
           , "old-run"
           , "new-test"
           , "new-bench"
-          , "new-haddock"
           ]
         maxlen    = maximum $ [length name | (name, _) <- cmdDescs]
         align str = str ++ replicate (maxlen - length str) ' '
@@ -219,6 +219,7 @@ globalCommand commands = CommandUI {
         , par
         , addCmd "configure"
         , addCmd "build"
+        , addCmd "docs"
         , addCmd "deps"
         , addCmd "clean"
         , par
@@ -255,7 +256,6 @@ globalCommand commands = CommandUI {
         -- , addCmd "new-test"
         -- , addCmd "new-bench"
         , addCmd "old-freeze"
-        -- , addCmd "new-haddock"
         ] ++ if null otherCmds then [] else par
                                            :startGroup "other"
                                            :[addCmd n | n <- otherCmds])

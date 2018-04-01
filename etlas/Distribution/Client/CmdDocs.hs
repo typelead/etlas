@@ -1,11 +1,11 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
--- | etlas CLI command: haddock
+-- | etlas CLI command: docs
 --
-module Distribution.Client.CmdHaddock (
-    -- * The @haddock@ CLI and action
-    haddockCommand,
-    haddockAction,
+module Distribution.Client.CmdDocs (
+    -- * The @docs@ CLI and action
+    docsCommand,
+    docsAction,
 
     -- * Internals exposed for testing
     TargetProblem(..),
@@ -31,14 +31,14 @@ import Distribution.Simple.Utils
 import Control.Monad (when)
 
 
-haddockCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags
+docsCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags
                             ,HaddockFlags)
-haddockCommand = Client.installCommand {
-  commandName         = "new-haddock",
-  commandSynopsis     = "Build Haddock documentation",
-  commandUsage        = usageAlternatives "new-haddock" [ "[FLAGS] TARGET" ],
+docsCommand = Client.installCommand {
+  commandName         = "docs",
+  commandSynopsis     = "Build EtaDoc documentation",
+  commandUsage        = usageAlternatives "docs" [ "[FLAGS] TARGET" ],
   commandDescription  = Just $ \_ -> wrapText $
-        "Build Haddock documentation for the specified packages within the "
+        "Build EtaDocs documentation for the specified packages within the "
      ++ "project.\n\n"
 
      ++ "Any package in the project can be specified. If no package is "
@@ -56,7 +56,7 @@ haddockCommand = Client.installCommand {
      ++ "'cabal.project.local' and other files.",
   commandNotes        = Just $ \pname ->
         "Examples:\n"
-     ++ "  " ++ pname ++ " new-haddock pkgname"
+     ++ "  " ++ pname ++ " docs pkgname"
      ++ "    Build documentation for the package named pkgname\n\n"
 
      ++ cmdCommonHelpTextNewBuildBeta
@@ -64,14 +64,14 @@ haddockCommand = Client.installCommand {
    --TODO: [nice to have] support haddock on specific components, not just
    -- whole packages and the silly --executables etc modifiers.
 
--- | The @haddock@ command is TODO.
+-- | The @docs@ command is TODO.
 --
 -- For more details on how this works, see the module
 -- "Distribution.Client.ProjectOrchestration"
 --
-haddockAction :: (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
+docsAction :: (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
                  -> [String] -> GlobalFlags -> IO ()
-haddockAction (configFlags, configExFlags, installFlags, haddockFlags)
+docsAction (configFlags, configExFlags, installFlags, haddockFlags)
                 targetStrings globalFlags = do
 
     baseCtx <- establishProjectBaseContext verbosity cliConfig
@@ -84,10 +84,10 @@ haddockAction (configFlags, configExFlags, installFlags, haddockFlags)
 
             when (buildSettingOnlyDeps (buildSettings baseCtx)) $
               die' verbosity
-                "The haddock command does not support '--only-dependencies'."
+                "The docs command does not support '--only-dependencies'."
 
               -- When we interpret the targets on the command line, interpret them as
-              -- haddock targets
+              -- docs targets
             targets <- either (reportTargetProblems verbosity) return
                      $ resolveTargets
                          (selectPackageTargets haddockFlags)
@@ -112,11 +112,11 @@ haddockAction (configFlags, configExFlags, installFlags, haddockFlags)
                   globalFlags configFlags configExFlags
                   installFlags haddockFlags
 
--- | This defines what a 'TargetSelector' means for the @haddock@ command.
+-- | This defines what a 'TargetSelector' means for the @docs@ command.
 -- It selects the 'AvailableTarget's that the 'TargetSelector' refers to,
 -- or otherwise classifies the problem.
 --
--- For the @haddock@ command we select all buildable libraries. Additionally,
+-- For the @docs@ command we select all buildable libraries. Additionally,
 -- depending on the @--executables@ flag we also select all the buildable exes.
 -- We do similarly for test-suites, benchmarks and foreign libs.
 --
@@ -167,7 +167,7 @@ selectPackageTargets haddockFlags targetSelector targets
 -- | For a 'TargetComponent' 'TargetSelector', check if the component can be
 -- selected.
 --
--- For the @haddock@ command we just need the basic checks on being buildable
+-- For the @docs@ command we just need the basic checks on being buildable
 -- etc.
 --
 selectComponentTarget :: SubComponentTarget
@@ -178,7 +178,7 @@ selectComponentTarget subtarget =
 
 
 -- | The various error conditions that can occur when matching a
--- 'TargetSelector' against 'AvailableTarget's for the @haddock@ command.
+-- 'TargetSelector' against 'AvailableTarget's for the @docs@ command.
 --
 data TargetProblem =
      TargetProblemCommon       TargetProblemCommon

@@ -55,7 +55,7 @@ library
         Distribution.Client.CmdConfigure
         Distribution.Client.CmdDeps
         Distribution.Client.CmdFreeze
-        Distribution.Client.CmdHaddock
+        Distribution.Client.CmdDocs
         Distribution.Client.CmdRepl
         Distribution.Client.CmdRun
         Distribution.Client.CmdTest

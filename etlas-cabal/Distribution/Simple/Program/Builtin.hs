@@ -435,7 +435,7 @@ hscolourProgram = (simpleProgram "hscolour") {
   }
 
 haddockProgram :: Program
-haddockProgram = (simpleProgram "haddock") {
+haddockProgram = (simpleProgram "etadoc") {
     programFindVersion = findProgramVersion "--version" $ \str ->
       -- Invoking "haddock --version" gives a string like
       -- "Haddock version 0.8, (c) Simon Marlow 2006"

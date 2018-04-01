@@ -162,31 +162,27 @@ haddock pkg_descr lbi suffixes flags' = do
 
     (haddockProg, version, _) <-
       requireProgramVersion verbosity haddockProgram
-        (orLaterVersion (mkVersion [2,0])) (withPrograms lbi)
+        (orLaterVersion (mkVersion [0,1])) (withPrograms lbi)
 
-    -- various sanity checks
-    when ( flag haddockHoogle
-           && version < mkVersion [2,2]) $
-         die' verbosity "haddock 2.0 and 2.1 do not support the --hoogle flag."
-
-    haddockGhcVersionStr <- getProgramOutput verbosity haddockProg
-                              ["--ghc-version"]
-    case (simpleParse haddockGhcVersionStr, compilerCompatVersion GHC comp) of
-      (Nothing, _) -> die' verbosity "Could not get GHC version from Haddock"
-      (_, Nothing) -> die' verbosity "Could not get GHC version from compiler"
-      (Just haddockGhcVersion, Just ghcVersion)
-        | haddockGhcVersion == ghcVersion -> return ()
-        | otherwise -> die' verbosity $
-               "Haddock's internal GHC version must match the configured "
-            ++ "GHC version.\n"
-            ++ "The GHC version is " ++ display ghcVersion ++ " but "
-            ++ "haddock is using GHC version " ++ display haddockGhcVersion
+    -- haddockGhcVersionStr <- getProgramOutput verbosity haddockProg
+    --                           ["--eta-version"]
+    -- case (simpleParse haddockGhcVersionStr, compilerCompatVersion GHC comp) of
+    --   (Nothing, _) -> die' verbosity "Could not get GHC version from Haddock"
+    --   (_, Nothing) -> die' verbosity "Could not get GHC version from compiler"
+    --   (Just haddockGhcVersion, Just ghcVersion)
+    --     | haddockGhcVersion == ghcVersion -> return ()
+    --     | otherwise -> die' verbosity $
+    --            "Haddock's internal GHC version must match the configured "
+    --         ++ "GHC version.\n"
+    --         ++ "The GHC version is " ++ display ghcVersion ++ " but "
+    --         ++ "haddock is using GHC version " ++ display haddockGhcVersion
 
     -- the tools match the requests, we can proceed
 
-    when (flag haddockHscolour) $
-      hscolour' (warn verbosity) haddockTarget pkg_descr lbi suffixes
-      (defaultHscolourFlags `mappend` haddockToHscolour flags)
+    -- TODO: Handle HsColour
+    -- when (flag haddockHscolour) $
+    --   hscolour' (warn verbosity) haddockTarget pkg_descr lbi suffixes
+    --   (defaultHscolourFlags `mappend` haddockToHscolour flags)
 
     libdirArgs <- getGhcLibDir  verbosity lbi
     let commonArgs = mconcat
@@ -318,10 +314,11 @@ mkHaddockArgs verbosity tmp lbi clbi htmlTemplate haddockVersion inFiles bi = do
                           ghcOptStubDir    = toFlag tmp
                       } `mappend` getGhcCppOpts haddockVersion bi
         sharedOpts = vanillaOpts {
-                         ghcOptDynLinkMode = toFlag GhcDynamicOnly,
-                         ghcOptFPic        = toFlag True,
-                         ghcOptHiSuffix    = toFlag "dyn_hi",
-                         ghcOptObjSuffix   = toFlag "dyn_o",
+                         -- ghcOptDynLinkMode = toFlag GhcDynamicOnly,
+                         -- ghcOptFPic        = toFlag True,
+                         -- ghcOptHiSuffix    = toFlag "dyn_hi",
+                         -- ghcOptObjSuffix   = toFlag "dyn_o",
+                         ghcOptExtraDefault = toNubListR ["-staticlib"],
                          ghcOptExtra       =
                            toNubListR $ hcSharedOptions GHC bi
 
@@ -534,12 +531,9 @@ renderPureArgs version comp platform args = concat
     [ (:[]) . (\f -> "--dump-interface="++ unDir (argOutputDir args) </> f)
       . fromFlag . argInterfaceFile $ args
 
-    , if isVersion 2 16
-        then (\pkg -> [ "--package-name=" ++ display (pkgName pkg)
-                      , "--package-version="++display (pkgVersion pkg)
-                      ])
+    , (\pkg -> [ "--package-name=" ++ display (pkgName pkg)
+               , "--package-version="++display (pkgVersion pkg) ])
              . fromFlag . argPackageName $ args
-        else []
 
     , (\(All b,xs) -> bool (map (("--hide=" ++). display) xs) [] b)
                      . argHideModules $ args
@@ -548,9 +542,8 @@ renderPureArgs version comp platform args = concat
 
     , maybe [] (\(m,e,l) ->
                  ["--source-module=" ++ m
-                 ,"--source-entity=" ++ e]
-                 ++ if isVersion 2 14 then ["--source-entity-line=" ++ l]
-                    else []
+                 ,"--source-entity=" ++ e
+                 ,"--source-entity-line=" ++ l]
                ) . flagToMaybe . argLinkSource $ args
 
     , maybe [] ((:[]) . ("--css="++)) . flagToMaybe . argCssFile $ args
@@ -584,10 +577,8 @@ renderPureArgs version comp platform args = concat
         map (\(i,mh) -> "--read-interface=" ++
           maybe "" (++",") mh ++ i)
       bool a b c = if c then a else b
-      isVersion major minor  = version >= mkVersion [major,minor]
-      verbosityFlag
-       | isVersion 2 5 = "--verbosity=1"
-       | otherwise     = "--verbose"
+      verbosityFlag = "--verbosity=1"
+
 
 ---------------------------------------------------------------------------------
 

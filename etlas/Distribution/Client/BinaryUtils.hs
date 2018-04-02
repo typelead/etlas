@@ -298,16 +298,6 @@ downloadPrograms verbosity repoCtxt binariesPath domain uri version programs = d
     downloadURIWithMsg ("Failed to download executable '" ++ prog ++ "'.")
       transport verbosity (uriWithPath uri (etaProgPath prog eVersion)) progFile
     setFileExecutable progFile
-    when (prog == "eta") $ do
-      libPath <- (head . lines) <$>
-                   rawSystemStdout verbosity progFile ["--print-libdir"]
-      let commitFile = commitHashFile binariesPath domain eVersion
-      void $ downloadURIAllowFail (const $ return ())
-        transport verbosity (uriWithPath uri (commitHashPath eVersion)) commitFile
-      exists <- doesFileExist commitFile
-      when exists $ do
-        createDirectoryIfMissingVerbose verbosity True libPath
-        copyFileVerbose verbosity commitFile (libPath </> "commit-hash")
     return progFile
   where eVersion = Left version
 

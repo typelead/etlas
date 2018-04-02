@@ -84,9 +84,6 @@ readLines path = readFile path >>= return . filter (not . all isSpace) . lines
 
 -- URI Paths
 
-commitHashPath :: Either String Version -> FilePath
-commitHashPath version = eEtaVersion version </> "commit-hash"
-
 packageIndexPath :: Either String Version -> FilePath
 packageIndexPath version = eEtaVersion version </> "packages" </> "index"
 
@@ -122,10 +119,6 @@ uriWithPath uri path = uri { uriPath = joinBase $ map makeUniform path }
 topLevelIndexFile :: FilePath -> URIDomain -> FilePath
 topLevelIndexFile binariesPath uriName =
   binariesPath </> uriName </> topLevelIndexPath
-
-commitHashFile :: FilePath -> URIDomain -> Either String Version -> FilePath
-commitHashFile binariesPath uriName version =
-  binariesPath </> uriName </> eEtaVersion version </> "commit-hash"
 
 packageIndexFile :: FilePath -> URIDomain -> Either String Version -> FilePath
 packageIndexFile binariesPath uriName version =

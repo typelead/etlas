@@ -145,7 +145,7 @@ needBuildInfo pkg_descr bi modules = do
     -- A.hs-boot; need to track both.
     findNeededModules ["hs", "lhs", "hsig", "lhsig"]
     findNeededModules ["hs-boot", "lhs-boot"]
-    mapM_ needIfExists (cSources bi ++ jsSources bi)
+    mapM_ needIfExists (cSources bi ++ jsSources bi ++ javaSources bi)
     -- A MASSIVE HACK to (1) make sure we rebuild when header
     -- files change, but (2) not have to rebuild when anything
     -- in extra-src-files changes (most of these won't affect

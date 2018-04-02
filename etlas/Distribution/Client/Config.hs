@@ -1032,6 +1032,7 @@ parseConfig src initial = \str -> do
   where
     isKnownSection (ParseUtils.Section _ "repository" _ _)              = True
     isKnownSection (ParseUtils.F _ "remote-repo" _)                     = True
+    isKnownSection (ParseUtils.Section _ "docs" _ _)                  = True
     isKnownSection (ParseUtils.Section _ "haddock" _ _)                 = True
     isKnownSection (ParseUtils.Section _ "install-dirs" _ _)            = True
     isKnownSection (ParseUtils.Section _ "program-locations" _ _)       = True
@@ -1060,11 +1061,18 @@ parseConfig src initial = \str -> do
       return (r':rs, h, u, g, p, a)
 
     parseSections accum@(rs, h, u, g, p, a)
+                 (ParseUtils.Section _ "docs" name fs)
+      | name == ""        = do h' <- parseFields haddockFlagsFields h fs
+                               return (rs, h', u, g, p, a)
+      | otherwise         = do
+          warning "The 'etadoc' section should be unnamed"
+          return accum
+    parseSections accum@(rs, h, u, g, p, a)
                  (ParseUtils.Section _ "haddock" name fs)
       | name == ""        = do h' <- parseFields haddockFlagsFields h fs
                                return (rs, h', u, g, p, a)
       | otherwise         = do
-          warning "The 'haddock' section should be unnamed"
+          warning "The 'etadoc' section should be unnamed"
           return accum
     parseSections accum@(rs, h, u, g, p, a)
                   (ParseUtils.Section _ "install-dirs" name fs)
@@ -1107,7 +1115,7 @@ showConfigWithComments comment vals = Disp.render $
   $+$ ppFields (skipSomeFields (configFieldDescriptions ConstraintSourceUnknown))
                mcomment vals
   $+$ Disp.text ""
-  $+$ ppSection "haddock" "" haddockFlagsFields
+  $+$ ppSection "docs" "" haddockFlagsFields
                 (fmap savedHaddockFlags mcomment) (savedHaddockFlags vals)
   $+$ Disp.text ""
   $+$ installDirsSection "user"   savedUserInstallDirs

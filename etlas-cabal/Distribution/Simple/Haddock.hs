@@ -211,7 +211,7 @@ haddock pkg_descr lbi suffixes flags' = do
         -- we don't say we are running Haddock when we actually aren't
         -- (e.g., Haddock is not run on non-libraries)
         smsg :: IO ()
-        smsg = setupMessage' verbosity "Running Haddock on" (packageId pkg_descr)
+        smsg = setupMessage' verbosity "Running EtaDoc on" (packageId pkg_descr)
                 (componentLocalName clbi) (maybeComponentInstantiatedWith clbi)
       case component of
         CLib lib -> do
@@ -290,7 +290,7 @@ componentGhcOptions verbosity lbi bi clbi odir =
             Eta   -> Eta.componentGhcOptions
             _     -> error $
                        "Distribution.Simple.Haddock.componentGhcOptions:" ++
-                       "haddock only supports GHC, GHCJS, and Eta"
+                       "etadoc only supports GHC, GHCJS, and Eta"
   in f verbosity lbi bi clbi odir
 
 mkHaddockArgs :: Verbosity
@@ -311,24 +311,20 @@ mkHaddockArgs verbosity tmp lbi clbi htmlTemplate haddockVersion inFiles bi = do
                           -- haddock to write them elsewhere.
                           ghcOptObjDir     = toFlag tmp,
                           ghcOptHiDir      = toFlag tmp,
-                          ghcOptStubDir    = toFlag tmp
+                          ghcOptStubDir    = toFlag tmp,
+                          ghcOptExtraDefault = toNubListR ["-staticlib"]
                       } `mappend` getGhcCppOpts haddockVersion bi
         sharedOpts = vanillaOpts {
-                         -- ghcOptDynLinkMode = toFlag GhcDynamicOnly,
-                         -- ghcOptFPic        = toFlag True,
-                         -- ghcOptHiSuffix    = toFlag "dyn_hi",
-                         -- ghcOptObjSuffix   = toFlag "dyn_o",
                          ghcOptExtraDefault = toNubListR ["-staticlib"],
                          ghcOptExtra       =
                            toNubListR $ hcSharedOptions GHC bi
-
                      }
     opts <- if withVanillaLib lbi
             then return vanillaOpts
             else if withSharedLib lbi
             then return sharedOpts
             else die' verbosity $ "Must have vanilla or shared libraries "
-                       ++ "enabled in order to run haddock"
+                       ++ "enabled in order to run etadoc"
     ghcVersion <- maybe (die' verbosity "Compiler has no GHC version")
                         return
                         (compilerCompatVersion GHC (compiler lbi))
@@ -429,7 +425,7 @@ getGhcCppOpts haddockVersion bi =
   where
     needsCpp             = EnableExtension CPP `elem` usedExtensions bi
     defines              = [haddockVersionMacro]
-    haddockVersionMacro  = "-D__HADDOCK_VERSION__="
+    haddockVersionMacro  = "-D__ETADOC_VERSION__="
                            ++ show (v1 * 1000 + v2 * 10 + v3)
       where
         [v1, v2, v3] = take 3 $ versionNumbers haddockVersion ++ [0,0]
@@ -441,7 +437,7 @@ getGhcLibDir verbosity lbi = do
             GHC   -> GHC.getLibDir   verbosity lbi
             GHCJS -> GHCJS.getLibDir verbosity lbi
             Eta   -> Eta.getLibDir   verbosity (withPrograms lbi)
-            _     -> error "haddock only supports GHC and GHCJS"
+            _     -> error "etadoc only supports GHC, GHCJS, and Eta"
     return $ mempty { argGhcLibDir = Flag l }
 
 -- ------------------------------------------------------------------------------
@@ -454,7 +450,7 @@ runHaddock :: Verbosity
               -> HaddockArgs
               -> IO ()
 runHaddock verbosity tmpFileOpts comp platform haddockProg args = do
-  let haddockVersion = fromMaybe (error "unable to determine haddock version")
+  let haddockVersion = fromMaybe (error "unable to determine etadoc version")
                        (programVersion haddockProg)
   renderArgs verbosity tmpFileOpts haddockVersion comp platform args $
     \(flags,result)-> do
@@ -476,7 +472,7 @@ renderArgs verbosity tmpFileOpts version comp platform args k = do
   let haddockSupportsUTF8          = version >= mkVersion [2,14,4]
       haddockSupportsResponseFiles = version >  mkVersion [2,16,2]
   createDirectoryIfMissingVerbose verbosity True outputDir
-  withTempFileEx tmpFileOpts outputDir "haddock-prologue.txt" $
+  withTempFileEx tmpFileOpts outputDir "etadoc-prologue.txt" $
     \prologueFileName h -> do
           do
              when haddockSupportsUTF8 (hSetEncoding h utf8)
@@ -486,7 +482,7 @@ renderArgs verbosity tmpFileOpts version comp platform args k = do
                  renderedArgs = pflag : renderPureArgs version comp platform args
              if haddockSupportsResponseFiles
                then
-                 withTempFileEx tmpFileOpts outputDir "haddock-response.txt" $
+                 withTempFileEx tmpFileOpts outputDir "etadoc-response.txt" $
                     \responseFileName hf -> do
                          when haddockSupportsUTF8 (hSetEncoding hf utf8)
                          let responseContents =
@@ -797,7 +793,7 @@ getSourceFiles verbosity dirs modules = flip traverse modules $ \m -> fmap ((,) 
     findFileWithExtension ["hs", "lhs", "hsig", "lhsig"] dirs (ModuleName.toFilePath m)
       >>= maybe (notFound m) (return . normalise)
   where
-    notFound module_ = die' verbosity $ "haddock: can't find source for module " ++ display module_
+    notFound module_ = die' verbosity $ "etadoc: can't find source for module " ++ display module_
 
 -- | The directory where we put build results for an executable
 exeBuildDir :: LocalBuildInfo -> Executable -> FilePath

@@ -175,7 +175,7 @@ globalCommand commands = CommandUI {
           , "freeze"
           , "gen-bounds"
           , "outdated"
-          , "haddock"
+          , "docs"
           , "hscolour"
           , "copy"
           , "register"
@@ -186,6 +186,7 @@ globalCommand commands = CommandUI {
           , "new-repl"
           , "old-freeze"
           , "old-run"
+          , "old-docs"
           , "new-test"
           , "new-bench"
           ]
@@ -236,7 +237,7 @@ globalCommand commands = CommandUI {
         , addCmd "freeze"
         , addCmd "gen-bounds"
         , addCmd "outdated"
-        , addCmd "haddock"
+        , addCmd "docs"
         , addCmd "hscolour"
         , addCmd "copy"
         , addCmd "register"
@@ -251,6 +252,7 @@ globalCommand commands = CommandUI {
         , addCmd "old-build"
         , addCmd "old-configure"
         , addCmd "old-deps"
+        , addCmd "old-docs"
         -- , addCmd "new-repl"
         , addCmd "old-run"
         -- , addCmd "new-test"
@@ -1523,7 +1525,7 @@ instance Binary InstallFlags
 
 defaultInstallFlags :: InstallFlags
 defaultInstallFlags = InstallFlags {
-    installDocumentation         = Flag False,
+    installDocumentation         = mempty,
     installHaddockIndex          = Flag docIndexFile,
     installDryRun                = Flag False,
     installMaxBackjumps          = Flag defaultMaxBackjumps,
@@ -1618,7 +1620,7 @@ installCommand = CommandUI {
      ++ "    Specific version of a package\n"
      ++ "  " ++ pname ++ " install 'foo < 2'       "
      ++ "    Constrained package version\n"
-     ++ "  " ++ pname ++ " install haddock --bindir=$HOME/hask-bin/ --datadir=$HOME/hask-data/\n"
+     ++ "  " ++ pname ++ " install etadoc --bindir=$HOME/hask-bin/ --datadir=$HOME/hask-data/\n"
      ++ "  " ++ (map (const ' ') pname)
                       ++ "                         "
      ++ "    Change installation destination\n",
@@ -1644,8 +1646,8 @@ installCommand = CommandUI {
 
 haddockOptions :: ShowOrParseArgs -> [OptionField HaddockFlags]
 haddockOptions showOrParseArgs
-  = [ opt { optionName = "haddock-" ++ name,
-            optionDescr = [ fmapOptFlags (\(_, lflags) -> ([], map ("haddock-" ++) lflags)) descr
+  = [ opt { optionName = "docs-" ++ name,
+            optionDescr = [ fmapOptFlags (\(_, lflags) -> ([], map ("docs-" ++) lflags)) descr
                           | descr <- optionDescr opt] }
     | opt <- commandOptions Cabal.haddockCommand showOrParseArgs
     , let name = optionName opt
@@ -1669,7 +1671,7 @@ installOptions showOrParseArgs =
           (boolOpt [] [])
 
       , option [] ["doc-index-file"]
-          "A central index of haddock API documentation (template cannot use $pkgid)"
+          "A central index of etadoc API documentation (template cannot use $pkgid)"
           installHaddockIndex (\v flags -> flags { installHaddockIndex = v })
           (reqArg' "TEMPLATE" (toFlag.toPathTemplate)
                               (flagToList . fmap fromPathTemplate))

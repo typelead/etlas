@@ -45,11 +45,11 @@ regenerateHaddockIndex verbosity pkgs progdb index = do
 
       (confHaddock, _, _) <-
           requireProgramVersion verbosity haddockProgram
-                                    (orLaterVersion (mkVersion [0,6])) progdb
+                                    (orLaterVersion (mkVersion [0,1])) progdb
 
       createDirectoryIfMissing True destDir
 
-      withTempDirectory verbosity destDir "tmphaddock" $ \tempDir -> do
+      withTempDirectory verbosity destDir "tmpdocs" $ \tempDir -> do
 
         let flags = [ "--gen-contents"
                     , "--gen-index"

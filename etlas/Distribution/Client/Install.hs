@@ -938,7 +938,7 @@ regenerateHaddockIndex verbosity packageDBs comp platform progdb useSandbox
   | otherwise = return ()
   where
     haddockIndexFileIsRequested =
-         fromFlag (installDocumentation installFlags)
+         fromFlagOrDefault False (installDocumentation installFlags)
       && isJust (flagToMaybe (installHaddockIndex installFlags))
 
     -- We want to regenerate the index if some new documentation was actually
@@ -1495,7 +1495,7 @@ installUnpackedPackage verbosity installLock numJobs
       buildDistPref  = configDistPref configFlags,
       buildVerbosity = toFlag verbosity'
     }
-    shouldHaddock    = fromFlag (installDocumentation installFlags)
+    shouldHaddock    = fromFlagOrDefault False (installDocumentation installFlags)
     haddockFlags' _   = haddockFlags {
       haddockVerbosity = toFlag verbosity',
       haddockDistPref  = configDistPref configFlags

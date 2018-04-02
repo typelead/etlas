@@ -757,7 +757,6 @@ waitAsyncPackageDownload verbosity downloadMap elab = do
 
 data DownloadedSourceLocation = DownloadedTarball    FilePath
                               | DownloadedRepository FilePath
-                              --TODO: [nice to have] git/darcs repos etc
 
 downloadedSourceLocation :: PackageLocation FilePath
                          -> Maybe DownloadedSourceLocation
@@ -943,6 +942,13 @@ buildAndInstallUnpackedPackage verbosity
     annotateFailure mlogFile BuildFailed $
       setup buildCommand buildFlags
 
+    -- Haddock phase
+    whenHaddock $ do
+      when isParallelBuild $
+        notice verbosity $ "Generating " ++ dispname ++ " documentation..."
+      annotateFailureNoLog HaddocksFailed $
+        setup haddockCommand haddockFlags
+
     -- Install phase
     annotateFailure mlogFile InstallFailed $ do
 
@@ -1029,6 +1035,10 @@ buildAndInstallUnpackedPackage verbosity
 
     isParallelBuild = buildSettingNumJobs >= 2
 
+    whenHaddock action
+      | elabBuildHaddocks pkg = action
+      | otherwise             = return ()
+
     configureCommand = Cabal.configureCommand defaultProgramDb
     configureFlags v = flip filterConfigureFlags v $
                        setupHsConfigureFlags rpkg pkgshared
@@ -1037,6 +1047,10 @@ buildAndInstallUnpackedPackage verbosity
 
     buildCommand     = Cabal.buildCommand defaultProgramDb
     buildFlags   _   = setupHsBuildFlags pkg pkgshared verbosity builddir
+
+    haddockCommand   = Cabal.haddockCommand
+    haddockFlags _   = setupHsHaddockFlags pkg pkgshared
+                                           verbosity builddir
 
     generateInstalledPackageInfo :: IO InstalledPackageInfo
     generateInstalledPackageInfo =
@@ -1254,9 +1268,11 @@ buildInplaceUnpackedPackage verbosity
     whenReRegister  action
       = case buildStatus of
           -- We registered the package already
-          BuildStatusBuild (Just _) _     -> return ()
+          BuildStatusBuild (Just _) _     ->
+            info verbosity "whenReRegister: previously registered"
           -- There is nothing to register
-          _ | null (elabBuildTargets pkg) -> return ()
+          _ | null (elabBuildTargets pkg) ->
+              info verbosity "whenReRegister: nothing to register"
             | otherwise                   -> action
 
     configureCommand = Cabal.configureCommand defaultProgramDb

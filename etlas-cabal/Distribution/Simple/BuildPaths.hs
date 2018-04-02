@@ -105,7 +105,7 @@ autogenPathsModuleName pkg_descr =
         fixchar c   = c
 
 haddockName :: PackageDescription -> FilePath
-haddockName pkg_descr = display (packageName pkg_descr) <.> "haddock"
+haddockName pkg_descr = display (packageName pkg_descr) <.> "etadoc"
 
 -- ---------------------------------------------------------------------------
 -- Library file names

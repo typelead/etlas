@@ -40,9 +40,7 @@ desugarBuildTool pkg led =
     LegacyExeDependency name reqVer = led
     toolName = mkUnqualComponentName name
     foundLocal = toolName `elem` map exeName (executables pkg)
-    whitelist = [ "hscolour", "haddock", "happy", "alex", "hsc2hs", "c2hs"
-                , "cpphs", "greencard", "hspec-discover"
-                ]
+    whitelist = [ "etadoc", "happy", "alex", "hspec-discover" ]
     whiteMap  = Map.fromList $ flip map whitelist $ \n ->
       (n, ExeDependency (mkPackageName n) (mkUnqualComponentName n) reqVer)
 

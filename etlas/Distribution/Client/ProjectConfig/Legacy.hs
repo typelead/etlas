@@ -466,7 +466,10 @@ convertToLegacySharedConfig :: ProjectConfig -> LegacySharedConfig
 convertToLegacySharedConfig
     ProjectConfig {
       projectConfigBuildOnly     = ProjectConfigBuildOnly {..},
-      projectConfigShared        = ProjectConfigShared {..}
+      projectConfigShared        = ProjectConfigShared {..},
+      projectConfigAllPackages   = PackageConfig {
+        packageConfigDocumentation
+      }
     } =
 
     LegacySharedConfig {
@@ -515,7 +518,7 @@ convertToLegacySharedConfig
     }
 
     installFlags = InstallFlags {
-      installDocumentation         = mempty,
+      installDocumentation         = packageConfigDocumentation,
       installHaddockIndex          = projectConfigHaddockIndex,
       installDryRun                = projectConfigDryRun,
       installReinstall             = mempty, --projectConfigReinstall,
@@ -982,7 +985,7 @@ legacyPackageConfigFieldDescrs =
       legacyHaddockFlags
       (\flags conf -> conf { legacyHaddockFlags = flags })
   . mapFieldNames
-      ("haddock-"++)
+      ("docs-"++)
   . filterFields
       [ "hoogle", "html", "html-location"
       , "foreign-libraries"

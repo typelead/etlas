@@ -973,7 +973,12 @@ installDirsOptions =
       installDirArg
 
   , option "" ["haddockdir"]
-      "installation directory for haddock interfaces"
+      "installation directory for etadoc interfaces"
+      haddockdir (\v flags -> flags { haddockdir = v })
+      installDirArg
+
+  , option "" ["etadocdir"]
+      "installation directory for etadoc interfaces"
       haddockdir (\v flags -> flags { haddockdir = v })
       installDirArg
 
@@ -1535,13 +1540,13 @@ defaultHaddockFlags  = HaddockFlags {
 
 haddockCommand :: CommandUI HaddockFlags
 haddockCommand = CommandUI
-  { commandName         = "haddock"
-  , commandSynopsis     = "Generate Haddock HTML documentation."
+  { commandName         = "docs"
+  , commandSynopsis     = "Generate EtaDoc HTML documentation."
   , commandDescription  = Just $ \_ ->
-      "Requires the program haddock, version 2.x.\n"
+      "Requires the program etadoc, version 0.1.x.\n"
   , commandNotes        = Nothing
   , commandUsage        = \pname ->
-      "Usage: " ++ pname ++ " haddock [FLAGS]\n"
+      "Usage: " ++ pname ++ " docs [FLAGS]\n"
   , commandDefaultFlags = defaultHaddockFlags
   , commandOptions      = \showOrParseArgs ->
          haddockOptions showOrParseArgs
@@ -1591,27 +1596,27 @@ haddockOptions showOrParseArgs =
    (noArg (Flag ForHackage))
 
   ,option "" ["executables"]
-   "Run haddock for Executables targets"
+   "Run etadoc for Executables targets"
    haddockExecutables (\v flags -> flags { haddockExecutables = v })
    trueArg
 
   ,option "" ["tests"]
-   "Run haddock for Test Suite targets"
+   "Run etadoc for Test Suite targets"
    haddockTestSuites (\v flags -> flags { haddockTestSuites = v })
    trueArg
 
   ,option "" ["benchmarks"]
-   "Run haddock for Benchmark targets"
+   "Run etadoc for Benchmark targets"
    haddockBenchmarks (\v flags -> flags { haddockBenchmarks = v })
    trueArg
 
   ,option "" ["foreign-libraries"]
-   "Run haddock for Foreign Library targets"
+   "Run etadoc for Foreign Library targets"
    haddockForeignLibs (\v flags -> flags { haddockForeignLibs = v })
    trueArg
 
   ,option "" ["all"]
-   "Run haddock for all targets"
+   "Run etadoc for all targets"
    (\f -> allFlags [ haddockExecutables f
                    , haddockTestSuites  f
                    , haddockBenchmarks  f
@@ -1625,12 +1630,12 @@ haddockOptions showOrParseArgs =
          trueArg
 
   ,option "" ["internal"]
-   "Run haddock for internal modules and include all symbols"
+   "Run etadoc for internal modules and include all symbols"
    haddockInternal (\v flags -> flags { haddockInternal = v })
    trueArg
 
   ,option "" ["css"]
-   "Use PATH as the haddock stylesheet"
+   "Use PATH as the etadoc stylesheet"
    haddockCss (\v flags -> flags { haddockCss = v })
    (reqArgFlag "PATH")
 

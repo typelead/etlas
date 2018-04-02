@@ -61,24 +61,7 @@ instance Binary PkgConfigDb
 -- with their versions. Return a `PkgConfigDb` encapsulating this
 -- information.
 readPkgConfigDb :: Verbosity -> ProgramDb -> IO PkgConfigDb
-readPkgConfigDb verbosity progdb = handle ioErrorHandler $ do
-  (pkgConfig, _) <- requireProgram verbosity pkgConfigProgram progdb
-  pkgList <- lines <$> getProgramOutput verbosity pkgConfig ["--list-all"]
-  -- The output of @pkg-config --list-all@ also includes a description
-  -- for each package, which we do not need.
-  let pkgNames = map (takeWhile (not . isSpace)) pkgList
-  pkgVersions <- lines <$> getProgramOutput verbosity pkgConfig
-                             ("--modversion" : pkgNames)
-  (return . pkgConfigDbFromList . zip pkgNames) pkgVersions
-      where
-        -- For when pkg-config invocation fails (possibly because of a
-        -- too long command line).
-        ioErrorHandler :: IOException -> IO PkgConfigDb
-        ioErrorHandler e = do
-          info verbosity ("Failed to query pkg-config, Cabal will continue"
-                          ++ " without solving for pkg-config constraints: "
-                          ++ show e)
-          return NoPkgConfigDb
+readPkgConfigDb _verbosity _progdb = return $ pkgConfigDbFromList []
 
 -- | Create a `PkgConfigDb` from a list of @(packageName, version)@ pairs.
 pkgConfigDbFromList :: [(String, String)] -> PkgConfigDb

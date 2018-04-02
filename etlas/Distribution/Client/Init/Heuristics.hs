@@ -215,7 +215,6 @@ knownSuffixHandlers =
   [ ("x",      "alex")
   , ("y",      "happy")
   , ("ly",     "happy")
-  , ("cpphs",  "cpp")
   ]
 
 sourceExtensions :: [String]

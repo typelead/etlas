@@ -86,38 +86,14 @@ builtinPrograms :: [Program]
 builtinPrograms =
     [
     -- compilers and related progs
-      ghcProgram
-    , runghcProgram
-    , ghcPkgProgram
-    , ghcjsProgram
-    , ghcjsPkgProgram
     , etaProgram
     , etaPkgProgram
-    , haskellSuiteProgram
-    , haskellSuitePkgProgram
-    , hmakeProgram
-    , jhcProgram
-    , lhcProgram
-    , lhcPkgProgram
-    , uhcProgram
-    , hpcProgram
     -- preprocessors
-    , hscolourProgram
     , haddockProgram
     , happyProgram
     , alexProgram
-    , hsc2hsProgram
-    , c2hsProgram
-    , cpphsProgram
-    , greencardProgram
     -- platform toolchain
-    , gccProgram
-    , arProgram
-    , stripProgram
-    , ldProgram
     , tarProgram
-    -- configuration tools
-    , pkgConfigProgram
     -- Eta-specific tools
     , javaProgram
     , javacProgram

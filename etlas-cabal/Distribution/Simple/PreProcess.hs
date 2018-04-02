@@ -614,6 +614,7 @@ ppHappy _ lbi _ = pp { platformIndependent = True }
   where pp = standardPP lbi happyProgram (hcFlags hc)
         hc = compilerFlavor (compiler lbi)
         hcFlags GHC = ["-agc"]
+        hcFlags Eta = ["-agc"]
         hcFlags GHCJS = ["-agc"]
         hcFlags _ = []
 
@@ -622,6 +623,7 @@ ppAlex _ lbi _ = pp { platformIndependent = True }
   where pp = standardPP lbi alexProgram (hcFlags hc)
         hc = compilerFlavor (compiler lbi)
         hcFlags GHC = ["-g"]
+        hcFlags Eta = ["-g"]
         hcFlags GHCJS = ["-g"]
         hcFlags _ = []
 
@@ -641,13 +643,9 @@ ppSuffixes = map fst
 -- |Standard preprocessors: GreenCard, c2hs, hsc2hs, happy, alex and cpphs.
 knownSuffixHandlers :: [ PPSuffixHandler ]
 knownSuffixHandlers =
-  [ ("gc",     ppGreenCard)
-  , ("chs",    ppC2hs)
-  , ("hsc",    ppHsc2hs)
-  , ("x",      ppAlex)
+  [ ("x",      ppAlex)
   , ("y",      ppHappy)
   , ("ly",     ppHappy)
-  , ("cpphs",  ppCpp)
   ]
 
 -- |Standard preprocessors with possible extra C sources: c2hs, hsc2hs.

@@ -86,7 +86,7 @@ builtinPrograms :: [Program]
 builtinPrograms =
     [
     -- compilers and related progs
-    , etaProgram
+      etaProgram
     , etaPkgProgram
     -- preprocessors
     , haddockProgram

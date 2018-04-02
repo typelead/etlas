@@ -200,7 +200,7 @@ buildComponent verbosity numJobs pkg_descr lbi suffixes
     setupMessage' verbosity "Building" (packageId pkg_descr)
       (componentLocalName clbi) (maybeComponentInstantiatedWith clbi)
     let libbi = libBuildInfo lib
-        lib' = lib { libBuildInfo = addExtraCSources libbi extras }
+        lib' = lib
     buildLib verbosity numJobs pkg_descr lbi lib' clbi
 
     let oneComponentRequested (OneComponentRequestedSpec _) = True
@@ -242,7 +242,7 @@ buildComponent verbosity numJobs pkg_descr lbi suffixes
     setupMessage' verbosity "Building" (packageId pkg_descr)
       (componentLocalName clbi) (maybeComponentInstantiatedWith clbi)
     let ebi = buildInfo exe
-        exe' = exe { buildInfo = addExtraCSources ebi extras }
+        exe' = exe
     buildExe verbosity numJobs pkg_descr lbi exe' clbi
     return Nothing
 
@@ -255,7 +255,7 @@ buildComponent verbosity numJobs pkg_descr lbi suffixes
     setupMessage' verbosity "Building" (packageId pkg_descr)
       (componentLocalName clbi) (maybeComponentInstantiatedWith clbi)
     let ebi = buildInfo exe
-        exe' = exe { buildInfo = addExtraCSources ebi extras }
+        exe' = exe
     buildExe verbosity numJobs pkg_descr lbi exe' clbi
     return Nothing
 
@@ -285,7 +285,7 @@ buildComponent verbosity numJobs pkg_descr lbi0 suffixes
                       HcPkg.registerMultiInstance = True
                     }
     let ebi = buildInfo exe
-        exe' = exe { buildInfo = addExtraCSources ebi extras }
+        exe' = exe
     buildExe verbosity numJobs pkg_descr lbi exe' exeClbi
     return Nothing -- Can't depend on test suite
 
@@ -304,7 +304,7 @@ buildComponent verbosity numJobs pkg_descr lbi suffixes
     setupMessage' verbosity "Building" (packageId pkg_descr)
       (componentLocalName clbi) (maybeComponentInstantiatedWith clbi)
     let ebi = buildInfo exe
-        exe' = exe { buildInfo = addExtraCSources ebi extras }
+        exe' = exe
     buildExe verbosity numJobs pkg_descr lbi exe' exeClbi
     return Nothing
 
@@ -336,7 +336,7 @@ replComponent verbosity pkg_descr lbi suffixes
                comp@(CLib lib) clbi _ = do
     preprocessComponent pkg_descr comp lbi clbi False verbosity suffixes
     let libbi = libBuildInfo lib
-        lib' = lib { libBuildInfo = libbi { cSources = cSources libbi ++ extras } }
+        lib' = lib
     replLib verbosity pkg_descr lbi lib' clbi
 
 replComponent verbosity pkg_descr lbi suffixes
@@ -348,7 +348,7 @@ replComponent verbosity pkg_descr lbi suffixes
                comp@(CExe exe) clbi _ = do
     preprocessComponent pkg_descr comp lbi clbi False verbosity suffixes
     let ebi = buildInfo exe
-        exe' = exe { buildInfo = ebi { cSources = cSources ebi ++ extras } }
+        exe' = exe
     replExe verbosity pkg_descr lbi exe' clbi
 
 
@@ -358,7 +358,7 @@ replComponent verbosity pkg_descr lbi suffixes
     let exe = testSuiteExeV10AsExe test
     preprocessComponent pkg_descr comp lbi clbi False verbosity suffixes
     let ebi = buildInfo exe
-        exe' = exe { buildInfo = ebi { cSources = cSources ebi ++ extras } }
+        exe' = exe
     replExe verbosity pkg_descr lbi exe' clbi
 
 
@@ -371,7 +371,7 @@ replComponent verbosity pkg_descr lbi0 suffixes
           testSuiteLibV09AsLibAndExe pkg_descr test clbi lbi0 distPref pwd
     preprocessComponent pkg_descr comp lbi clbi False verbosity suffixes
     let libbi = libBuildInfo lib
-        lib' = lib { libBuildInfo = libbi { cSources = cSources libbi ++ extras } }
+        lib' = lib
     replLib verbosity pkg lbi lib' libClbi
 
 
@@ -387,7 +387,7 @@ replComponent verbosity pkg_descr lbi suffixes
     let (exe, exeClbi) = benchmarkExeV10asExe bm clbi
     preprocessComponent pkg_descr comp lbi clbi False verbosity suffixes
     let ebi = buildInfo exe
-        exe' = exe { buildInfo = ebi { cSources = cSources ebi ++ extras } }
+        exe' = exe
     replExe verbosity pkg_descr lbi exe' exeClbi
 
 

@@ -3395,7 +3395,7 @@ packageHashInputs
           ElabPackage _ -> Nothing
           ElabComponent comp -> Just (compSolverName comp),
       pkgHashSourceHash  = srchash,
-      pkgHashPkgConfigDeps = Set.fromList (elabPkgConfigDependencies elab),
+      -- pkgHashPkgConfigDeps = Set.fromList (elabPkgConfigDependencies elab),
       pkgHashDirectDeps  =
         case elabPkgOrComp elab of
           ElabPackage (ElaboratedPackage{..}) ->
@@ -3436,7 +3436,7 @@ packageHashConfigInputs
     PackageHashConfigInputs {
       pkgHashCompilerId          = compilerId pkgConfigCompiler,
       pkgHashCompilerCommit      = compilerCommit pkgConfigCompiler,
-      pkgHashPlatform            = pkgConfigPlatform,
+      -- pkgHashPlatform            = pkgConfigPlatform,
       pkgHashFlagAssignment      = elabFlagAssignment,
       pkgHashConfigureScriptArgs = elabConfigureScriptArgs,
       pkgHashVanillaLib          = elabVanillaLib,

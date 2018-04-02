@@ -181,7 +181,6 @@ defaultDistDirLayout projectRoot mdistDirectory =
     distBuildRootDirectory   = distDirectory </> "build"
     distBuildDirectory params =
         distBuildRootDirectory </>
-        display (distParamPlatform params) </>
         display (distParamCompilerId params) </>
         display (distParamPackageId params) </>
         (case distParamComponentName params of

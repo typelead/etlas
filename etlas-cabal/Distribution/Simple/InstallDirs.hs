@@ -447,11 +447,7 @@ platformTemplateEnv (Platform arch os) =
 
 abiTemplateEnv :: CompilerInfo -> Platform -> PathTemplateEnv
 abiTemplateEnv compiler (Platform arch os) =
-  [(AbiVar,      PathTemplate [Ordinary $ display arch ++ '-':display os ++
-                                          '-':display (compilerInfoId compiler) ++
-                                          case compilerInfoAbiTag compiler of
-                                            NoAbiTag   -> ""
-                                            AbiTag tag -> '-':tag])
+  [(AbiVar,      PathTemplate [Ordinary $ display (compilerInfoId compiler)])
   ,(AbiTagVar,   PathTemplate [Ordinary $ abiTagString (compilerInfoAbiTag compiler)])
   ]
 

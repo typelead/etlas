@@ -144,7 +144,7 @@ data PackageHashInputs = PackageHashInputs {
        pkgHashPkgId         :: PackageId,
        pkgHashComponent     :: Maybe CD.Component,
        pkgHashSourceHash    :: PackageSourceHash,
-       pkgHashPkgConfigDeps :: Set (PkgconfigName, Maybe Version),
+       -- pkgHashPkgConfigDeps :: Set (PkgconfigName, Maybe Version),
        pkgHashDirectDeps    :: Set InstalledPackageId,
        pkgHashOtherConfig   :: PackageHashConfigInputs
      }
@@ -157,7 +157,7 @@ type PackageSourceHash = HashValue
 data PackageHashConfigInputs = PackageHashConfigInputs {
        pkgHashCompilerId          :: CompilerId,
        pkgHashCompilerCommit      :: String,
-       pkgHashPlatform            :: Platform,
+       -- pkgHashPlatform            :: Platform,
        pkgHashFlagAssignment      :: FlagAssignment, -- complete not partial
        pkgHashConfigureScriptArgs :: [String], -- just ./configure for build-type Configure
        pkgHashVanillaLib          :: Bool,
@@ -203,7 +203,7 @@ renderPackageHashInputs PackageHashInputs{
                           pkgHashComponent,
                           pkgHashSourceHash,
                           pkgHashDirectDeps,
-                          pkgHashPkgConfigDeps,
+                          -- pkgHashPkgConfigDeps,
                           pkgHashOtherConfig =
                             PackageHashConfigInputs{..}
                         } =
@@ -225,18 +225,18 @@ renderPackageHashInputs PackageHashInputs{
       [ entry "pkgid"       display pkgHashPkgId
       , mentry "component"  show pkgHashComponent
       , entry "src"         showHashValue pkgHashSourceHash
-      , entry "pkg-config-deps"
-                            (intercalate ", " . map (\(pn, mb_v) -> display pn ++
-                                                    case mb_v of
-                                                        Nothing -> ""
-                                                        Just v -> " " ++ display v)
-                                              . Set.toList) pkgHashPkgConfigDeps
+      -- , entry "pkg-config-deps"
+      --                       (intercalate ", " . map (\(pn, mb_v) -> display pn ++
+      --                                               case mb_v of
+      --                                                   Nothing -> ""
+      --                                                   Just v -> " " ++ display v)
+      --                                         . Set.toList) pkgHashPkgConfigDeps
       , entry "deps"        (intercalate ", " . map display
                                               . Set.toList) pkgHashDirectDeps
         -- and then all the config
       , entry "compilerid"  display pkgHashCompilerId
       , entry "compiler-commit"  id pkgHashCompilerCommit
-      , entry "platform"    display pkgHashPlatform
+      -- , entry "platform"    display pkgHashPlatform
       , opt   "flags" []    showFlagAssignment pkgHashFlagAssignment
       , opt   "configure-script" [] unwords pkgHashConfigureScriptArgs
       , opt   "vanilla-lib" True  display pkgHashVanillaLib

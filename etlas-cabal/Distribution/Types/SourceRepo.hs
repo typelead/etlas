@@ -9,6 +9,7 @@ module Distribution.Types.SourceRepo (
     emptySourceRepo,
     classifyRepoType,
     classifyRepoKind,
+    isExactRepo
   ) where
 
 import Prelude ()
@@ -71,6 +72,11 @@ data SourceRepo = SourceRepo {
   --
   repoTag      :: Maybe String,
 
+  -- | The tag identify a particular state of the repository. This should be
+  -- given for the 'RepoThis' repo kind and not for 'RepoHead' kind.
+  --
+  repoCommit   :: Maybe String,
+
   -- | Some repositories contain multiple projects in different subdirectories
   -- This field specifies the subdirectory where this packages sources can be
   -- found, eg the subdirectory containing the @.cabal@ file. It is interpreted
@@ -88,6 +94,7 @@ emptySourceRepo kind = SourceRepo
     , repoModule   = Nothing
     , repoBranch   = Nothing
     , repoTag      = Nothing
+    , repoCommit   = Nothing
     , repoSubdir   = Nothing
     }
 
@@ -163,4 +170,10 @@ ident = Parse.munch1 (\c -> isAlphaNum c || c == '_' || c == '-')
 
 lowercase :: String -> String
 lowercase = map toLower
+
+isExactRepo :: SourceRepo -> Bool
+isExactRepo sourceRepo
+  | repoKind sourceRepo == RepoHead = False
+  | isJust (repoBranch sourceRepo) = False
+  | otherwise = True
 

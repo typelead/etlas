@@ -577,6 +577,9 @@ sourceRepoFieldDescrs =
     , simpleField "tag"
         (maybe mempty showToken)    (Just <$> parsecToken)
         repoTag                     (\val repo -> repo { repoTag = val })
+    , simpleField "commit"
+        (maybe mempty showToken)    (Just <$> parsecToken)
+        repoCommit                  (\val repo -> repo { repoCommit = val })
     , simpleField "subdir"
         (maybe mempty showFilePath) (Just <$> parsecFilePath)
         repoSubdir                  (\val repo -> repo { repoSubdir = val })

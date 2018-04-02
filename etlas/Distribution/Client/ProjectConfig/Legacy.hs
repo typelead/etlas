@@ -1103,6 +1103,7 @@ packageRepoSectionDescr =
                              repoModule   = Nothing,
                              repoBranch   = Nothing,
                              repoTag      = Nothing,
+                             repoCommit   = Nothing,
                              repoSubdir   = Nothing
                            }
     }

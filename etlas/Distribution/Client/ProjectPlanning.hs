@@ -111,6 +111,7 @@ import           Distribution.Types.AnnotatedId
 import           Distribution.Types.ComponentName
 import           Distribution.Types.Dependency
 import           Distribution.Types.PkgconfigDependency
+import           Distribution.Types.SourceRepo
 import           Distribution.Types.UnqualComponentName
 import           Distribution.System
 import qualified Distribution.PackageDescription as Cabal
@@ -1840,7 +1841,8 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
         shouldBeLocal :: PackageSpecifier UnresolvedSourcePackage -> Maybe PackageId
         shouldBeLocal NamedPackage{}              = Nothing
         shouldBeLocal (SpecificSourcePackage pkg)
-          | ScmPackage {} <- packageSource pkg
+          | ScmPackage _ sourceRepos _ _ <- packageSource pkg
+          , all isExactRepo sourceRepos
           = Nothing
           | otherwise = Just (packageId pkg)
         -- TODO: It's not actually obvious for all of the

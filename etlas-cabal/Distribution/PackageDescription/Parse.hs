@@ -571,6 +571,9 @@ sourceRepoFieldDescrs =
     , simpleField "tag"
         (maybe mempty showToken)    (fmap Just parseTokenQ)
         repoTag                    (\val repo -> repo { repoTag = val })
+    , simpleField "commit"
+        (maybe mempty showToken)    (fmap Just parseTokenQ)
+        repoCommit                  (\val repo -> repo { repoCommit = val })
     , simpleField "subdir"
         (maybe mempty showFilePath) (fmap Just parseFilePathQ)
         repoSubdir                 (\val repo -> repo { repoSubdir = val })

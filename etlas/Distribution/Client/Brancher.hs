@@ -35,9 +35,10 @@ import Data.Maybe
 import Data.List
 import Data.Ord
 import Control.Monad
+import Control.Exception
 import System.Exit
 import System.Directory
-         ( doesDirectoryExist, doesFileExist )
+         ( doesDirectoryExist, doesFileExist, removeDirectoryRecursive )
 import qualified Data.Map
 
 -- ------------------------------------------------------------
@@ -173,18 +174,38 @@ branchDarcs = Brancher "darcs" $ \repo -> do
 branchGit :: Brancher
 branchGit = Brancher "git" $ \repo -> do
     src <- PD.repoLocation repo
-    let branchArgs = ["--depth","1"] ++ case PD.repoBranch repo of
-         Just b -> ["--branch", b]
-         Nothing -> case PD.repoTag repo of
-           Just t -> ["--branch", t]
-           Nothing -> []
+
+    let isCommit = isJust (PD.repoCommit repo)
+        shallowDepth
+          | isCommit = []
+          | otherwise = ["--depth","1"]
+        branchArgs = shallowDepth ++ case PD.repoBranch repo of
+           Just b -> ["--branch", b]
+           Nothing -> case PD.repoTag repo of
+             Just t -> ["--branch", t]
+             Nothing -> []
     return $ BranchCmd $ \verbosity dst -> do
         info verbosity ("git: clone " ++ show src)
-        (output, errors, exit) <- rawSystemStdInOut verbosity "git" (["clone", src, dst] ++ branchArgs)
-          Nothing Nothing Nothing False
+        (_output, errors, exit) <-
+          rawSystemStdInOut verbosity "git" (["clone", src, dst] ++ branchArgs)
+            Nothing Nothing Nothing False
         when (exit /= ExitSuccess) $
            notice verbosity $ "[" ++ show exit ++ "]:\n" ++ errors ++ "\n"
-        return exit
+        exit' <- if isCommit
+                 then do
+                   bracket (rawSystemStdInOut verbosity
+                            "git" (["-C", dst, "reset", "--hard",
+                                     fromJust (PD.repoCommit repo)])
+                             Nothing Nothing Nothing False)
+                           (const (return ()))
+                           (\(_output, errors, exit) -> do
+                              when (exit /= ExitSuccess) $ do
+                                removeDirectoryRecursive dst
+                                notice verbosity $ "[" ++ show exit ++ "]:\n"
+                                                ++ errors ++ "\n"
+                              return exit)
+                 else return exit
+        return exit'
 
 -- | Branch driver for Mercurial.
 branchHg :: Brancher

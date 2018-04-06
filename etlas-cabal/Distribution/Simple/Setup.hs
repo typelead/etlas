@@ -1540,7 +1540,7 @@ defaultHaddockFlags  = HaddockFlags {
 
 haddockCommand :: CommandUI HaddockFlags
 haddockCommand = CommandUI
-  { commandName         = "docs"
+  { commandName         = "old-docs"
   , commandSynopsis     = "Generate EtaDoc HTML documentation."
   , commandDescription  = Just $ \_ ->
       "Requires the program etadoc, version 0.1.x.\n"

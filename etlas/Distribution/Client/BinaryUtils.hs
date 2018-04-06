@@ -292,6 +292,9 @@ downloadPrograms :: Verbosity -> RepoContext -> FilePath -> String -> URI
                  -> String -> [String] -> IO [FilePath]
 downloadPrograms verbosity repoCtxt binariesPath domain uri version programs = do
   transport <- repoContextGetTransport repoCtxt
+  let commitFile = commitHashFile binariesPath domain eVersion
+  void $ downloadURIAllowFail (const $ return ())
+    transport verbosity (uriWithPath uri (commitHashPath eVersion)) commitFile
   forM programs $ \prog -> do
     notice verbosity $ "Downloading executable '" ++ prog ++ "'..."
     let progFile = etaProgFile binariesPath domain prog eVersion

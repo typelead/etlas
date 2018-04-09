@@ -949,7 +949,7 @@ legacyPackageConfigFieldDescrs =
       [ "with-compiler", "with-hc-pkg"
       , "program-prefix", "program-suffix"
       , "library-vanilla", "library-profiling"
-      , "shared", "executable-dynamic"
+      , "shared", "executable-dynamic", "uberjar-mode"
       , "profiling", "executable-profiling"
       , "profiling-detail", "library-profiling-detail"
       , "library-for-ghci", "split-objs"

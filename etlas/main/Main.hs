@@ -489,9 +489,7 @@ selectAction selectFlags extraArgs globalFlags' = do
   if list
   then do
     mResult <- listVersions verbosity globalFlags savedConfig installed
-    case mResult of
-      Just versions -> notice verbosity $ unlines $ map (drop 4) versions
-      Nothing -> die' verbosity "Unable to list versions."
+    notice verbosity $ unlines $ map (drop 4) $ fromMaybe [] mResult
   else do
     when (null extraArgs) $ die' verbosity "Expected a version identifier."
     case version of

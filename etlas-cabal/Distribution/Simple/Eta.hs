@@ -226,6 +226,7 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       isVanillaLib = not forRepl && withVanillaLib lbi
       isSharedLib = not forRepl && withSharedLib lbi
       isUberLib = not forRepl && not (withDynExe lbi)
+      ifReplLib = when forRepl
       comp = compiler lbi
 
   (etaProg, _) <- requireProgram verbosity etaProgram (withPrograms lbi)
@@ -264,6 +265,14 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
           vanillaOpts = vanillaOpts' {
                             ghcOptExtraDefault = toNubListR ["-staticlib"]
                         }
+          replOpts    = vanillaOpts {
+                          ghcOptExtra        = overNubListR
+                                               Internal.filterGhciFlags $
+                                               ghcOptExtra vanillaOpts,
+                          ghcOptNumJobs      = mempty,
+                          ghcOptMode         = toFlag GhcModeInteractive,
+                          ghcOptOptimisation = toFlag GhcNoOptimisation
+                        }
           uberOpts = vanillaOpts'
           target = libTargetDir </> mkJarName uid
       unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
@@ -278,6 +287,9 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
           else if isSharedLib
           then withVerify $ runEtaProg sharedOpts
           else return ()
+      ifReplLib $ do
+        when (null (allLibModules lib clbi)) $ warn verbosity "No exposed modules"
+        ifReplLib (runEtaProg replOpts)
 
 -- | Start a REPL without loading any source files.
 startInterpreter :: Verbosity -> ProgramDb -> Compiler -> Platform

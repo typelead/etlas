@@ -183,6 +183,7 @@ startInterpreter verbosity programDb comp platform packageDBs =
   case compilerFlavor comp of
     GHC   -> GHC.startInterpreter   verbosity programDb comp platform packageDBs
     GHCJS -> GHCJS.startInterpreter verbosity programDb comp platform packageDBs
+    Eta   -> Eta.startInterpreter verbosity programDb comp platform packageDBs
     _     -> die' verbosity "A REPL is not supported with this compiler."
 
 buildComponent :: Verbosity
@@ -596,6 +597,7 @@ replLib verbosity pkg_descr lbi lib clbi =
     -- NoFlag as the numJobs parameter.
     GHC   -> GHC.replLib   verbosity NoFlag pkg_descr lbi lib clbi
     GHCJS -> GHCJS.replLib verbosity NoFlag pkg_descr lbi lib clbi
+    Eta   -> Eta.replLib verbosity NoFlag pkg_descr lbi lib clbi
     _     -> die' verbosity "A REPL is not supported for this compiler."
 
 replExe :: Verbosity -> PackageDescription -> LocalBuildInfo
@@ -604,6 +606,7 @@ replExe verbosity pkg_descr lbi exe clbi =
   case compilerFlavor (compiler lbi) of
     GHC   -> GHC.replExe   verbosity NoFlag pkg_descr lbi exe clbi
     GHCJS -> GHCJS.replExe verbosity NoFlag pkg_descr lbi exe clbi
+    Eta   -> Eta.replExe verbosity NoFlag pkg_descr lbi exe clbi
     _     -> die' verbosity "A REPL is not supported for this compiler."
 
 replFLib :: Verbosity -> PackageDescription -> LocalBuildInfo

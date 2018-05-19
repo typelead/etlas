@@ -225,7 +225,6 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       libTargetDir = buildDir lbi
       isVanillaLib = not forRepl && withVanillaLib lbi
       isSharedLib = not forRepl && withSharedLib lbi
-      isUberLib = not forRepl && not (withDynExe lbi)
       ifReplLib = when forRepl
       comp = compiler lbi
 
@@ -273,16 +272,13 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
                           ghcOptMode         = toFlag GhcModeInteractive,
                           ghcOptOptimisation = toFlag GhcNoOptimisation
                         }
-          uberOpts = vanillaOpts'
           target = libTargetDir </> mkJarName uid
       unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
           let withVerify act = do
                 _ <- act
                 when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
                   runVerify verbosity fullClassPath target lbi
-          if isUberLib
-          then withVerify $ runEtaProg uberOpts
-          else if isVanillaLib
+          if isVanillaLib
           then withVerify $ runEtaProg vanillaOpts
           else if isSharedLib
           then withVerify $ runEtaProg sharedOpts

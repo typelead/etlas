@@ -228,7 +228,8 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       ifReplLib = when forRepl
       comp = compiler lbi
 
-  (etaProg, _) <- requireProgram verbosity etaProgram (withPrograms lbi)
+  (etaProg, progDb0) <- requireProgram verbosity etaProgram (withPrograms lbi)
+  etaServPath        <- findEtaServ verbosity progDb0
   let runEtaProg          = runGHC verbosity etaProg comp (hostPlatform lbi)
       libBi               = libBuildInfo lib
 
@@ -270,7 +271,8 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
                                                ghcOptExtra vanillaOpts,
                           ghcOptNumJobs      = mempty,
                           ghcOptMode         = toFlag GhcModeInteractive,
-                          ghcOptOptimisation = toFlag GhcNoOptimisation
+                          ghcOptOptimisation = toFlag GhcNoOptimisation,
+                          ghcOptExtraDefault = toNubListR ["-pgmi", etaServPath]
                         }
           target = libTargetDir </> mkJarName uid
       unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
@@ -781,6 +783,12 @@ runCoursier verbosity opts progDb = do
     findCoursier verbosity
 
   runJava verbosity ["-noverify"] (Jar path) opts progDb
+
+findEtaServ :: Verbosity -> ProgramDb -> IO FilePath
+findEtaServ _verbosity _progdb = do
+  -- (javaProg,_) <- requireProgram verbosity javaProgram progdb
+  etlasToolsDir <- defaultEtlasToolsDir
+  return $ etlasToolsDir </> "eta-serv.jar"
 
 -- TODO: Extremely dirty (but safe) hack because etlas-cabal has no HTTP-aware modules.
 --       Basically, we want to be able to search the index for a given eta version

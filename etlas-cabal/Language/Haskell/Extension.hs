@@ -715,7 +715,7 @@ data KnownExtension =
   -- * <http://www.haskell.org/ghc/docs/latest/html/users_guide/other-type-extensions.html#derive-any-class>
   | DeriveAnyClass
 
-  -- | Enable @deriving@ for the 'Language.Haskell.TH.Syntax.Lift' class.
+  -- | Enable @deriving@ for the 'Language.Eta.TH.Syntax.Lift' class.
   --
   -- * <http://www.haskell.org/ghc/docs/latest/html/users_guide/deriving.html#deriving-lift>
   | DeriveLift

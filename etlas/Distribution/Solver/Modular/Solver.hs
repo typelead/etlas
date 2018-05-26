@@ -135,6 +135,7 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
              , "integer-gmp"
              , "integer-simple"
              , "template-haskell"
+             , "eta-meta"
              , "rts"
              ]
 

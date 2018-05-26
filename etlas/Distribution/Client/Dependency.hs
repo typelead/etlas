@@ -383,6 +383,7 @@ dontUpgradeNonUpgradeablePackages params =
                    , mkPackageName "integer-gmp"
                    , mkPackageName "integer-simple"
                    , mkPackageName "rts"
+                   , mkPackageName "eta-meta"
                    , mkPackageName "template-haskell"
                    ]
       , isInstalled pkgname ]

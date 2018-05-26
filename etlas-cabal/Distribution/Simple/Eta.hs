@@ -244,6 +244,9 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
 
       let javaSrcs    = javaSources libBi
           baseOpts    = componentGhcOptions verbosity lbi libBi clbi libTargetDir
+                        `mappend` mempty {
+                          ghcOptExtra = toNubListR ["-pgmi", etaServPath]
+                        }
           linkJavaLibOpts = mempty {
                               ghcOptInputFiles = toNubListR javaSrcs,
                               ghcOptExtra      = toNubListR $
@@ -271,8 +274,7 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
                                                ghcOptExtra vanillaOpts,
                           ghcOptNumJobs      = mempty,
                           ghcOptMode         = toFlag GhcModeInteractive,
-                          ghcOptOptimisation = toFlag GhcNoOptimisation,
-                          ghcOptExtraDefault = toNubListR ["-pgmi", etaServPath]
+                          ghcOptOptimisation = toFlag GhcNoOptimisation
                         }
           target = libTargetDir </> mkJarName uid
       unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
@@ -320,7 +322,7 @@ realExeName exeName'
 buildOrReplExe :: Bool -> Verbosity  -> Cabal.Flag (Maybe Int)
                -> PackageDescription -> LocalBuildInfo
                -> Executable         -> ComponentLocalBuildInfo -> IO ()
-buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
+buildOrReplExe forRepl verbosity numJobs pkgDescr lbi
   exe@Executable { exeName, modulePath = modPath } clbi = do
   let exeName'    = display exeName
       exeNameReal = realExeName exeName'
@@ -330,7 +332,8 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
       exeJar      = targetDir </> exeNameReal
       withDeps    = doWithResolvedDependencyClassPathsOrDie
                     verbosity pkgDescr lbi clbi exeBi
-  (etaProg, _)  <- requireProgram verbosity etaProgram  (withPrograms lbi)
+  (etaProg, progDb0) <- requireProgram verbosity etaProgram  (withPrograms lbi)
+  etaServPath        <- findEtaServ verbosity progDb0
   createDirectoryIfMissingVerbose verbosity True exeDir
   srcMainFile <- findFile (hsSourceDirs exeBi) modPath
 
@@ -355,18 +358,24 @@ buildOrReplExe _forRepl verbosity numJobs pkgDescr lbi
                       ghcOptOutputFile   = toFlag exeJar,
                       ghcOptShared       = toFlag isShared,
                       ghcOptExtra        = toNubListR $
-                        ["-cp", mkMergedClassPath lbi fullClassPath]
+                        ["-cp", mkMergedClassPath lbi fullClassPath,
+                         "-pgmi", etaServPath]
                     }
+          replOpts = baseOpts `mappend` mempty {
+                       ghcOptMode         = toFlag GhcModeInteractive,
+                       ghcOptOptimisation = toFlag GhcNoOptimisation
+                     }
           withVerify act = do
             _ <- act
             when (fromFlagOrDefault False (configVerifyMode $ configFlags lbi)) $
               runVerify verbosity (exeJar : classPaths) exeJar lbi
-
-      withVerify $ runEtaProg baseOpts
-      -- Generate command line file / jar exec launchers
-      generateExeLaunchers verbosity lbi exeName' classPaths targetDir
+      if forRepl
+      then runEtaProg replOpts
+      else do withVerify $ runEtaProg baseOpts
+              -- Generate command line file / jar exec launchers
+              generateExeLaunchers verbosity lbi exeName' classPaths targetDir
   -- Generate launchers for the install phase
-  withDeps AbsoluteGlobalInstallDir $
+  unless forRepl $ withDeps AbsoluteGlobalInstallDir $
     \ (depJars, mavenPaths) -> do
       let installLaunchersDir = targetDir </> "install-launchers"
           classPaths

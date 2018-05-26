@@ -2969,6 +2969,7 @@ legacyCustomSetupPkgs compiler (Platform _ os) =
      ++ [ "Win32" | os == Windows ]
      ++ [ "unix"  | os /= Windows ]
      ++ [ "ghc-prim"         | isGHC ]
+     ++ [ "eta-meta"         | isGHC ]
      ++ [ "template-haskell" | isGHC ]
   where
     isGHC = compilerCompatFlavor GHC compiler

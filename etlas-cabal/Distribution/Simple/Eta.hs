@@ -268,10 +268,10 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
           vanillaOpts = vanillaOpts' {
                             ghcOptExtraDefault = toNubListR ["-staticlib"]
                         }
-          replOpts    = vanillaOpts {
+          replOpts    = vanillaOpts' {
                           ghcOptExtra        = overNubListR
                                                Internal.filterGhciFlags $
-                                               ghcOptExtra vanillaOpts,
+                                               ghcOptExtra vanillaOpts',
                           ghcOptNumJobs      = mempty,
                           ghcOptMode         = toFlag GhcModeInteractive,
                           ghcOptOptimisation = toFlag GhcNoOptimisation

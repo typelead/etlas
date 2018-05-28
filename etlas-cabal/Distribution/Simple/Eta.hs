@@ -351,15 +351,17 @@ buildOrReplExe forRepl verbosity numJobs pkgDescr lbi
           runEtaProg  = runGHC verbosity etaProg comp (hostPlatform lbi)
           baseOpts = (componentGhcOptions verbosity lbi exeBi clbi exeDir)
                     `mappend` mempty {
-                      ghcOptMode         = toFlag GhcModeMake,
                       ghcOptInputFiles   = toNubListR $ srcMainFile : javaSrcs,
                       ghcOptInputModules = toNubListR $ exeModules exe,
                       ghcOptNumJobs      = numJobs,
-                      ghcOptOutputFile   = toFlag exeJar,
-                      ghcOptShared       = toFlag isShared,
                       ghcOptExtra        = toNubListR $
                         ["-cp", mkMergedClassPath lbi fullClassPath,
                          "-pgmi", etaServPath]
+                    }
+          exeOpts = baseOpts `mappend` mempty {
+                      ghcOptMode         = toFlag GhcModeMake,
+                      ghcOptOutputFile   = toFlag exeJar,
+                      ghcOptShared       = toFlag isShared
                     }
           replOpts = baseOpts `mappend` mempty {
                        ghcOptMode         = toFlag GhcModeInteractive,
@@ -371,7 +373,7 @@ buildOrReplExe forRepl verbosity numJobs pkgDescr lbi
               runVerify verbosity (exeJar : classPaths) exeJar lbi
       if forRepl
       then runEtaProg replOpts
-      else do withVerify $ runEtaProg baseOpts
+      else do withVerify $ runEtaProg exeOpts
               -- Generate command line file / jar exec launchers
               generateExeLaunchers verbosity lbi exeName' classPaths targetDir
   -- Generate launchers for the install phase

@@ -41,9 +41,9 @@ import Control.Monad (when)
 
 replCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
 replCommand = Client.installCommand {
-  commandName         = "new-repl",
+  commandName         = "repl",
   commandSynopsis     = "Open an interactive session for the given component.",
-  commandUsage        = usageAlternatives "new-repl" [ "[TARGET] [FLAGS]" ],
+  commandUsage        = usageAlternatives "repl" [ "[TARGET] [FLAGS]" ],
   commandDescription  = Just $ \_ -> wrapText $
         "Open an interactive session for a component within the project. The "
      ++ "available targets are the same as for the 'build' command: "

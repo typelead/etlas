@@ -1902,7 +1902,7 @@ instance Semigroup ReplFlags where
 
 replCommand :: ProgramDb -> CommandUI ReplFlags
 replCommand progDb = CommandUI
-  { commandName         = "repl"
+  { commandName         = "old-repl"
   , commandSynopsis     =
       "Open an interpreter session for the given component."
   , commandDescription  = Just $ \pname -> wrapText $

@@ -65,7 +65,7 @@ freezeCommand = Client.installCommand {
      ++ "'--project-file' is specified). This file extends the configuration "
      ++ "from the 'cabal.project' file and thus is used as the project "
      ++ "configuration for all other commands (such as 'build', "
-     ++ "'new-repl' etc).\n\n"
+     ++ "'repl' etc).\n\n"
 
      ++ "The freeze file can be kept in source control. To make small "
      ++ "adjustments it may be edited manually, or to make bigger changes "

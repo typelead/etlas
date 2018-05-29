@@ -59,15 +59,15 @@ replCommand = Client.installCommand {
      ++ "'cabal.project.local' and other files.",
   commandNotes        = Just $ \pname ->
         "Examples, open an interactive session:\n"
-     ++ "  " ++ pname ++ " new-repl\n"
+     ++ "  " ++ pname ++ " repl\n"
      ++ "    for the default component in the package in the current directory\n"
-     ++ "  " ++ pname ++ " new-repl pkgname\n"
+     ++ "  " ++ pname ++ " repl pkgname\n"
      ++ "    for the default component in the package named 'pkgname'\n"
-     ++ "  " ++ pname ++ " new-repl ./pkgfoo\n"
+     ++ "  " ++ pname ++ " repl ./pkgfoo\n"
      ++ "    for the default component in the package in the ./pkgfoo directory\n"
-     ++ "  " ++ pname ++ " new-repl cname\n"
+     ++ "  " ++ pname ++ " repl cname\n"
      ++ "    for the component named 'cname'\n"
-     ++ "  " ++ pname ++ " new-repl pkgname:cname\n"
+     ++ "  " ++ pname ++ " repl pkgname:cname\n"
      ++ "    for the component 'cname' in the package 'pkgname'\n\n"
 
      ++ cmdCommonHelpTextNewBuildBeta

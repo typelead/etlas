@@ -1816,9 +1816,9 @@ buildCommand progDb = CommandUI
       ++ "Affected by configuration options, see `configure`.\n"
   , commandNotes        = Just $ \pname ->
        "Examples:\n"
-        ++ "  " ++ pname ++ " build           "
+        ++ "  " ++ pname ++ " old-build           "
         ++ "    All the components in the package\n"
-        ++ "  " ++ pname ++ " build foo       "
+        ++ "  " ++ pname ++ " old-build foo       "
         ++ "    A component (i.e. lib, exe, test suite)\n\n"
         ++ programFlagsDescription progDb
 --TODO: re-enable once we have support for module/file targets
@@ -1926,22 +1926,22 @@ replCommand progDb = CommandUI
 
   , commandNotes        = Just $ \pname ->
          "Examples:\n"
-      ++ "  " ++ pname ++ " repl           "
+      ++ "  " ++ pname ++ " old-repl           "
       ++ "    The first component in the package\n"
-      ++ "  " ++ pname ++ " repl foo       "
+      ++ "  " ++ pname ++ " old-repl foo       "
       ++ "    A named component (i.e. lib, exe, test suite)\n"
-      ++ "  " ++ pname ++ " repl --ghc-options=\"-lstdc++\""
+      ++ "  " ++ pname ++ " old-repl --ghc-options=\"-lstdc++\""
       ++ "  Specifying flags for interpreter\n"
 --TODO: re-enable once we have support for module/file targets
---        ++ "  " ++ pname ++ " repl Foo.Bar   "
+--        ++ "  " ++ pname ++ " old-repl Foo.Bar   "
 --        ++ "    A module\n"
---        ++ "  " ++ pname ++ " repl Foo/Bar.hs"
+--        ++ "  " ++ pname ++ " old-repl Foo/Bar.hs"
 --        ++ "    A file\n\n"
 --        ++ "If a target is ambiguous it can be qualified with the component "
 --        ++ "name, e.g.\n"
---        ++ "  " ++ pname ++ " repl foo:Foo.Bar\n"
---        ++ "  " ++ pname ++ " repl testsuite1:Foo/Bar.hs\n"
-  , commandUsage =  \pname -> "Usage: " ++ pname ++ " repl [COMPONENT] [FLAGS]\n"
+--        ++ "  " ++ pname ++ " old-repl foo:Foo.Bar\n"
+--        ++ "  " ++ pname ++ " old-repl testsuite1:Foo/Bar.hs\n"
+  , commandUsage =  \pname -> "Usage: " ++ pname ++ " old-repl [COMPONENT] [FLAGS]\n"
   , commandDefaultFlags = defaultReplFlags
   , commandOptions = \showOrParseArgs ->
       optionVerbosity replVerbosity (\v flags -> flags { replVerbosity = v })
@@ -2021,7 +2021,7 @@ defaultTestFlags  = TestFlags {
 
 testCommand :: CommandUI TestFlags
 testCommand = CommandUI
-  { commandName         = "test"
+  { commandName         = "old-test"
   , commandSynopsis     =
       "Run all/specific tests in the test suite."
   , commandDescription  = Just $ \pname -> wrapText $
@@ -2035,7 +2035,7 @@ testCommand = CommandUI
       ++ "By defining UserHooks in a custom Setup.hs, the package can"
       ++ " define actions to be executed before and after running tests.\n"
   , commandNotes        = Nothing
-  , commandUsage        = usageAlternatives "test"
+  , commandUsage        = usageAlternatives "old-test"
       [ "[FLAGS]"
       , "TESTCOMPONENTS [FLAGS]"
       ]

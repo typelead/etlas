@@ -186,7 +186,7 @@ globalCommand commands = CommandUI {
           , "old-freeze"
           , "old-run"
           , "old-docs"
-          , "new-test"
+          , "old-test"
           , "new-bench"
           ]
         maxlen    = maximum $ [length name | (name, _) <- cmdDescs]
@@ -248,7 +248,7 @@ globalCommand commands = CommandUI {
         , addCmd "old-docs"
         , addCmd "old-repl"
         , addCmd "old-run"
-        -- , addCmd "new-test"
+        , addCmd "old-test"
         -- , addCmd "new-bench"
         , addCmd "old-freeze"
         ] ++ if null otherCmds then [] else par

@@ -38,7 +38,7 @@ configureCommand = Client.installCommand {
      ++ "file (or '$project_file.local', if '--project-file' is specified) "
      ++ "which extends the configuration from the 'cabal.project' file "
      ++ "(if any). This combination is used as the project configuration for "
-     ++ "all other commands (such as 'build', 'new-repl' etc) though it "
+     ++ "all other commands (such as 'build', 'repl' etc) though it "
      ++ "can be extended/overridden on a per-command basis.\n\n"
 
      ++ "The configure command also checks that the project configuration "

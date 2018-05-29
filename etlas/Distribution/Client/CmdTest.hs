@@ -35,9 +35,9 @@ import Control.Monad (when)
 
 testCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
 testCommand = Client.installCommand {
-  commandName         = "new-test",
+  commandName         = "test",
   commandSynopsis     = "Run test-suites",
-  commandUsage        = usageAlternatives "new-test" [ "[TARGETS] [FLAGS]" ],
+  commandUsage        = usageAlternatives "test" [ "[TARGETS] [FLAGS]" ],
   commandDescription  = Just $ \_ -> wrapText $
         "Runs the specified test-suites, first ensuring they are up to "
      ++ "date.\n\n"
@@ -53,13 +53,13 @@ testCommand = Client.installCommand {
      ++ "'cabal.project.local' and other files.",
   commandNotes        = Just $ \pname ->
         "Examples:\n"
-     ++ "  " ++ pname ++ " new-test\n"
+     ++ "  " ++ pname ++ " test\n"
      ++ "    Run all the test-suites in the package in the current directory\n"
-     ++ "  " ++ pname ++ " new-test pkgname\n"
+     ++ "  " ++ pname ++ " test pkgname\n"
      ++ "    Run all the test-suites in the package named pkgname\n"
-     ++ "  " ++ pname ++ " new-test cname\n"
+     ++ "  " ++ pname ++ " test cname\n"
      ++ "    Run the test-suite named cname\n"
-     ++ "  " ++ pname ++ " new-test cname --enable-coverage\n"
+     ++ "  " ++ pname ++ " test cname --enable-coverage\n"
      ++ "    Run the test-suite built with code coverage (including local libs used)\n\n"
 
      ++ cmdCommonHelpTextNewBuildBeta

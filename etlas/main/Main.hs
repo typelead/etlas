@@ -62,8 +62,6 @@ import Distribution.Simple.Setup
          , configAbsolutePaths
          , depsCommand
          , DepsFlags(..)
-         , RelaxDeps(..)
-         , defaultConfigFlags
          )
 
 import Prelude ()
@@ -144,8 +142,7 @@ import Distribution.Client.BinaryUtils
 
 import Distribution.Package (packageId)
 import Distribution.PackageDescription
-         ( BuildType(..), Executable(..), buildable, Library(libBuildInfo),
-           BuildInfo(extraLibs), PackageDescription(library))
+         ( BuildType(..), Executable(..), buildable)
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec ( readGenericPackageDescription )
 #else
@@ -161,8 +158,8 @@ import Distribution.Types.TestSuite
 import Distribution.Types.Benchmark
 import Distribution.Types.TargetInfo
 
-import Distribution.Simple.Eta ( findVerifyRef, findCoursierRef, getLibraryComponent
-                               , getDependencyClassPaths, InstallDirType(..),mkJarName, exeJarPath
+import Distribution.Simple.Eta ( findVerifyRef, findCoursierRef
+                               , getDependencyClassPaths, InstallDirType(..), exeJarPath
                                , libJarPath )
 import Distribution.Simple.Build
          ( startInterpreter )
@@ -191,7 +188,7 @@ import Distribution.Simple.Utils
 import Distribution.Text
          ( display )
 import Distribution.Verbosity as Verbosity
-         ( Verbosity, normal, moreVerbose, lessVerbose, silent )
+         ( Verbosity, normal, moreVerbose, lessVerbose )
 import Distribution.Version
          ( Version, mkVersion, orLaterVersion )
 import qualified Paths_etlas (version)
@@ -208,7 +205,7 @@ import System.IO                ( BufferMode(LineBuffering), hSetBuffering
                                 , stdout )
 import System.Directory         (doesFileExist, getCurrentDirectory, makeAbsolute)
 import Data.Monoid              (Any(..))
-import Control.Exception        (SomeException(..), try, catch, throwIO)
+import Control.Exception        (SomeException(..), try, catch)
 import Control.Monad            (mapM_)
 
 -- | Entry point

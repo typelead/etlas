@@ -175,10 +175,13 @@ replAction (configFlags, configExFlags, installFlags, haddockFlags)
                 else throwIO e)
 
     tryEstablishGlobal tmpDir = do
-        baseCtx <- establishDummyProjectBaseContext globalReplVerbosity cliConfig
+        let replVerbosity
+              | null targetStrings = globalReplVerbosity
+              | otherwise = verbosity'
+        baseCtx <- establishDummyProjectBaseContext replVerbosity cliConfig
                      tmpDir targetStrings
         return (baseCtx, [TargetPackageNamed (mkPackageName "repl") Nothing],
-                globalReplVerbosity)
+                replVerbosity)
 
 -- | Create a dummy project context, without a .cabal or a .cabal.project file
 -- (a place where to put a temporary dist directory is still needed)
@@ -227,7 +230,8 @@ establishDummyProjectBaseContext verbosity cliConfig tmpDir targetStrings = do
                      libBuildInfo = mempty {
                          targetBuildDepends = dependencies,
                          defaultLanguage    = Just Haskell2010,
-                         defaultExtensions  = [EnableExtension TemplateHaskell],
+                         defaultExtensions  = [EnableExtension TemplateHaskell
+                                              ,EnableExtension QuasiQuotes],
                          options            = [(Eta, ["-v1"])]
                      }
                    }

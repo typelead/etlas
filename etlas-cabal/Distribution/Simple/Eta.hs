@@ -75,47 +75,21 @@ configure :: Verbosity -> Maybe FilePath -> Maybe FilePath
 configure verbosity hcPath hcPkgPath conf0 = do
   (etaProg, etaVersion, conf1) <-
     requireProgramVersion verbosity etaProgram
-      anyVersion --(orLaterVersion (Version [0,1] []))
+      anyVersion
       (userMaybeSpecifyPath "eta" hcPath conf0)
 
   let implInfo = etaVersionImplInfo etaVersion etaGhcVersion
 
-  -- This is slightly tricky, we have to configure eta first, then we use the
-  -- location of eta to help find eta-pkg in the case that the user did not
-  -- specify the location of eta-pkg directly:
   (etaPkgProg, etaPkgVersion, conf2) <-
     requireProgramVersion verbosity etaPkgProgram
-    {- TODO: Is this necessary? {programFindLocation = guessEtaPkgFromEtaPath etaProg} -}
     anyVersion (userMaybeSpecifyPath "eta-pkg" hcPkgPath conf1)
-
-  -- Just etaPkgEtaVersion <- findEtaPkgEtaVersion
-  --                                 verbosity (programPath etaPkgProg)
 
   when (etaVersion /= etaPkgVersion) $ die' verbosity $
        "Version mismatch between eta and eta-pkg: "
     ++ programPath etaProg ++ " is version " ++ display etaVersion ++ " "
     ++ programPath etaPkgProg ++ " is version " ++ display etaPkgVersion
 
-  -- when (etaGhcVersion /= etaPkgVersion) $ die $
-  --      "Version mismatch between eta and eta-pkg: "
-  --   ++ programPath etaProg
-  --   ++ " was built with GHC version " ++ display etaGhcVersion ++ " "
-  --   ++ programPath etaPkgProg
-  --   ++ " was built with GHC version " ++ display etaPkgVersion
-
-  -- be sure to use our versions of hsc2hs, c2hs, haddock and ghc
-  -- let hsc2hsProgram' =
-  --       hsc2hsProgram { programFindLocation =
-  --                         guessHsc2hsFromEtaPath etaProg }
-  --     c2hsProgram' =
-  --       c2hsProgram { programFindLocation =
-  --                         guessC2hsFromEtaPath etaProg }
-
-  --     haddockProgram' =
-  --       haddockProgram { programFindLocation =
-  --                         guessHaddockFromEtaPath etaProg }
-  --     conf3 = addKnownPrograms [ hsc2hsProgram', c2hsProgram', haddockProgram' ] conf2
-  let conf3 = conf2 -- TODO: Account for other programs
+  let conf3 = conf2
 
   languages  <- Internal.getLanguages  verbosity implInfo etaProg
   extensions <- Internal.getExtensions verbosity implInfo etaProg
@@ -287,9 +261,7 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
           else if isSharedLib
           then withVerify $ runEtaProg sharedOpts
           else return ()
-      ifReplLib $ do
-        when (null (allLibModules lib clbi)) $ warn verbosity "No exposed modules"
-        ifReplLib (runEtaProg replOpts)
+      ifReplLib (runEtaProg replOpts)
 
 -- | Start a REPL without loading any source files.
 startInterpreter :: Verbosity -> ProgramDb -> Compiler -> Platform

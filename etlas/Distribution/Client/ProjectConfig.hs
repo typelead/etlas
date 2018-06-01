@@ -25,6 +25,7 @@ module Distribution.Client.ProjectConfig (
     writeProjectLocalFreezeConfig,
     writeProjectConfigFile,
     commandLineFlagsToProjectConfig,
+    readGlobalConfig,
 
     -- * Packages within projects
     ProjectPackageLocation(..),

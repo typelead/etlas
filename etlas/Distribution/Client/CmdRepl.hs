@@ -15,28 +15,49 @@ module Distribution.Client.CmdRepl (
 
 import Distribution.Client.ProjectOrchestration
 import Distribution.Client.CmdErrorMessages
+import Distribution.Client.RebuildMonad
 
+import Distribution.Client.TargetSelector
+         ( TargetSelectorProblem(..) )
+import Distribution.Client.ProjectConfig
 import Distribution.Client.Setup
-         ( GlobalFlags, ConfigFlags(..), ConfigExFlags, InstallFlags )
+         ( GlobalFlags, ConfigFlags(..), ConfigExFlags(..), InstallFlags )
+import Distribution.Client.DistDirLayout
+import Distribution.Client.Types
 import qualified Distribution.Client.Setup as Client
 import Distribution.Simple.Setup
-         ( HaddockFlags, fromFlagOrDefault )
+         ( HaddockFlags, fromFlagOrDefault, flagToMaybe )
 import Distribution.Simple.Command
          ( CommandUI(..), usageAlternatives )
+import Distribution.Simple.InstallDirs
+import Distribution.Solver.Types.SourcePackage
 import Distribution.Package
-         ( packageName )
+import Distribution.PackageDescription hiding (packageDescription)
+import Distribution.PackageDescription.PrettyPrint
+import Distribution.Types.Dependency
 import Distribution.Types.ComponentName
          ( componentNameString )
 import Distribution.Text
-         ( display )
+import Distribution.Compiler
+import Distribution.License
+import Language.Haskell.Extension
 import Distribution.Verbosity
-         ( Verbosity, normal )
+         ( Verbosity, normal, silent )
+import Distribution.Version
+import Distribution.Utils.Generic
 import Distribution.Simple.Utils
-         ( wrapText, die', ordNub )
+         ( wrapText, die', ordNub, notice, withTempDirectory,
+           createDirectoryIfMissingVerbose, getDirectoryContentsRecursive )
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Data.List (intercalate)
+import Data.Monoid ((<>))
+import Data.Maybe
 import Control.Monad (when)
+import Control.Exception
+import System.FilePath
+import System.Directory
 
 
 replCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
@@ -90,10 +111,11 @@ replAction :: (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
 replAction (configFlags, configExFlags, installFlags, haddockFlags)
            targetStrings globalFlags = do
 
-    baseCtx <- establishProjectBaseContext verbosity cliConfig
+  globalTmp <- getTemporaryDirectory
 
-    targetSelectors <- either (reportTargetSelectorProblems verbosity) return
-                   =<< readTargetSelectors (localPackages baseCtx) targetStrings
+  withTempDirectory verbosity' globalTmp "repl" $ \tmpDir -> do
+
+    (baseCtx, targetSelectors, verbosity) <- maybeGlobalEnvironment tmpDir
 
     (buildCtx, _) <-
       runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
@@ -131,10 +153,130 @@ replAction (configFlags, configExFlags, installFlags, haddockFlags)
     buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
     runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
   where
-    verbosity = fromFlagOrDefault normal (configVerbosity configFlags)
+    verbosity' = fromFlagOrDefault normal (configVerbosity configFlags)
+    globalReplVerbosity = fromFlagOrDefault silent (configVerbosity configFlags)
     cliConfig = commandLineFlagsToProjectConfig
                   globalFlags configFlags configExFlags
                   installFlags haddockFlags
+
+    maybeGlobalEnvironment tmpDir = do
+      catch (do baseCtx <- establishProjectBaseContext verbosity' cliConfig
+                eSelectors <- readTargetSelectors (localPackages baseCtx) targetStrings
+                either (reportTargetSelectorProblems verbosity')
+                       (\selectors -> return (baseCtx, selectors, verbosity'))
+                       eSelectors)
+            (\e@(BadPackageLocations provenance locations) -> do
+                let isEmptyMatch =
+                      any (\s -> case s of
+                            BadLocGlobEmptyMatch _ -> True
+                            _ -> False) locations
+                if Set.singleton Implicit == provenance && isEmptyMatch
+                then tryEstablishGlobal tmpDir
+                else throwIO e)
+
+    tryEstablishGlobal tmpDir = do
+        baseCtx <- establishDummyProjectBaseContext globalReplVerbosity cliConfig
+                     tmpDir targetStrings
+        return (baseCtx, [TargetPackageNamed (mkPackageName "repl") Nothing],
+                globalReplVerbosity)
+
+-- | Create a dummy project context, without a .cabal or a .cabal.project file
+-- (a place where to put a temporary dist directory is still needed)
+establishDummyProjectBaseContext
+  :: Verbosity
+  -> ProjectConfig
+  -> FilePath
+     -- ^ Where to put the dist directory
+  -> [String]
+  -> IO ProjectBaseContext
+establishDummyProjectBaseContext verbosity cliConfig tmpDir targetStrings = do
+
+    cabalDir <- defaultEtlasDir
+
+    -- Create the dist directories
+    createDirectoryIfMissingVerbose verbosity True $ distDirectory distDirLayout
+    createDirectoryIfMissingVerbose verbosity True $
+      distProjectCacheDirectory distDirLayout
+
+    globalConfig <- runRebuild ""
+                  $ readGlobalConfig verbosity
+                      (projectConfigConfigFile (projectConfigShared cliConfig))
+                      (projectConfigSendMetrics (projectConfigBuildOnly cliConfig))
+
+    let projectConfig = globalConfig <> cliConfig
+
+        ProjectConfigBuildOnly {
+          projectConfigLogsDir,
+          projectConfigStoreDir
+        } = projectConfigBuildOnly projectConfig
+
+        mlogsDir = flagToMaybe projectConfigLogsDir
+        mstoreDir = flagToMaybe projectConfigStoreDir
+        cabalDirLayout = mkCabalDirLayout cabalDir mstoreDir mlogsDir
+
+        buildSettings = resolveBuildTimeSettings
+                          verbosity cabalDirLayout
+                          projectConfig
+
+        pkgdesc = GenericPackageDescription pkg []
+                    (Just (CondNode { condTreeData        = library'
+                                    , condTreeConstraints = dependencies
+                                    , condTreeComponents  = []
+                                    })) [] [] [] [] []
+        library' = mempty {
+                     libBuildInfo = mempty {
+                         targetBuildDepends = dependencies,
+                         defaultLanguage    = Just Haskell2010,
+                         defaultExtensions  = [EnableExtension TemplateHaskell],
+                         options            = [(Eta, ["-v1"])]
+                     }
+                   }
+        mDepIds = map (\s -> (s, simpleParse s)) ("base":"eta-meta":targetStrings)
+        badDepIds = filter (isNothing . snd) mDepIds
+        dependencies = map (toDependency . fromJust . snd) mDepIds
+        toDependency pkgid = Dependency (pkgName pkgid) versionRange
+          where version = pkgVersion pkgid
+                versionRange
+                  | version == nullVersion = anyVersion
+                  | otherwise = thisVersion version
+
+        pkg = emptyPackageDescription {
+                package        = PackageIdentifier (mkPackageName "repl")
+                                                   (mkVersion [0]),
+                specVersionRaw = Right (orLaterVersion (mkVersion [1,10])),
+                buildType      = Just Simple,
+                license        = OtherLicense,
+                library        = Just library'
+              }
+        localPackages = [SpecificSourcePackage SourcePackage {
+                           packageInfoId        = packageId pkgdesc,
+                           packageDescription   = pkgdesc,
+                           packageSource        = LocalUnpackedPackage tmpDir,
+                           packageDescrOverride = Nothing,
+                           packagePatch         = Nothing
+                         }]
+
+    when (not (null badDepIds)) $
+      die' verbosity $
+           "The following supplied arguments were invalid package identifiers: "
+        ++ intercalate ", " (map fst badDepIds)
+
+    writeGenericPackageDescription (tmpDir </> "repl.cabal") pkgdesc
+
+    return ProjectBaseContext {
+      distDirLayout,
+      cabalDirLayout,
+      projectConfig,
+      localPackages,
+      buildSettings
+    }
+  where
+    mdistDirectory = flagToMaybe
+                   $ projectConfigDistDir
+                   $ projectConfigShared cliConfig
+    projectRoot = ProjectRootImplicit tmpDir
+    distDirLayout = defaultDistDirLayout projectRoot
+                                         mdistDirectory
 
 -- | This defines what a 'TargetSelector' means for the @repl@ command.
 -- It selects the 'AvailableTarget's that the 'TargetSelector' refers to,
@@ -284,7 +426,7 @@ renderTargetProblem (TargetProblemNoTargets targetSelector) =
 
 explanationSingleComponentLimitation :: String
 explanationSingleComponentLimitation =
-    "The reason for this limitation is that current versions of ghci do not "
+    "The reason for this limitation is that current versions of Eta REPL do not "
  ++ "support loading multiple components as source. Load just one component "
  ++ "and when you make changes to a dependent component then quit and reload."
 

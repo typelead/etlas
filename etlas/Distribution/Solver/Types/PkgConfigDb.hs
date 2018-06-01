@@ -40,8 +40,6 @@ import Distribution.Compat.Environment
     ( lookupEnv )
 import Distribution.Simple.Program
     ( ProgramDb, pkgConfigProgram, getProgramOutput, requireProgram )
-import Distribution.Simple.Utils
-    ( info )
 
 -- | The list of packages installed in the system visible to
 -- @pkg-config@. This is an opaque datatype, to be constructed with

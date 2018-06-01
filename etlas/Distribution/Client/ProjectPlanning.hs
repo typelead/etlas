@@ -1630,7 +1630,7 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
                             -> SolverPackage UnresolvedPkgLoc
                             -> ElaboratedConfiguredPackage
     elaborateSolverToCommon mapDep
-        pkg@(SolverPackage spkg@(SourcePackage pkgid gdesc srcloc descOverride patch)
+        pkg@(SolverPackage spkg@(SourcePackage pkgid gdesc srcloc descOverride _patch)
                            flags stanzas deps0 _exe_deps0) =
         elaboratedPackage
       where
@@ -1654,7 +1654,7 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
                                     [] gdesc
                                in desc
 
-        elabPatchFiles = sourcePackagePatches spkg
+        _elabPatchFiles = sourcePackagePatches spkg
         elabFlagAssignment  = flags
         elabFlagDefaults    = [ (Cabal.flagName flag, Cabal.flagDefault flag)
                               | flag <- PD.genPackageFlags gdesc ]

@@ -48,7 +48,7 @@ library
       build-depends:
         Win32 >= 2.2 && < 2.6
 
-  ghc-options: -Wall -fno-ignore-asserts -fwarn-tabs
+  ghc-options: -Wall -Werror -fno-warn-name-shadowing -fno-ignore-asserts -fwarn-tabs
 
   exposed-modules:
     Distribution.Backpack

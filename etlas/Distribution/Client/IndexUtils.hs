@@ -89,8 +89,6 @@ import Distribution.ParseUtils
          ( ParseResult(..) )
 import Distribution.PackageDescription.Parse
          ( parseGenericPackageDescription )
-import Distribution.System
-         ( buildPlatform )
 import Distribution.Simple.Utils
          ( fromUTF8, ignoreBOM )
 import qualified Distribution.PackageDescription.Parse as PackageDesc.Parse
@@ -336,7 +334,7 @@ getSourcePackagesAtIndexState verbosity repoCtxt binariesPath mb_idxState = do
           ++ "' is " ++ daysString ++ " old.\nRun "
           ++ "'etlas update' to get the latest list of available packages."
           where daysString = show days ++ " " ++ suffix
-                  where days = floor dt
+                  where days = floor dt :: Int
                         suffix
                           | days > 1  = "days"
                           | otherwise = "day"

@@ -58,8 +58,6 @@ import Distribution.Client.Types
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import System.FilePath
-import Control.Monad (when)
-
 
 runCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
 runCommand = Client.installCommand {
@@ -348,11 +346,6 @@ selectComponentTarget subtarget t
                                       (availableTargetComponentName t)
                                        subtarget)
 
-selectComponentTarget subtarget t
-  = Left (TargetProblemIsSubComponent (availableTargetPackageId t)
-                                      (availableTargetComponentName t)
-                                       subtarget)
-
 -- | The various error conditions that can occur when matching a
 -- 'TargetSelector' against 'AvailableTarget's for the @run@ command.
 --
@@ -439,4 +432,3 @@ renderTargetProblem (TargetProblemIsSubComponent pkgid cname subtarget) =
  ++ renderTargetSelector targetSelector ++ "."
   where
     targetSelector = TargetComponent pkgid cname subtarget
-

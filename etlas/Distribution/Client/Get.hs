@@ -25,7 +25,7 @@ import Distribution.Package
 import Distribution.Simple.Setup
          ( Flag(..), fromFlag, fromFlagOrDefault, flagToMaybe )
 import Distribution.Simple.Utils
-         ( notice, die', info, writeFileAtomic )
+         ( notice, die' )
 import Distribution.Verbosity
          ( Verbosity )
 import Distribution.Text(display)
@@ -49,7 +49,7 @@ import Control.Monad
 import System.Directory
          ( createDirectoryIfMissing, doesDirectoryExist, doesFileExist )
 import System.FilePath
-         ( (</>), (<.>), addTrailingPathSeparator )
+         ( (</>), addTrailingPathSeparator )
 
 
 -- | Entry point for the 'cabal get' command.
@@ -154,7 +154,7 @@ checkTarget verbosity target = case target of
 unpackPackage :: Verbosity -> FilePath -> PackageId
               -> PackageDescriptionOverride
               -> FilePath -> Bool -> FilePath -> IO ()
-unpackPackage verbosity prefix pkgid descOverride pkgPath isGit patchesDir = do
+unpackPackage verbosity prefix pkgid _descOverride pkgPath isGit patchesDir = do
     let pkgdirname = display pkgid
         pkgdir     = prefix </> pkgdirname
         pkgdir'    = addTrailingPathSeparator pkgdir

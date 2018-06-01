@@ -108,7 +108,7 @@ import Distribution.Client.Utils
 import Distribution.Utils.NubList
          ( fromNubList )
 import Distribution.Verbosity
-         ( Verbosity, verbose, lessVerbose )
+         ( Verbosity, verbose )
 import Distribution.Text
 import Distribution.ParseUtils
          ( ParseResult(..), locatedErrorMsg, showPWarning )

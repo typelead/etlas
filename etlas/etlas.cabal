@@ -41,7 +41,7 @@ flag parsec
   manual:       True
 
 library
-    ghc-options:    -Wall -fwarn-tabs
+    ghc-options:    -Wall -Werror -fno-warn-name-shadowing -fwarn-tabs
 
     exposed-modules:
         Distribution.Client.Brancher
@@ -245,7 +245,7 @@ executable etlas
     main-is:        Main.hs
     hs-source-dirs: main
 
-    ghc-options:    -Wall -fwarn-tabs -rtsopts
+    ghc-options:    -Wall -Werror -fno-warn-name-shadowing -fwarn-tabs -rtsopts
 
     build-depends:
         etlas,

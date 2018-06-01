@@ -23,6 +23,7 @@ module Distribution.Client.PackageHash (
 
     -- * Low level hash choice
     HashValue,
+    unHashValue,
     hashValue,
     hashString,
     showHashValue,
@@ -31,10 +32,9 @@ module Distribution.Client.PackageHash (
   ) where
 
 import Distribution.Package
-         ( PackageId, PackageIdentifier(..), mkComponentId
-         , PkgconfigName )
+         ( PackageId, PackageIdentifier(..), mkComponentId )
 import Distribution.System
-         ( Platform, OS(Windows), buildOS )
+         ( OS(Windows), buildOS )
 import Distribution.PackageDescription
          ( FlagAssignment, showFlagValue )
 import Distribution.Simple.Compiler
@@ -44,7 +44,6 @@ import Distribution.Simple.InstallDirs
          ( PathTemplate, fromPathTemplate )
 import Distribution.Text
          ( display )
-import Distribution.Version
 import Distribution.Client.Types
          ( InstalledPackageId )
 import qualified Distribution.Solver.Types.ComponentDeps as CD
@@ -216,7 +215,7 @@ renderPackageHashInputs PackageHashInputs{
     -- the default value for that feature. So if we avoid adding entries with
     -- the default value then most of the time adding new features will not
     -- change the hashes of existing packages and so fewer packages will need
-    -- to be rebuilt. 
+    -- to be rebuilt.
 
     --TODO: [nice to have] ultimately we probably want to put this config info
     -- into the ghc-pkg db. At that point this should probably be changed to
@@ -245,8 +244,8 @@ renderPackageHashInputs PackageHashInputs{
       , opt   "ghci-lib"    False display pkgHashGHCiLib
       , opt   "prof-lib"    False display pkgHashProfLib
       , opt   "prof-exe"    False display pkgHashProfExe
-      , opt   "prof-lib-detail" ProfDetailDefault showProfDetailLevel pkgHashProfLibDetail 
-      , opt   "prof-exe-detail" ProfDetailDefault showProfDetailLevel pkgHashProfExeDetail 
+      , opt   "prof-lib-detail" ProfDetailDefault showProfDetailLevel pkgHashProfLibDetail
+      , opt   "prof-exe-detail" ProfDetailDefault showProfDetailLevel pkgHashProfExeDetail
       , opt   "hpc"          False display pkgHashCoverage
       , opt   "optimisation" NormalOptimisation (show . fromEnum) pkgHashOptimization
       , opt   "split-objs"   False display pkgHashSplitObjs
@@ -330,4 +329,3 @@ hashFromTUF (Sec.Hash hashstr) =
       (hash, trailing) | not (BS.null hash) && BS.null trailing
         -> HashValue hash
       _ -> error "hashFromTUF: cannot decode base16 hash"
-

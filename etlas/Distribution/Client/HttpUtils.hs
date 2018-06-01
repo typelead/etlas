@@ -73,8 +73,6 @@ import System.Directory (canonicalizePath)
 import System.FilePath (takeFileName, takeDirectory)
 import System.Random (randomRIO)
 import System.Exit (ExitCode(..))
-import Data.Maybe (isJust)
-
 
 ------------------------------------------------------------------------------
 -- Downloading a URI, given an HttpTransport

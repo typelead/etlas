@@ -28,18 +28,14 @@ import Distribution.Client.Compat.Prelude
 import qualified Distribution.Make as Make
 import qualified Distribution.Simple as Simple
 import Distribution.Version
-         ( Version, mkVersion, versionNumbers, VersionRange, anyVersion
-         , intersectVersionRanges, orLaterVersion
-         , withinRange )
-import qualified Distribution.Backpack as Backpack
+         ( Version, mkVersion, VersionRange, anyVersion
+         , intersectVersionRanges, orLaterVersion)
 import Distribution.Package
-         ( newSimpleUnitId, unsafeMkDefUnitId, ComponentId, PackageId, mkPackageName
-         , PackageIdentifier(..), packageVersion, packageName )
-import Distribution.Types.Dependency
+         ( ComponentId, PackageId )
 import Distribution.PackageDescription
          ( GenericPackageDescription(packageDescription)
          , PackageDescription(..), specVersion
-         , BuildType(..), knownBuildTypes, defaultRenaming )
+         , BuildType(..), knownBuildTypes )
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec
          ( readGenericPackageDescription )
@@ -47,77 +43,45 @@ import Distribution.PackageDescription.Parsec
 import Distribution.PackageDescription.Parse
          ( readGenericPackageDescription )
 #endif
-import Distribution.Simple.Configure
-         ( configCompilerEx )
-import Distribution.Compiler
-         ( buildCompilerId, CompilerFlavor(GHC, GHCJS) )
 import Distribution.Simple.Compiler
-         ( Compiler(compilerId), compilerFlavor, PackageDB(..), PackageDBStack )
-import Distribution.Simple.PreProcess
-         ( runSimplePreProcessor, ppUnlit )
-import Distribution.Simple.Build.Macros
-         ( generatePackageVersionMacros )
+         ( Compiler, PackageDB(..), PackageDBStack )
 import Distribution.Simple.Program
          ( ProgramDb, emptyProgramDb
-         , getProgramSearchPath, getDbProgramOutput, runDbProgram, ghcProgram
-         , ghcjsProgram )
+         , getProgramSearchPath)
 import Distribution.Simple.Program.Find
          ( programSearchPathAsPATHVar, ProgramSearchPathEntry(ProgramSearchPathDir) )
 import Distribution.Simple.Program.Run
          ( getEffectiveEnvironment )
-import qualified Distribution.Simple.Program.Strip as Strip
 import Distribution.Simple.BuildPaths
-         ( defaultDistPref, exeExtension )
+         ( defaultDistPref )
 
 import Distribution.Simple.Command
          ( CommandUI(..), commandShowOptions )
-import Distribution.Simple.Program.GHC
-         ( GhcMode(..), GhcOptions(..), renderGhcOptions )
-import qualified Distribution.Simple.PackageIndex as PackageIndex
-import Distribution.Simple.PackageIndex (InstalledPackageIndex)
-import qualified Distribution.InstalledPackageInfo as IPI
-import Distribution.Client.Types
-import Distribution.Client.Config
-         ( defaultCabalDir )
-import Distribution.Client.IndexUtils
-         ( getInstalledPackages )
 import Distribution.Client.JobControl
-         ( Lock, criticalSection )
-import Distribution.Simple.Setup
-         ( Flag(..) )
+         ( Lock )
 import Distribution.Simple.Utils
-         ( die', debug, info, infoNoWrap, cabalVersion, tryFindPackageDesc, comparing
-         , createDirectoryIfMissingVerbose, installExecutableFile
-         , copyFileVerbose, rewriteFile )
+         ( die', info, infoNoWrap, cabalVersion, tryFindPackageDesc )
 import Distribution.Client.Utils
-         ( inDir, tryCanonicalizePath, withExtraPathEnv
-         , existsAndIsMoreRecentThan, moreRecentFile, withEnv
+         ( inDir, withExtraPathEnv, withEnv
 #ifdef mingw32_HOST_OS
          , canonicalizePathNoThrow
 #endif
          )
 
 import Distribution.ReadE
-import Distribution.System ( Platform(..), buildPlatform )
+import Distribution.System ( Platform(..))
 import Distribution.Text
          ( display )
-import Distribution.Utils.NubList
-         ( toNubListR )
 import Distribution.Verbosity
-import Distribution.Compat.Exception
-         ( catchIO )
 import Distribution.Compat.Stack
 
-import System.Directory    ( doesFileExist )
-import System.FilePath     ( (</>), (<.>) )
-import System.IO           ( Handle, hPutStr )
 import System.Exit         ( ExitCode(..), exitWith )
 import System.Process      ( createProcess, StdStream(..), proc, waitForProcess
                            , ProcessHandle )
 import qualified System.Process as Process
-import Data.List           ( foldl1' )
 import Distribution.Client.Compat.ExecutablePath  ( getExecutablePath )
-
+import System.IO
+import Distribution.Simple.PackageIndex
 #ifdef mingw32_HOST_OS
 import Distribution.Simple.Utils
          ( withTempDirectory )

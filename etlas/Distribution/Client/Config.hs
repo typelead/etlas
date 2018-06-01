@@ -105,8 +105,6 @@ import Distribution.Solver.Types.ConstraintSource
 
 import Data.List
          ( partition, find, foldl' )
-import Data.Maybe
-         ( fromMaybe )
 import Control.Monad
          ( when, unless, foldM, liftM )
 import qualified Distribution.Compat.ReadP as Parse
@@ -119,7 +117,7 @@ import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJ
          ( text, Doc )
 import System.Directory
-         ( createDirectoryIfMissing, getAppUserDataDirectory, renameFile )
+         ( createDirectoryIfMissing, renameFile )
 import Network.URI
          ( URI(..), URIAuth(..), parseURI )
 import System.FilePath

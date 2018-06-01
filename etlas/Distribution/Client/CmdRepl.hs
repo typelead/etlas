@@ -17,8 +17,6 @@ import Distribution.Client.ProjectOrchestration
 import Distribution.Client.CmdErrorMessages
 import Distribution.Client.RebuildMonad
 
-import Distribution.Client.TargetSelector
-         ( TargetSelectorProblem(..) )
 import Distribution.Client.ProjectConfig
 import Distribution.Client.Setup
          ( GlobalFlags, ConfigFlags(..), ConfigExFlags(..), InstallFlags )
@@ -46,12 +44,10 @@ import Distribution.Verbosity
 import Distribution.Version
 import Distribution.Utils.Generic
 import Distribution.Simple.Utils
-         ( wrapText, die', ordNub, notice, withTempDirectory,
-           createDirectoryIfMissingVerbose, getDirectoryContentsRecursive )
+         ( die', withTempDirectory, createDirectoryIfMissingVerbose )
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Data.List (intercalate)
 import Data.Monoid ((<>))
 import Data.Maybe
 import Control.Monad (when)
@@ -433,4 +429,3 @@ explanationSingleComponentLimitation =
     "The reason for this limitation is that current versions of Eta REPL do not "
  ++ "support loading multiple components as source. Load just one component "
  ++ "and when you make changes to a dependent component then quit and reload."
-

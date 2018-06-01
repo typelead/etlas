@@ -2,7 +2,6 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 module Distribution.Client.BinaryPackageDb where
 
-import Distribution.Client.Config
 import Distribution.Client.GlobalFlags
 import Distribution.Client.HttpUtils
 import Distribution.Client.Types
@@ -18,7 +17,6 @@ import Distribution.Types.PackageId
 import Network.URI
 import System.Directory
 import System.FilePath
-import System.IO.Unsafe
 
 import Control.Monad
 import Control.Exception

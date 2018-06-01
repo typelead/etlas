@@ -227,13 +227,13 @@ data PackagePreference =
 -- | Provide a textual representation of a package preference
 -- for debugging purposes.
 --
-showPackagePreference :: PackagePreference -> String
-showPackagePreference (PackageVersionPreference   pn vr) =
-  display pn ++ " " ++ display (simplifyVersionRange vr)
-showPackagePreference (PackageInstalledPreference pn ip) =
-  display pn ++ " " ++ show ip
-showPackagePreference (PackageStanzasPreference pn st) =
-  display pn ++ " " ++ show st
+-- showPackagePreference :: PackagePreference -> String
+-- showPackagePreference (PackageVersionPreference   pn vr) =
+--   display pn ++ " " ++ display (simplifyVersionRange vr)
+-- showPackagePreference (PackageInstalledPreference pn ip) =
+--   display pn ++ " " ++ show ip
+-- showPackagePreference (PackageStanzasPreference pn st) =
+--   display pn ++ " " ++ show st
 
 basicDepResolverParams :: InstalledPackageIndex
                        -> PackageIndex.PackageIndex UnresolvedSourcePackage

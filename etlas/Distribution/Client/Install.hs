@@ -136,7 +136,7 @@ import qualified Distribution.Simple.Setup as Cabal
          , testCommand, TestFlags(..), emptyTestFlags )
 import Distribution.Simple.Utils
          ( createDirectoryIfMissingVerbose, comparing
-         , writeFileAtomic, withUTF8FileContents, withCurrentDirectoryVerbose )
+         , withUTF8FileContents, withCurrentDirectoryVerbose )
 import Distribution.Simple.InstallDirs as InstallDirs
          ( PathTemplate, fromPathTemplate, toPathTemplate, substPathTemplate
          , initialPathTemplateEnv, installDirsTemplateEnv )
@@ -1430,7 +1430,7 @@ installUnpackedPackage
 installUnpackedPackage verbosity installLock numJobs
                        scriptOptions
                        configFlags installFlags haddockFlags comp progdb
-                       platform pkg rpkg pkgoverride workingDir useLogFile isBinary = do
+                       platform pkg rpkg _pkgoverride workingDir useLogFile isBinary = do
   -- Override the .cabal file if necessary
   -- case pkgoverride of
   --   Nothing     -> return ()

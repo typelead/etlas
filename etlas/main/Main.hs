@@ -205,7 +205,7 @@ import System.IO                ( BufferMode(LineBuffering), hSetBuffering
                                 , stdout )
 import System.Directory         (doesFileExist, getCurrentDirectory, makeAbsolute)
 import Data.Monoid              (Any(..))
-import Control.Exception        (SomeException(..), try, catch)
+import Control.Exception        (SomeException(..), try)
 import Control.Monad            (mapM_)
 
 -- | Entry point
@@ -446,7 +446,7 @@ depsAction depsFlags extraArgs globalFlags' = do
   (useSandbox, config) <- loadConfigOrSandboxConfig verbosity' globalFlags'
   let globalFlags = savedGlobalFlags config `mappend` globalFlags'
   distPref <- findSavedDistPref config (depsDistPref depsFlags)
-  config' <- reconfigure configureAction verbosity' distPref useSandbox
+  _config' <- reconfigure configureAction verbosity' distPref useSandbox
                DontSkipAddSourceDepsCheck mempty mempty []
                globalFlags config
 

@@ -55,7 +55,6 @@ import           Distribution.Client.SetupWrapper
 import           Distribution.Client.JobControl
 import           Distribution.Client.FetchUtils
 import           Distribution.Client.GlobalFlags (RepoContext)
-import qualified Distribution.Client.Tar as Tar
 import           Distribution.Client.Patch (patchedExtractTarGzFile)
 import           Distribution.Client.Setup (filterConfigureFlags)
 import           Distribution.Client.SourceFiles
@@ -828,7 +827,7 @@ withTarballLocalDirectory verbosity distDirLayout@DistDirLayout{..}
 unpackPackageTarball :: Verbosity -> FilePath -> FilePath -> FilePath
                      -> PackageId -> Maybe CabalFileText
                      -> IO ()
-unpackPackageTarball verbosity patchesDir tarball parentdir pkgid pkgTextOverride =
+unpackPackageTarball verbosity patchesDir tarball parentdir pkgid _pkgTextOverride =
     --TODO: [nice to have] switch to tar package and catch tar exceptions
     annotateFailureNoLog UnpackFailed $ do
 
@@ -1392,4 +1391,3 @@ annotateFailure mlogFile annotate action =
   where
     handler :: Exception e => e -> IO a
     handler = throwIO . BuildFailure mlogFile . annotate . toException
-

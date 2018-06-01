@@ -196,7 +196,7 @@ globalCommand commands = CommandUI {
         addCmd n     = case lookup n cmdDescs of
                          Nothing -> ""
                          Just d -> "  " ++ align n ++ "    " ++ d
-        addCmdCustom n d = case lookup n cmdDescs of -- make sure that the
+        _addCmdCustom n d = case lookup n cmdDescs of -- make sure that the
                                                   -- command still exists.
                          Nothing -> ""
                          Just _ -> "  " ++ align n ++ "    " ++ d
@@ -2401,7 +2401,7 @@ selectCommand = CommandUI
         ++ "    Selects the Eta on the PATH to use globally\n"
   , commandUsage        = usageAlternatives "select" ["[FLAG]", "[VERSION]"]
   , commandDefaultFlags = defaultSelectFlags
-  , commandOptions      = \showOrParseArgs ->
+  , commandOptions      = \_showOrParseArgs ->
       [ optionVerbosity selectVerbosity (\v flags -> flags { selectVerbosity = v })
       , option [] ["list"]
           "Lists the available Eta versions."
@@ -2421,8 +2421,8 @@ instance Monoid SelectFlags where
 instance Semigroup SelectFlags where
   (<>) = gmappend
 
-emptySelectFlags :: SelectFlags
-emptySelectFlags = mempty
+-- emptySelectFlags :: SelectFlags
+-- emptySelectFlags = mempty
 
 -- ------------------------------------------------------------
 -- * Exec Flags

@@ -446,7 +446,7 @@ platformTemplateEnv (Platform arch os) =
   ]
 
 abiTemplateEnv :: CompilerInfo -> Platform -> PathTemplateEnv
-abiTemplateEnv compiler (Platform arch os) =
+abiTemplateEnv compiler (Platform _arch _os) =
   [(AbiVar,      PathTemplate [Ordinary $ display (compilerInfoId compiler)])
   ,(AbiTagVar,   PathTemplate [Ordinary $ abiTagString (compilerInfoAbiTag compiler)])
   ]

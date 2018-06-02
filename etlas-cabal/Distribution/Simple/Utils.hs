@@ -194,7 +194,7 @@ import Distribution.Types.PackageId
 #endif
 
 #ifdef BOOTSTRAPPED_CABAL
-import qualified Paths_etlas_cabal (version)
+-- import qualified Paths_etlas_cabal (version)
 #endif
 
 import Control.Concurrent.MVar

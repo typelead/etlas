@@ -166,10 +166,12 @@ windowsTick, secToUnixEpoch :: Word64
 windowsTick    = 10000000
 secToUnixEpoch = 11644473600
 
+#ifdef ETA_VERSION
 -- | Convert POSIX milliseconds to ModTime.
 posixMilliSecondsToModTime :: Int64 -> ModTime
 posixMilliSecondsToModTime s =
   ModTime $ ((fromIntegral s :: Word64) + (secToUnixEpoch * 1000)) * (windowsTick `div` 1000)
+#endif
 
 -- | Convert POSIX seconds to ModTime.
 posixSecondsToModTime :: Int64 -> ModTime

@@ -1075,7 +1075,7 @@ parseGenericPackageDescription file = do
         | sec_type == "custom-setup" -> do
             unless (null sec_label) $ lift $
               syntaxError line_no "'setup' expects no argument"
-            flds <- lift $ parseFields
+            _flds <- lift $ parseFields
                              setupBInfoFieldDescrs
                              warnUnrec
                              mempty

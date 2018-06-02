@@ -53,7 +53,12 @@ import Distribution.Simple.Program.Find
 import Distribution.Simple.Program.Run
          ( getEffectiveEnvironment )
 import Distribution.Simple.BuildPaths
-         ( defaultDistPref )
+         ( defaultDistPref
+#ifdef mingw32_HOST_OS
+         , exeExtension )
+#else
+         )
+#endif
 
 import Distribution.Simple.Command
          ( CommandUI(..), commandShowOptions )
@@ -62,11 +67,11 @@ import Distribution.Client.JobControl
 import Distribution.Simple.Utils
          ( die', info, infoNoWrap, cabalVersion, tryFindPackageDesc )
 import Distribution.Client.Utils
-         ( inDir, withExtraPathEnv, withEnv
-#ifdef mingw32_HOST_OS
-         , canonicalizePathNoThrow
-#endif
-         )
+         ( inDir, withExtraPathEnv, withEnv )
+-- #ifdef mingw32_HOST_OS
+--          , canonicalizePathNoThrow
+-- #endif
+--          )
 
 import Distribution.ReadE
 import Distribution.System ( Platform(..))
@@ -87,7 +92,7 @@ import Distribution.Simple.Utils
          ( withTempDirectory )
 
 import Control.Exception   ( bracket )
-import System.FilePath     ( equalFilePath, takeDirectory )
+import System.FilePath     ( takeDirectory, (</>), (<.>) )
 import System.Directory    ( doesDirectoryExist )
 import qualified System.Win32 as Win32
 #endif

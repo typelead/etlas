@@ -9,6 +9,7 @@ module Distribution.Client.BinaryUtils (
   , selectLatest
   , listVersions
   , setLocalEtaPointerFile
+  , etaPointerFile
   ) where
 
 import Distribution.Client.BinaryPackageDb
@@ -105,18 +106,23 @@ etaPointerFile binariesPath = binariesPath </> "eta"
 
 setLocalEtaPointerFile :: FilePath -> IO ()
 setLocalEtaPointerFile binariesPath =
-  writeFile (etaPointerFile binariesPath) $ unlines $ replicate 2 programOnPath
+  writeFile (etaPointerFile binariesPath) $ unlines $ replicate numEtaPrograms programOnPath
 
--- The constant that denotes that you should use the `eta` that's on the path.
+-- The constant that denotes that you should when an Eta program is on the path.
 programOnPath :: String
 programOnPath = "$PATH"
+
+-- The constant that denotes that the program is missing
+missingProgram :: String
+missingProgram = "$MISSING"
 
 -- NOTE: When you add a new program to the eta ecosystem, you MUST increment this
 --       number and list it below:
 --       1. eta
 --       2. eta-pkg
+--       3. eta-serv.jar
 numEtaPrograms :: Int
-numEtaPrograms = 2
+numEtaPrograms = 3
 
 -- TODO: This is not thread-safe. Address if this becomes a problem.
 findEtaInBinaryIndex :: String -> Int -> GlobalFlags -> Verbosity -> ProgramSearchPath -> IO (Maybe (FilePath, [FilePath]))
@@ -133,15 +139,27 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
       if exists
       then do
         pointerLines <- readLines etaPtrFile
-        case nth n pointerLines of
-          Just progPath
-            | progPath == programOnPath -> do
-              result <- defaultCodePath
-              if isNothing result
-              then initEtaPointer globalFlags savedConfig
-              else return result
-            | otherwise                 -> return $ Just (progPath, [])
-          _     -> initEtaPointer globalFlags savedConfig
+        if length pointerLines /= numEtaPrograms
+        then initEtaPointer globalFlags savedConfig
+        else
+          case nth n pointerLines of
+            Just progPath
+              | progPath == programOnPath  ->
+                if takeExtension prog == ".jar"
+                then do
+                  etlasToolsDir <- defaultEtlasToolsDir
+                  let jarPath = etlasToolsDir </> prog
+                  exists <- doesFileExist jarPath
+                  if exists then return $ Just (jarPath, [])
+                            else return $ Nothing
+                else do
+                  result <- defaultCodePath
+                  if isNothing result
+                  then initEtaPointer globalFlags savedConfig
+                  else return result
+              | progPath == missingProgram -> return Nothing
+              | otherwise                  -> return $ Just (progPath, [])
+            _     -> return Nothing
       else initEtaPointer globalFlags savedConfig
     Just version -> do
       mResult <- selectVersion verbosity globalFlags savedConfig version False
@@ -157,7 +175,7 @@ findEtaInBinaryIndex prog n globalFlags' verbosity searchPath = do
                 "Found installed '" ++ prog ++ "' at " ++ path ++ "."
               let etaPtrFile = etaPointerFile binariesPath
               createDirectoryIfMissingVerbose verbosity True (takeDirectory etaPtrFile)
-              writeFile etaPtrFile $ unlines $ replicate numEtaPrograms programOnPath
+              setLocalEtaPointerFile binariesPath
               return result
             Nothing -> do
               notice verbosity $
@@ -261,10 +279,10 @@ installVersion verbosity globalFlags repoCtxt savedConfig uri domain version glo
   if exists
   then do
     pathsFile <- readFile installedFile
-    let programPaths = lines pathsFile
+    let programPaths = padPointerFile (lines pathsFile)
     when global $ do
       selectedVersionMessage verbosity version
-      writeFile etaPtrFile pathsFile
+      writeFile etaPtrFile $ unlines programPaths
     return $ Just programPaths
   else do
     ifTrue (ifConditionElseRetry
@@ -273,12 +291,13 @@ installVersion verbosity globalFlags repoCtxt savedConfig uri domain version glo
                   downloadVersionIndex verbosity transport binariesPath domain uri
                     (Left version))) $ do
       programs     <- readLines binaryIndexFile
-      programPaths <- downloadPrograms verbosity repoCtxt binariesPath domain uri
-                        version programs
+      programPaths' <- downloadPrograms verbosity repoCtxt binariesPath domain uri
+                         version programs
+      let pathsFile    = unlines programPaths
+          programPaths = padPointerFile programPaths'
       selectedVersionMessage verbosity version
       installBootLibraries verbosity (readVersion version)
         repoCtxt savedConfig globalFlags programPaths
-      let pathsFile = unlines programPaths
       writeFile installedFile $ pathsFile
       when global $ writeFile etaPtrFile $ pathsFile
       return $ Just programPaths
@@ -295,13 +314,14 @@ downloadPrograms verbosity repoCtxt binariesPath domain uri version programs = d
   let commitFile = commitHashFile binariesPath domain eVersion
   void $ downloadURIAllowFail (const $ return ())
     transport verbosity (uriWithPath uri (commitHashPath eVersion)) commitFile
-  forM programs $ \prog -> do
+  programPaths <- forM programs $ \prog -> do
     notice verbosity $ "Downloading executable '" ++ prog ++ "'..."
     let progFile = etaProgFile binariesPath domain prog eVersion
     downloadURIWithMsg ("Failed to download executable '" ++ prog ++ "'.")
       transport verbosity (uriWithPath uri (etaProgPath prog eVersion)) progFile
     setFileExecutable progFile
     return progFile
+  return $ padPointerFile programPaths
   where eVersion = Left version
 
 listVersions :: Verbosity -> GlobalFlags -> SavedConfig -> Bool -> IO (Maybe [String])
@@ -453,3 +473,7 @@ downloadTool verbosity transport relPath uri = do
     if isNothing mResult
     then Just ()
     else Nothing
+
+padPointerFile :: [String] -> [String]
+padPointerFile programPaths =
+  programPaths ++ replicate (numEtaPrograms - length programPaths) missingProgram

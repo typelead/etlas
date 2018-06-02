@@ -99,7 +99,8 @@ etaProgPath :: String -> Either String Version -> FilePath
 etaProgPath prog version =
   eEtaVersion version </> "binaries" </> display buildPlatform </> (prog ++ ext)
   where ext
-          | Platform _ Windows <- buildPlatform = ".exe"
+          | takeExtension prog /= ".jar"
+          , Platform _ Windows <- buildPlatform = ".exe"
           | otherwise = ""
 
 topLevelIndexPath :: String
@@ -258,7 +259,8 @@ userReadableVersion version = reverse ('b' : drop 1 rest) ++ reverse buildNumber
 downloadURIWithMsg :: String -> HttpTransport -> Verbosity -> URI -> FilePath -> IO ()
 downloadURIWithMsg msg transport verbosity uri path =
   void $ downloadURIAllowFail handler transport verbosity uri path
-  where handler _ = info verbosity $ msg ++ " - " ++ uriToString id uri ""
+  where handler e = info verbosity $ msg ++ " - " ++ uriToString id uri ""
+                 ++ " (Exception: " ++ show e ++ ")"
 
 ifTrue :: Monad m => m Bool -> m (Maybe a) -> m (Maybe a)
 ifTrue mb action = do

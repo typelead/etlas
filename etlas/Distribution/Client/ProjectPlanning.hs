@@ -84,6 +84,7 @@ import           Distribution.Client.Targets (userToPackageConstraint)
 import           Distribution.Client.DistDirLayout
 import           Distribution.Client.SetupWrapper
 import           Distribution.Client.JobControl
+import           Distribution.Client.BinaryUtils
 import           Distribution.Client.FetchUtils
 import qualified Hackage.Security.Client as Sec
 import           Distribution.Client.Setup hiding (packageName, cabalVersion)
@@ -452,7 +453,8 @@ rebuildInstallPlan verbosity
                                packageConfigProgramPaths,
                                packageConfigProgramArgs,
                                packageConfigProgramPathExtra
-                             }
+                             },
+                             projectConfigBuildOnly
                            } = do
         progsearchpath <- liftIO $ getSystemSearchPath
         rerunIfChanged verbosity fileMonitorCompiler
@@ -473,7 +475,11 @@ rebuildInstallPlan verbosity
         -- the compiler will configure (and it does vary between compilers).
         -- We do know however that the compiler will only configure the
         -- programs it cares about, and those are the ones we monitor here.
-          monitorFiles (programsMonitorFiles progdb')
+
+        -- We need to monitor the Eta pointer file for changes in between builds,
+        -- otherwise we get an incorrect "Up to date" after switching.
+          monitorFiles (monitorFile (etaPointerFile binariesPath) :
+                        programsMonitorFiles progdb')
 
           return result
       where
@@ -481,6 +487,7 @@ rebuildInstallPlan verbosity
         hcPath     = flagToMaybe projectConfigHcPath
         hcPkg      = flagToMaybe projectConfigHcPkg
         etaVersion = flagToMaybe projectConfigEtaVersion
+        binariesPath = Cabal.fromFlag $ projectConfigBinariesDir projectConfigBuildOnly
         progdb     =
             userSpecifyPaths (Map.toList (getMapLast packageConfigProgramPaths))
           . userSpecifyArgss (Map.toList (getMapMappend packageConfigProgramArgs))

@@ -158,7 +158,7 @@ import Distribution.Types.TestSuite
 import Distribution.Types.Benchmark
 import Distribution.Types.TargetInfo
 
-import Distribution.Simple.Eta ( findVerifyRef, findCoursierRef
+import Distribution.Simple.Eta ( findVerifyRef, findCoursierRef, findEtaServRef
                                , getDependencyClassPaths, InstallDirType(..), exeJarPath
                                , libJarPath )
 import Distribution.Simple.Build
@@ -233,8 +233,9 @@ mainWorker args = topHandler $
     CommandReadyToGo (globalFlags, commandParse)  -> do
 
       -- TODO: Fix this dirty hack. See the definition of `etaProgram`.
-      writeIORef findEtaRef      (findEtaInBinaryIndex "eta"     0 globalFlags)
-      writeIORef findEtaPkgRef   (findEtaInBinaryIndex "eta-pkg" 1 globalFlags)
+      writeIORef findEtaRef      (findEtaInBinaryIndex "eta"          0 globalFlags)
+      writeIORef findEtaPkgRef   (findEtaInBinaryIndex "eta-pkg"      1 globalFlags)
+      writeIORef findEtaServRef  (findEtaInBinaryIndex "eta-serv.jar" 2 globalFlags)
       writeIORef findCoursierRef (findCoursier                     globalFlags)
       writeIORef findVerifyRef   (findVerify                       globalFlags)
 

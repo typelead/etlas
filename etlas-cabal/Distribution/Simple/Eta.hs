@@ -203,7 +203,7 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       comp = compiler lbi
 
   (etaProg, _) <- requireProgram verbosity etaProgram (withPrograms lbi)
-  etaServPath  <- findEtaServ verbosity (programVersion etaProg)
+  mEtaServPath <- findEtaServ verbosity (programVersion etaProg)
   let runEtaProg = runGHC verbosity etaProg comp (hostPlatform lbi)
       libBi      = libBuildInfo lib
 
@@ -219,7 +219,9 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       let javaSrcs    = javaSources libBi
           baseOpts    = componentGhcOptions verbosity lbi libBi clbi libTargetDir
                         `mappend` mempty {
-                          ghcOptExtra = toNubListR ["-pgmi", etaServPath]
+                          ghcOptExtra = toNubListR $
+                            maybe [] (\etaServPath -> ["-pgmi", etaServPath])
+                              mEtaServPath
                         }
           linkJavaLibOpts = mempty {
                               ghcOptInputFiles = toNubListR javaSrcs,
@@ -305,7 +307,7 @@ buildOrReplExe forRepl verbosity numJobs pkgDescr lbi
       withDeps    = doWithResolvedDependencyClassPathsOrDie
                     verbosity pkgDescr lbi clbi exeBi
   (etaProg, _) <- requireProgram verbosity etaProgram  (withPrograms lbi)
-  etaServPath  <- findEtaServ verbosity (programVersion etaProg)
+  mEtaServPath <- findEtaServ verbosity (programVersion etaProg)
   createDirectoryIfMissingVerbose verbosity True exeDir
   srcMainFile <- findFile (hsSourceDirs exeBi) modPath
 
@@ -327,8 +329,8 @@ buildOrReplExe forRepl verbosity numJobs pkgDescr lbi
                       ghcOptInputModules = toNubListR $ exeModules exe,
                       ghcOptNumJobs      = numJobs,
                       ghcOptExtra        = toNubListR $
-                        ["-cp", mkMergedClassPath lbi fullClassPath,
-                         "-pgmi", etaServPath]
+                        ["-cp", mkMergedClassPath lbi fullClassPath] ++
+                        maybe [] (\etaServPath -> ["-pgmi", etaServPath]) mEtaServPath
                     }
           exeOpts = baseOpts `mappend` mempty {
                       ghcOptMode         = toFlag GhcModeMake,
@@ -767,16 +769,19 @@ runCoursier verbosity opts progDb = do
 
   runJava verbosity ["-noverify"] (Jar path) opts progDb
 
-findEtaServRef :: IORef (Verbosity -> NoCallStackIO ())
-findEtaServRef = unsafePerformIO $ newIORef $ \verbosity -> do
+findEtaServRef :: IORef (Verbosity -> ProgramSearchPath -> NoCallStackIO (Maybe (FilePath, [FilePath])))
+findEtaServRef = unsafePerformIO $ newIORef $ \verbosity _ -> do
   info verbosity $ "The Eta Serv Ref has not been initialized!"
-  return ()
+  return Nothing
 
-findEtaServ :: Verbosity -> Maybe Version -> IO FilePath
-findEtaServ _verbosity mVersion = do
-  etlasToolsDir <- defaultEtlasToolsDir
-  let etaServJar = "eta-serv" ++ maybe "" (("-" ++) . display) mVersion ++ ".jar"
-  return $ etlasToolsDir </> etaServJar
+findEtaServ :: Verbosity -> Maybe Version -> IO (Maybe FilePath)
+findEtaServ verbosity mVersion
+  | Just version <- mVersion
+  , version >= mkVersion [0,8] = do
+    findEtaServ' <- readIORef findEtaServRef
+    mResult <- findEtaServ' verbosity []
+    return $ fmap fst mResult
+  | otherwise = return Nothing
 
 -- TODO: Extremely dirty (but safe) hack because etlas-cabal has no HTTP-aware modules.
 --       Basically, we want to be able to search the index for a given eta version

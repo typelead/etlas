@@ -523,7 +523,7 @@ renderArgs verbosity tmpFileOpts version comp platform args k = do
       escapeArg = reverse . foldl' escape []
 
 renderPureArgs :: Version -> Compiler -> Platform -> HaddockArgs -> [String]
-renderPureArgs version comp platform args = concat
+renderPureArgs _version comp platform args = concat
     [ (:[]) . (\f -> "--dump-interface="++ unDir (argOutputDir args) </> f)
       . fromFlag . argInterfaceFile $ args
 
@@ -730,17 +730,17 @@ hscolour' onNoHsColour haddockTarget pkg_descr lbi suffixes flags =
           outFile m = outputDir </>
                       intercalate "-" (ModuleName.components m) <.> "html"
 
-haddockToHscolour :: HaddockFlags -> HscolourFlags
-haddockToHscolour flags =
-    HscolourFlags {
-      hscolourCSS         = haddockHscolourCss flags,
-      hscolourExecutables = haddockExecutables flags,
-      hscolourTestSuites  = haddockTestSuites  flags,
-      hscolourBenchmarks  = haddockBenchmarks  flags,
-      hscolourForeignLibs = haddockForeignLibs flags,
-      hscolourVerbosity   = haddockVerbosity   flags,
-      hscolourDistPref    = haddockDistPref    flags
-    }
+-- haddockToHscolour :: HaddockFlags -> HscolourFlags
+-- haddockToHscolour flags =
+--     HscolourFlags {
+--       hscolourCSS         = haddockHscolourCss flags,
+--       hscolourExecutables = haddockExecutables flags,
+--       hscolourTestSuites  = haddockTestSuites  flags,
+--       hscolourBenchmarks  = haddockBenchmarks  flags,
+--       hscolourForeignLibs = haddockForeignLibs flags,
+--       hscolourVerbosity   = haddockVerbosity   flags,
+--       hscolourDistPref    = haddockDistPref    flags
+--     }
 ---------------------------------------------------------------------------------
 -- TODO these should be moved elsewhere.
 

@@ -24,6 +24,7 @@ module Distribution.Simple.Eta (
         fetchMavenDependencies,
         findCoursierRef,
         findVerifyRef,
+        findEtaServRef,
         getLibraryComponent,
         getDependencyClassPaths,
         InstallDirType(..),
@@ -46,7 +47,6 @@ import Distribution.Simple.PackageIndex ( InstalledPackageIndex )
 import qualified Distribution.Simple.PackageIndex as PackageIndex
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Utils
-import Distribution.Simple.InstallDirs (defaultEtlasDir, defaultEtlasToolsDir)
 import Distribution.Simple.Program
 import qualified Distribution.Simple.Program.HcPkg as HcPkg
 import Distribution.Simple.Program.GHC
@@ -202,10 +202,10 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
       ifReplLib = when forRepl
       comp = compiler lbi
 
-  (etaProg, progDb0) <- requireProgram verbosity etaProgram (withPrograms lbi)
-  etaServPath        <- findEtaServ verbosity progDb0
-  let runEtaProg          = runGHC verbosity etaProg comp (hostPlatform lbi)
-      libBi               = libBuildInfo lib
+  (etaProg, _) <- requireProgram verbosity etaProgram (withPrograms lbi)
+  etaServPath  <- findEtaServ verbosity (programVersion etaProg)
+  let runEtaProg = runGHC verbosity etaProg comp (hostPlatform lbi)
+      libBi      = libBuildInfo lib
 
   doWithResolvedDependencyClassPathsOrDie verbosity pkgDescr lbi clbi libBi
     RelativeInstallDir $ \ (depJars,mavenPaths) -> do
@@ -304,8 +304,8 @@ buildOrReplExe forRepl verbosity numJobs pkgDescr lbi
       exeJar      = targetDir </> exeNameReal
       withDeps    = doWithResolvedDependencyClassPathsOrDie
                     verbosity pkgDescr lbi clbi exeBi
-  (etaProg, progDb0) <- requireProgram verbosity etaProgram  (withPrograms lbi)
-  etaServPath        <- findEtaServ verbosity progDb0
+  (etaProg, _) <- requireProgram verbosity etaProgram  (withPrograms lbi)
+  etaServPath  <- findEtaServ verbosity (programVersion etaProg)
   createDirectoryIfMissingVerbose verbosity True exeDir
   srcMainFile <- findFile (hsSourceDirs exeBi) modPath
 
@@ -381,7 +381,7 @@ generateExeLaunchers verbosity lbi exeName classPaths targetDir = do
 
 generateExeLauncherScript :: Verbosity -> LocalBuildInfo -> String
                           -> [String]  -> FilePath       -> IO ()
-generateExeLauncherScript verbosity lbi exeName classPaths targetDir = do
+generateExeLauncherScript _verbosity lbi exeName classPaths targetDir = do
   let isWindows'   = isWindows lbi
       classPathSep = head (classPathSeparator lbi)
       scriptClassPaths
@@ -522,7 +522,7 @@ installExe :: Verbosity
            -> IO ()
 installExe verbosity lbi installDirs buildPref
            (_progprefix, _progsuffix) _pkg exe = do
-  let exeBi = buildInfo exe
+  let _exeBi = buildInfo exe
       binDir = bindir installDirs
       toDir x = binDir </> x
       exeName' = display (exeName exe)
@@ -767,11 +767,16 @@ runCoursier verbosity opts progDb = do
 
   runJava verbosity ["-noverify"] (Jar path) opts progDb
 
-findEtaServ :: Verbosity -> ProgramDb -> IO FilePath
-findEtaServ _verbosity _progdb = do
-  -- (javaProg,_) <- requireProgram verbosity javaProgram progdb
+findEtaServRef :: IORef (Verbosity -> NoCallStackIO ())
+findEtaServRef = unsafePerformIO $ newIORef $ \verbosity -> do
+  info verbosity $ "The Eta Serv Ref has not been initialized!"
+  return ()
+
+findEtaServ :: Verbosity -> Maybe Version -> IO FilePath
+findEtaServ _verbosity mVersion = do
   etlasToolsDir <- defaultEtlasToolsDir
-  return $ etlasToolsDir </> "eta-serv.jar"
+  let etaServJar = "eta-serv" ++ maybe "" (("-" ++) . display) mVersion ++ ".jar"
+  return $ etlasToolsDir </> etaServJar
 
 -- TODO: Extremely dirty (but safe) hack because etlas-cabal has no HTTP-aware modules.
 --       Basically, we want to be able to search the index for a given eta version
@@ -805,7 +810,7 @@ getInstalledPackagesMonitorFiles :: Verbosity -> Platform
                                  -> ProgramDb
                                  -> [PackageDB]
                                  -> IO [FilePath]
-getInstalledPackagesMonitorFiles verbosity platform progdb =
+getInstalledPackagesMonitorFiles verbosity _platform progdb =
     traverse getPackageDBPath
   where
     getPackageDBPath :: PackageDB -> IO FilePath

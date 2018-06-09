@@ -165,7 +165,10 @@ unpackPackage verbosity prefix pkgid _descOverride pkgPath isGit patchesDir = do
     when existsFile $ die' verbosity $
      "A file \"" ++ pkgdir ++ "\" is in the way, not unpacking."
     notice verbosity $ "Unpacking to " ++ pkgdir'
-    patchedExtractTarGzFile verbosity True prefix pkgdirname pkgPath patchesDir isGit False
+    let destinationDir
+          | isGit = prefix </> pkgdir'
+          | otherwise = prefix
+    patchedExtractTarGzFile verbosity True destinationDir pkgdirname pkgPath patchesDir isGit False
 
     -- case descOverride of
     --   Nothing     -> return ()

@@ -142,7 +142,7 @@ run verbosity debug trace lbi exe exeArgs = do
                        "-Djava.compiler=NONE -javaagent:"
                        ++ agent
                        ++ "=ignore=org/slf4j/:ch/qos/logback/:org/apache/log4j/"
-                     etaClasspath = Eta.mkMergedClassPath lbi classpaths
+                     etaClasspath = Eta.mkMergedClassPathLbi lbi classpaths
                  return [("JAVA_ARGS", javaArgs), ("ETA_CLASSPATH", etaClasspath)]
                | otherwise = return []
          envVals <- envMod

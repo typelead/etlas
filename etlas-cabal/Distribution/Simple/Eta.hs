@@ -15,8 +15,8 @@ module Distribution.Simple.Eta (
         getLibDir,
         isDynamic,
         getGlobalPackageDB,
-        -- runCmd
         mkMergedClassPath,
+        mkMergedClassPathLbi,
         classPathSeparator,
         mkJarName,
         JavaExec(..),
@@ -226,7 +226,7 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
           linkJavaLibOpts = mempty {
                               ghcOptInputFiles = toNubListR javaSrcs,
                               ghcOptExtra      = toNubListR $
-                                ["-cp", mkMergedClassPath lbi fullClassPath]
+                                ["-cp", mkMergedClassPathLbi lbi fullClassPath]
                           }
           vanillaOptsNoJavaLib = baseOpts `mappend` mempty {
                           ghcOptMode         = toFlag GhcModeMake,
@@ -329,7 +329,7 @@ buildOrReplExe forRepl verbosity numJobs pkgDescr lbi
                       ghcOptInputModules = toNubListR $ exeModules exe,
                       ghcOptNumJobs      = numJobs,
                       ghcOptExtra        = toNubListR $
-                        ["-cp", mkMergedClassPath lbi fullClassPath] ++
+                        ["-cp", mkMergedClassPathLbi lbi fullClassPath] ++
                         maybe [] (\etaServPath -> ["-pgmi", etaServPath]) mEtaServPath
                     }
           exeOpts = baseOpts `mappend` mempty {
@@ -385,10 +385,10 @@ generateExeLauncherScript :: Verbosity -> LocalBuildInfo -> String
                           -> [String]  -> FilePath       -> IO ()
 generateExeLauncherScript _verbosity lbi exeName classPaths targetDir = do
   let isWindows'   = isWindows lbi
-      classPathSep = head (classPathSeparator lbi)
+      classPathSep = head (classPathSeparator (hostPlatform lbi))
       scriptClassPaths
         | null classPaths = ""
-        | otherwise = mkMergedClassPath lbi classPaths
+        | otherwise = mkMergedClassPathLbi lbi classPaths
       exeScript = exeLauncherScript classPathSep exeName
                   scriptClassPaths isWindows'
       scriptFile | isWindows' = prefix ++ ".cmd"
@@ -720,12 +720,15 @@ resolveOrId repo
   | otherwise = repo
 
 
-classPathSeparator :: LocalBuildInfo -> String
-classPathSeparator lbi | Platform _ Windows <- hostPlatform lbi = ";"
-                       | otherwise = ":"
+classPathSeparator :: Platform -> String
+classPathSeparator (Platform _ Windows) = ";"
+classPathSeparator _ = ":"
 
-mkMergedClassPath :: LocalBuildInfo -> [FilePath] -> FilePath
-mkMergedClassPath lbi = intercalate (classPathSeparator lbi)
+mkMergedClassPath :: Platform -> [FilePath] -> FilePath
+mkMergedClassPath platform = intercalate (classPathSeparator platform)
+
+mkMergedClassPathLbi :: LocalBuildInfo -> [FilePath] -> FilePath
+mkMergedClassPathLbi lbi = mkMergedClassPath (hostPlatform lbi)
 
 data JavaExec = Jar FilePath | JavaClass String
 
@@ -801,7 +804,7 @@ runVerify verbosity classPath target lbi = do
     findVerify <- readIORef findVerifyRef
     findVerify verbosity
 
-  _ <- runJava verbosity ["-cp", mkMergedClassPath lbi (path:classPath)]
+  _ <- runJava verbosity ["-cp", mkMergedClassPathLbi lbi (path:classPath)]
          (JavaClass "Verify") [target] (withPrograms lbi)
   return ()
 

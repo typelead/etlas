@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns, RecordWildCards #-}
 
 -- | etlas CLI command: run
 --
@@ -20,12 +20,14 @@ import Distribution.Client.ProjectOrchestration
 import Distribution.Client.CmdErrorMessages
 
 import Distribution.Client.Setup
-         ( GlobalFlags, ConfigFlags(..), ConfigExFlags, InstallFlags )
+         ( GlobalFlags, ConfigFlags(..), ConfigExFlags, InstallFlags, RunFlags(..),
+           defaultRunFlags, liftOptions )
 import qualified Distribution.Client.Setup as Client
 import Distribution.Simple.Setup
          ( HaddockFlags, fromFlagOrDefault )
 import Distribution.Simple.Command
          ( CommandUI(..), usageAlternatives )
+import qualified Distribution.Simple.Eta as Eta
 import Distribution.Types.ComponentName
          ( showComponentName )
 import Distribution.Text
@@ -37,7 +39,7 @@ import Distribution.Verbosity
 import Distribution.Simple.Utils
          ( wrapText, die', ordNub, info )
 import Distribution.Client.ProjectPlanning
-         ( ElaboratedConfiguredPackage(..), BuildStyle(..)
+         ( ElaboratedConfiguredPackage(..), BuildStyle(..), ElaboratedSharedConfig(..)
          , ElaboratedInstallPlan, binDirectoryFor )
 import Distribution.Client.InstallPlan
          ( toList, foldPlanPackage )
@@ -58,8 +60,9 @@ import Distribution.Client.Types
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import System.FilePath
+import Data.List
 
-runCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
+runCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags, RunFlags)
 runCommand = Client.installCommand {
   commandName         = "run",
   commandSynopsis     = "Run an executable.",
@@ -94,8 +97,19 @@ runCommand = Client.installCommand {
      ++ "  " ++ pname ++ " run foo -O2 -- dothing --fooflag\n"
      ++ "    Build with '-O2' and run the program, passing it extra arguments.\n\n"
 
-     ++ cmdCommonHelpTextNewBuildBeta
+     ++ cmdCommonHelpTextNewBuildBeta,
+  commandDefaultFlags = (f1, f2, f3, f4, defaultRunFlags),
+  commandOptions = \showOrParseArgs ->
+      liftOptions getInstallOpts setInstallOpts
+        (commandOptions Client.installCommand showOrParseArgs)
+   ++ liftOptions getRunOpts setRunOpts
+        (Client.runOptions showOrParseArgs)
    }
+  where getInstallOpts (a,b,c,d,_)           = (a,b,c,d)
+        setInstallOpts (a,b,c,d) (_,_,_,_,e) = (a,b,c,d,e)
+        getRunOpts (_,_,_,_,e)   = e
+        setRunOpts e (a,b,c,d,_) = (a,b,c,d,e)
+        (f1, f2, f3, f4) = commandDefaultFlags Client.installCommand
 
 
 -- | The @run@ command runs a specified executable-like component, building it
@@ -106,9 +120,9 @@ runCommand = Client.installCommand {
 -- For more details on how this works, see the module
 -- "Distribution.Client.ProjectOrchestration"
 --
-runAction :: (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
+runAction :: (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags, RunFlags)
           -> [String] -> GlobalFlags -> IO ()
-runAction (configFlags, configExFlags, installFlags, haddockFlags)
+runAction (configFlags, configExFlags, installFlags, haddockFlags, runFlags)
             targetStrings globalFlags = do
 
     baseCtx <- establishProjectBaseContext verbosity cliConfig
@@ -211,19 +225,46 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags)
                                   pkg
                                   exeName
                </> exeNameExt
+
+        ElaboratedSharedConfig {..} = elaboratedShared buildCtx
+
+        envModDebug
+            | debug = [("ETA_JAVA_CMD", Just "jdb")]
+            | otherwise = []
+        envModTrace
+          | trace = do
+              mavenDeps <- Eta.fetchMavenDependencies verbosity []
+                             [ "org.slf4j:slf4j-ext:1.7.21"
+                             , "org.slf4j:slf4j-simple:1.7.21"
+                             , "org.slf4j:slf4j-api:1.7.21"
+                             , "org.javassist:javassist:3.20.0-GA"]
+                             pkgConfigCompilerProgs
+              let (agent:[], classpaths) =
+                    partition ("slf4j-ext" `isInfixOf`) mavenDeps
+                  javaArgs =
+                       "-Djava.compiler=NONE -javaagent:"
+                    ++ agent
+                    ++ "=ignore=org/slf4j/:ch/qos/logback/:org/apache/log4j/"
+                  etaClasspath = Eta.mkMergedClassPath pkgConfigPlatform classpaths
+              return [("JAVA_ARGS", Just javaArgs), ("ETA_CLASSPATH", Just etaClasspath)]
+          | otherwise = return []
+    envChanges <- fmap (envModDebug ++) $ envModTrace
     let args = drop 1 targetStrings
     runProgramInvocation
       verbosity
       emptyProgramInvocation {
         progInvokePath  = exePath,
         progInvokeArgs  = args,
-        progInvokeEnv   = dataDirsEnvironmentForPlan elaboratedPlan
+        progInvokeEnv   = dataDirsEnvironmentForPlan elaboratedPlan ++ envChanges
       }
   where
     verbosity = fromFlagOrDefault normal (configVerbosity configFlags)
     cliConfig = commandLineFlagsToProjectConfig
                   globalFlags configFlags configExFlags
                   installFlags haddockFlags
+
+    debug = fromFlagOrDefault False (runDebug runFlags)
+    trace = fromFlagOrDefault False (runTrace runFlags)
 
 
 -- | Construct the environment needed for the data files to work.

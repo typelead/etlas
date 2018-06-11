@@ -39,7 +39,7 @@ module Distribution.Client.Setup
     , formatCommand
     , uploadCommand, UploadFlags(..), IsCandidate(..)
     , reportCommand, ReportFlags(..)
-    , runCommand, RunFlags(..)
+    , runCommand, RunFlags(..), defaultRunFlags, runOptions
     , initCommand, IT.InitFlags(..)
     , sdistCommand, SDistFlags(..), SDistExFlags(..), ArchiveFormat(..)
     , bdistCommand, BDistFlags(..), BDistExFlags(..), defaultBDistExFlags
@@ -52,6 +52,7 @@ module Distribution.Client.Setup
     , selectCommand, SelectFlags(..)
 
     , parsePackageArgs
+    , liftOptions
     --TODO: stop exporting these:
     , showRepo
     , parseRepo
@@ -1156,6 +1157,12 @@ instance Monoid RunFlags where
 
 instance Semigroup RunFlags where
   (<>) = gmappend
+
+defaultRunFlags :: RunFlags
+defaultRunFlags = RunFlags {
+    runTrace  = mempty,
+    runDebug  = mempty
+  }
 
 runOptions :: ShowOrParseArgs -> [OptionField RunFlags]
 runOptions _showOrParseArgs =

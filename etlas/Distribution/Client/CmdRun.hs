@@ -24,7 +24,7 @@ import Distribution.Client.Setup
            defaultRunFlags, liftOptions )
 import qualified Distribution.Client.Setup as Client
 import Distribution.Simple.Setup
-         ( HaddockFlags, fromFlagOrDefault )
+         ( HaddockFlags, fromFlagOrDefault, flagToMaybe )
 import Distribution.Simple.Command
          ( CommandUI(..), usageAlternatives )
 import qualified Distribution.Simple.Eta as Eta
@@ -244,7 +244,8 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags, runFlags)
                   javaArgs =
                        "-Djava.compiler=NONE -javaagent:"
                     ++ agent
-                    ++ "=ignore=org/slf4j/:ch/qos/logback/:org/apache/log4j/"
+                    ++ "=ignore=org/slf4j/:ch/qos/logback/:org/apache/log4j/:eta/runtime/stg/Print"
+                    ++ traceIgnore
                   etaClasspath = Eta.mkMergedClassPath pkgConfigPlatform classpaths
               return [("JAVA_ARGS", Just javaArgs), ("ETA_CLASSPATH", Just etaClasspath)]
           | otherwise = return []
@@ -263,8 +264,9 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags, runFlags)
                   globalFlags configFlags configExFlags
                   installFlags haddockFlags
 
-    debug = fromFlagOrDefault False (runDebug runFlags)
-    trace = fromFlagOrDefault False (runTrace runFlags)
+    debug       = fromFlagOrDefault False (runDebug runFlags)
+    trace       = fromFlagOrDefault False (runTrace runFlags)
+    traceIgnore = maybe "" (':' :) $ flagToMaybe (runTraceIgnore runFlags)
 
 
 -- | Construct the environment needed for the data files to work.

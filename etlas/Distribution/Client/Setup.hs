@@ -1147,8 +1147,9 @@ manpageCommand = CommandUI {
 -- ------------------------------------------------------------
 
 data RunFlags = RunFlags {
-  runTrace     :: Flag Bool
-, runDebug     :: Flag Bool
+   runTrace       :: Flag Bool
+ , runDebug       :: Flag Bool
+ , runTraceIgnore :: Flag String
 } deriving Generic
 
 instance Monoid RunFlags where
@@ -1160,8 +1161,9 @@ instance Semigroup RunFlags where
 
 defaultRunFlags :: RunFlags
 defaultRunFlags = RunFlags {
-    runTrace  = mempty,
-    runDebug  = mempty
+    runTrace       = mempty,
+    runDebug       = mempty,
+    runTraceIgnore = mempty
   }
 
 runOptions :: ShowOrParseArgs -> [OptionField RunFlags]
@@ -1173,7 +1175,12 @@ runOptions _showOrParseArgs =
   , option [] ["trace"]
     "Dumps a trace for the given program."
     runTrace (\v flags -> flags { runTrace = v })
-    (noArg (Flag True)) ]
+    (noArg (Flag True))
+  , option [] ["trace-ignore"]
+    "Additional classes to ignore while tracing."
+    runTraceIgnore (\v flags -> flags { runTraceIgnore = v })
+    (reqArgFlag "IGNORED_CLASSES")
+  ]
 
 runCommand :: CommandUI (BuildFlags, BuildExFlags, RunFlags)
 runCommand = CommandUI {

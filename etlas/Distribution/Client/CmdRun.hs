@@ -241,10 +241,14 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags, runFlags)
                              pkgConfigCompilerProgs
               let (agent:[], classpaths) =
                     partition ("slf4j-ext" `isInfixOf`) mavenDeps
+                  ignoreRTS
+                    | traceRTS  = ""
+                    | otherwise = ":eta/runtime/"
                   javaArgs =
                        "-Djava.compiler=NONE -javaagent:"
                     ++ agent
-                    ++ "=ignore=org/slf4j/:ch/qos/logback/:org/apache/log4j/:eta/runtime/stg/Print"
+                    ++ "=ignore=org/slf4j/:ch/qos/logback/:org/apache/log4j/"
+                    ++ ignoreRTS
                     ++ traceIgnore
                   etaClasspath = Eta.mkMergedClassPath pkgConfigPlatform classpaths
               return [("JAVA_ARGS", Just javaArgs), ("ETA_CLASSPATH", Just etaClasspath)]
@@ -267,6 +271,8 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags, runFlags)
     debug       = fromFlagOrDefault False (runDebug runFlags)
     trace       = fromFlagOrDefault False (runTrace runFlags)
     traceIgnore = maybe "" (':' :) $ flagToMaybe (runTraceIgnore runFlags)
+    traceRTS    = fromFlagOrDefault False (runTraceRTS runFlags)
+
 
 
 -- | Construct the environment needed for the data files to work.

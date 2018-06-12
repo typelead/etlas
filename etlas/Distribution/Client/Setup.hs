@@ -1147,9 +1147,10 @@ manpageCommand = CommandUI {
 -- ------------------------------------------------------------
 
 data RunFlags = RunFlags {
-   runTrace       :: Flag Bool
- , runDebug       :: Flag Bool
+   runDebug       :: Flag Bool
+ , runTrace       :: Flag Bool
  , runTraceIgnore :: Flag String
+ , runTraceRTS    :: Flag Bool
 } deriving Generic
 
 instance Monoid RunFlags where
@@ -1161,10 +1162,12 @@ instance Semigroup RunFlags where
 
 defaultRunFlags :: RunFlags
 defaultRunFlags = RunFlags {
-    runTrace       = mempty,
     runDebug       = mempty,
-    runTraceIgnore = mempty
+    runTrace       = mempty,
+    runTraceIgnore = mempty,
+    runTraceRTS    = mempty
   }
+
 
 runOptions :: ShowOrParseArgs -> [OptionField RunFlags]
 runOptions _showOrParseArgs =
@@ -1180,6 +1183,10 @@ runOptions _showOrParseArgs =
     "Additional classes to ignore while tracing."
     runTraceIgnore (\v flags -> flags { runTraceIgnore = v })
     (reqArgFlag "IGNORED_CLASSES")
+  , option [] ["trace-rts"]
+    "Trace the RTS classes as well"
+    runTraceRTS (\v flags -> flags { runTraceRTS = v })
+    (noArg (Flag True))
   ]
 
 runCommand :: CommandUI (BuildFlags, BuildExFlags, RunFlags)

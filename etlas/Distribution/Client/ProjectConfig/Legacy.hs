@@ -956,7 +956,7 @@ legacyPackageConfigFieldDescrs =
       , "executable-stripping", "library-stripping"
       , "tests", "benchmarks"
       , "coverage", "library-coverage"
-      , "relocatable"
+      , "relocatable", "verify"
         -- not "extra-include-dirs", "extra-lib-dirs", "extra-framework-dirs"
         -- or "extra-prog-path". We use corrected ones above that parse
         -- as list fields.

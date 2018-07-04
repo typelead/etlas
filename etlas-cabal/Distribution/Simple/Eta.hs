@@ -245,13 +245,13 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
                             ghcOptExtraDefault = toNubListR ["-staticlib"]
                         }
           replOpts    = vanillaOpts' {
-                          ghcOptExtra        = overNubListR
+                          ghcOptExtra        = (overNubListR
                                                Internal.filterGhciFlags $
-                                               ghcOptExtra vanillaOpts',
+                                               ghcOptExtra vanillaOpts') `mappend`
+                                               toNubListR ["-inmemory"],
                           ghcOptNumJobs      = mempty,
                           ghcOptMode         = toFlag GhcModeInteractive,
-                          ghcOptOptimisation = toFlag GhcNoOptimisation,
-                          ghcOptExtra = toNubListR ["-inmemory"] `mappend` ghcOptExtra vanillaOpts'
+                          ghcOptOptimisation = toFlag GhcNoOptimisation
                         }
           target = libTargetDir </> mkJarName uid
       unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do
@@ -484,7 +484,6 @@ installLib verbosity lbi targetDir _dynlibTargetDir builtDir _pkg lib clbi = do
   copyModuleFiles "hi"
   when hasLib $ do
     mapM_ (installOrdinaryIfExists builtDir targetDir) jarLibNames
-    mapM_ (installOrdinaryIfExists builtDir targetDir) ffiMapNames
   where
     installOrdinaryIfExists srcDir dstDir name = do
       exists <- doesFileExist $ srcDir </> name
@@ -504,16 +503,12 @@ installLib verbosity lbi targetDir _dynlibTargetDir builtDir _pkg lib clbi = do
     _cid = compilerId (compiler lbi)
     libUids = [componentUnitId clbi]
     jarLibNames = map mkJarName libUids ++ map (("HS" ++) . mkJarName) libUids
-    ffiMapNames = map mkFFIMapName libUids
 
     hasLib    = not $ null (allLibModules lib clbi)
                    && null (javaSources (libBuildInfo lib))
 
 mkJarName :: UnitId -> String
 mkJarName uid = getHSLibraryName uid <.> "jar"
-
-mkFFIMapName :: UnitId -> String
-mkFFIMapName uid = getHSLibraryName uid <.> "ffimap"
 
 installExe :: Verbosity
            -> LocalBuildInfo

@@ -250,7 +250,8 @@ buildOrReplLib forRepl verbosity numJobs pkgDescr lbi lib clbi = do
                                                ghcOptExtra vanillaOpts',
                           ghcOptNumJobs      = mempty,
                           ghcOptMode         = toFlag GhcModeInteractive,
-                          ghcOptOptimisation = toFlag GhcNoOptimisation
+                          ghcOptOptimisation = toFlag GhcNoOptimisation,
+                          ghcOptExtra = toNubListR ["-inmemory"] `mappend` ghcOptExtra vanillaOpts'
                         }
           target = libTargetDir </> mkJarName uid
       unless (forRepl || (null (allLibModules lib clbi) && null javaSrcs)) $ do

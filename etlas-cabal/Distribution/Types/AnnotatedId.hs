@@ -18,6 +18,12 @@ data AnnotatedId id = AnnotatedId {
     }
     deriving (Show)
 
+instance Eq id => Eq (AnnotatedId id) where
+    x == y = ann_id x == ann_id y
+
+instance Ord id => Ord (AnnotatedId id) where
+    compare x y = compare (ann_id x) (ann_id y)
+
 instance Package (AnnotatedId id) where
     packageId = ann_pid
 

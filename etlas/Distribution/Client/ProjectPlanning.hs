@@ -1256,17 +1256,19 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
         -> SolverPackage UnresolvedPkgLoc
         -> LogProgress [ElaboratedConfiguredPackage]
     elaborateSolverToComponents mapDep spkg@(SolverPackage _ _ _ deps0 exe_deps0)
-        = case toComponentsGraph (elabEnabledSpec elab0) pd of
+        = case mkComponentsGraph (elabEnabledSpec elab0) pd of
            Right g -> do
+            let src_comps = componentsGraphToList g
             infoProgress $ hang (text "Component graph for" <+> disp pkgid <<>> colon)
-                            4 (dispComponentsGraph g)
+                            4 (dispComponentsWithDeps src_comps)
             (_, comps) <- mapAccumM buildComponent
                             (Map.empty, Map.empty, Map.empty)
-                            (map fst g)
-            if null (why_not_per_component g)
+                            (map fst src_comps)
+            let not_per_component_reasons = why_not_per_component src_comps
+            if null not_per_component_reasons
                 then return comps
-                else do checkPerPackageOk comps (why_not_per_component g)
-                        return [elaborateSolverToPackage mapDep spkg $
+                else do checkPerPackageOk comps not_per_component_reasons
+                        return [elaborateSolverToPackage mapDep spkg g $
                                 comps ++ maybeToList setupComponent]
            Left cns ->
             dieProgress $
@@ -1545,12 +1547,13 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
 
     elaborateSolverToPackage :: (SolverId -> [ElaboratedPlanPackage])
                              -> SolverPackage UnresolvedPkgLoc
+                             -> ComponentsGraph
                              -> [ElaboratedConfiguredPackage]
                              -> ElaboratedConfiguredPackage
     elaborateSolverToPackage
         mapDep
         pkg@(SolverPackage (SourcePackage pkgid _gdesc _srcloc _descOverride _patch)
-                           _flags _stanzas _deps0 _exe_deps0) comps =
+                           _flags _stanzas _deps0 _exe_deps0) compGraph comps =
         -- Knot tying: the final elab includes the
         -- pkgInstalledId, which is calculated by hashing many
         -- of the other fields of the elaboratedPackage.
@@ -1600,6 +1603,17 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
         -- TODO: Why is this flat?
         pkgPkgConfigDependencies
             = CD.flatDeps $ buildComponentDeps compPkgConfigDependencies
+
+        pkgDependsOnSelfLib
+             = CD.fromList [ (CD.componentNameToComponent cn, [()])
+                          | Graph.N _ cn _ <- fromMaybe [] mb_closure ]
+          where
+            mb_closure = Graph.revClosure compGraph [ k | k <- Graph.keys compGraph, is_lib k ]
+            is_lib CLibName = True
+            -- NB: this case should not occur, because sub-libraries
+            -- are not supported without per-component builds
+            is_lib (CSubLibName _) = True
+            is_lib _ = False
 
         buildComponentDeps f
             = CD.fromList [ (compSolverName comp, f comp)

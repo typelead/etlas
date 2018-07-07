@@ -304,8 +304,21 @@ elabRequiresRegistration elab =
             case compComponentName comp of
                 Just cn -> is_lib cn && build_target
                 _ -> False
-        ElabPackage _ -> build_target
+        ElabPackage pkg ->
+            -- Tricky! Not only do we have to test if the user selected
+            -- a library as a build target, we also have to test if
+            -- the library was TRANSITIVELY depended upon, since we will
+            -- also require a register in this case.
+            --
+            -- NB: It would have been far nicer to just unconditionally
+            -- register in all cases, but some Custom Setups will fall
+            -- over if you try to do that, ESPECIALLY if there actually is
+            -- a library but they hadn't built it.
+            build_target || any (depends_on_lib pkg) (elabBuildTargets elab)
   where
+    depends_on_lib pkg (ComponentTarget cn _) =
+        not (null (CD.select (== CD.componentNameToComponent cn)
+                             (pkgDependsOnSelfLib pkg)))
     build_target =
         if not (null (elabBuildTargets elab))
             then any is_lib_target (elabBuildTargets elab)
@@ -547,6 +560,13 @@ data ElaboratedPackage
        --
        pkgLibDependencies :: ComponentDeps [ConfiguredId],
 
+       -- | Components which depend (transitively) on an internally
+       -- defined library.  These are used by 'elabRequiresRegistration',
+       -- to determine if a user-requested build is going to need
+       -- a library registration
+       --
+       pkgDependsOnSelfLib :: ComponentDeps [()],
+
        -- | Dependencies on executable packages.
        --
        pkgExeDependencies :: ComponentDeps [ConfiguredId],
@@ -671,4 +691,3 @@ data SetupScriptStyle = SetupCustomExplicitDeps
   deriving (Eq, Show, Generic, Typeable)
 
 instance Binary SetupScriptStyle
-

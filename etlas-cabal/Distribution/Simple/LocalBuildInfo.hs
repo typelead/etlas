@@ -111,7 +111,7 @@ componentBuildDir lbi clbi
             CLibName      ->
                 if display (componentUnitId clbi) == display (componentComponentId clbi)
                     then ""
-                    else display (componentUnitId clbi)
+                    else "" -- display (componentUnitId clbi)
             CSubLibName s ->
                 if display (componentUnitId clbi) == display (componentComponentId clbi)
                     then unUnqualComponentName s

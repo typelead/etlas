@@ -1,6 +1,6 @@
 name:          etlas-cabal
 -- @VERSION
-version:       1.4.0.1
+version:       1.4.0.2
 copyright:     2017, TypeLead, Inc.
 license:       BSD3
 license-file:  LICENSE

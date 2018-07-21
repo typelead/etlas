@@ -65,7 +65,7 @@ import Distribution.Simple.Command
 import Distribution.Client.JobControl
          ( Lock )
 import Distribution.Simple.Utils
-         ( die', info, infoNoWrap, cabalVersion, tryFindPackageDesc )
+         ( die', notice, info, infoNoWrap, cabalVersion, tryFindPackageDesc )
 import Distribution.Client.Utils
          ( inDir, withExtraPathEnv, withEnv )
 -- #ifdef mingw32_HOST_OS
@@ -267,7 +267,7 @@ getSetup verbosity options mpkg = do
                                           (useCabalVersion options)
                                           (orLaterVersion (specVersion pkg))
                     }
-      buildType'  = fromMaybe Custom (buildType pkg)
+      buildType'  = fromMaybe Simple (buildType pkg)
   checkBuildType buildType'
   (version, method, options'') <-
     getSetupMethod verbosity options' pkg buildType'
@@ -285,6 +285,8 @@ getSetup verbosity options mpkg = do
     checkBuildType (UnknownBuildType name) =
       die' verbosity $ "The build-type '" ++ name ++ "' is not known. Use one of: "
          ++ intercalate ", " (map display knownBuildTypes) ++ "."
+    checkBuildType Custom =
+      notice verbosity $ "The build-type 'Custom' is not supported yet, so the custom-setup section will be ignored."
     checkBuildType _ = return ()
 
 
@@ -399,7 +401,8 @@ buildTypeAction Simple    = Simple.defaultMainArgs
 buildTypeAction Configure = Simple.defaultMainWithHooksArgs
                               Simple.autoconfUserHooks
 buildTypeAction Make      = Make.defaultMainArgs
-buildTypeAction Custom               = error "buildTypeAction Custom"
+-- TODO: Change the following once you support custom build types
+buildTypeAction Custom    = Simple.defaultMainArgs
 buildTypeAction (UnknownBuildType _) = error "buildTypeAction UnknownBuildType"
 
 

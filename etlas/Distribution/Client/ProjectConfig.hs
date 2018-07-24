@@ -76,7 +76,7 @@ import Distribution.Solver.Types.PackageConstraint
          ( PackageProperty(..) )
 
 import Distribution.Package
-         ( PackageName, PackageId, packageId, UnitId )
+         ( PackageName, PackageId, packageId, UnitId, mkPackageName )
 import Distribution.Types.Dependency
 import Distribution.System
          ( Platform )
@@ -95,7 +95,8 @@ import Distribution.Simple.Program
          ( ConfiguredProgram(..) )
 import Distribution.Simple.Setup
          ( Flag(Flag), toFlag, flagToMaybe, flagToList
-         , fromFlag, fromFlagOrDefault, AllowNewer(..), AllowOlder(..), RelaxDeps(..) )
+         , fromFlag, fromFlagOrDefault, AllowNewer(..), AllowOlder(..), RelaxDeps(..)
+         , RelaxedDep(..) )
 import Distribution.Client.Setup
          ( defaultSolver, defaultMaxBackjumps )
 import Distribution.Simple.InstallDirs
@@ -214,7 +215,7 @@ resolveSolverSettings ProjectConfig{
     solverSettingCabalVersion      = flagToMaybe projectConfigCabalVersion
     solverSettingSolver            = fromFlag projectConfigSolver
     solverSettingAllowOlder        = fromJust projectConfigAllowOlder
-    solverSettingAllowNewer        = fromJust projectConfigAllowNewer
+    solverSettingAllowNewer        = fromJust projectConfigAllowNewer <> relaxBootBounds
     solverSettingMaxBackjumps      = case fromFlag projectConfigMaxBackjumps of
                                        n | n < 0     -> Nothing
                                          | otherwise -> Just n
@@ -231,6 +232,9 @@ resolveSolverSettings ProjectConfig{
   --solverSettingUpgradeDeps       = fromFlag projectConfigUpgradeDeps
 
     ProjectConfigShared {..} = defaults <> projectConfigShared
+
+    relaxBootBounds = AllowNewer $ RelaxDepsSome $ map (RelaxedDep . mkPackageName)
+                        ["eta-meta", "base", "ghc-prim", "integer", "template-haskell"]
 
     defaults = mempty {
        projectConfigSolver            = Flag defaultSolver,

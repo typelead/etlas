@@ -243,7 +243,7 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags, runFlags)
                     partition ("slf4j-ext" `isInfixOf`) mavenDeps
                   ignoreRTS
                     | traceRTS  = ""
-                    | otherwise = ":eta/runtime/"
+                    | otherwise = ":eta/runtime/:ghc_prim/:integer/:base/"
                   javaArgs =
                        "-Djava.compiler=NONE -javaagent:"
                     ++ agent

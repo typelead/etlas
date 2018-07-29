@@ -234,7 +234,10 @@ resolveSolverSettings ProjectConfig{
     ProjectConfigShared {..} = defaults <> projectConfigShared
 
     relaxBootBounds = AllowNewer $ RelaxDepsSome $ map (RelaxedDep . mkPackageName)
-                        ["eta-meta", "base", "ghc-prim", "integer", "template-haskell"]
+                        ["eta-meta", "base", "ghc-prim", "integer", "template-haskell",
+                         "pretty", "binary", "deepseq", "array", "bytestring", "containers",
+                         "directory", "eta-boot", "eta-boot-meta", "eta-repl", "filepath",
+                         "rts", "time"]
 
     defaults = mempty {
        projectConfigSolver            = Flag defaultSolver,

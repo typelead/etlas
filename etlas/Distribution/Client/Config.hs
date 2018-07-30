@@ -1273,54 +1273,53 @@ userConfigUpdate verbosity configFlag sendMetricsFlag mConfigSendMetrics = do
   return finalConfig
 
 promptUserForTelemetry :: Flag Bool -> IO Bool
-promptUserForTelemetry sendMetricsFlag = do
-  putStrLn $ unlines [
-    "Welcome to Etlas, the awesome build tool for the Eta programming language!",
-    "",
-    "We are working hard to make the best platform for pure functional programming",
-    "on the Java Virtual Machine.",
-    "",
-    "Etlas will periodically send usage statistics to help us:",
-    "",
-    "* Make decisions on how to evolve the language",
-    "",
-    "* Build a community portal that displays the data we collect in visual form",
-    "",
-    "* Build an Etlas package repository that will accurately display package popularity",
-    "",
-    "* And more!",
-    "",
-    "For more details, please consult our privacy policy:",
-    "",
-    "        http://eta-lang.org/docs/html/privacy-policy.html",
-    "",
-    "Would you like to help us make Eta the fastest growing programming language,",
-    "and help pure functional programming become mainstream? (y/n)" ]
-  c <- case flagToMaybe sendMetricsFlag of
-         Just sendMetrics
-           | sendMetrics -> return 'y'
-         _ -> do
-#ifdef MIN_VERSION_unix
-          isTTY <- queryTerminal stdInput
-          if isTTY then getChar else return 'n'
-#else
-          getChar
-#endif
+promptUserForTelemetry sendMetricsFlag
+  | Just sendMetrics <- flagToMaybe sendMetricsFlag = return sendMetrics
+  | otherwise = do
+    putStrLn $ unlines [
+        "Welcome to Etlas, the awesome build tool for the Eta programming language!",
+        "",
+        "We are working hard to make the best platform for pure functional programming",
+        "on the Java Virtual Machine.",
+        "",
+        "Etlas will periodically send usage statistics to help us:",
+        "",
+        "* Make decisions on how to evolve the language",
+        "",
+        "* Build a community portal that displays the data we collect in visual form",
+        "",
+        "* Build an Etlas package repository that will accurately display package popularity",
+        "",
+        "* And more!",
+        "",
+        "For more details, please consult our privacy policy:",
+        "",
+        "        http://eta-lang.org/docs/html/privacy-policy.html",
+        "",
+        "Would you like to help us make Eta the fastest growing programming language,",
+        "and help pure functional programming become mainstream? (y/n)" ]
+    c <- do
+    #ifdef MIN_VERSION_unix
+            isTTY <- queryTerminal stdInput
+            if isTTY then getChar else return 'n'
+    #else
+            getChar
+    #endif
 
-  putStrLn $ unlines [
-    "Thank you for trying out Eta.",
-    "",
-    "If you face any issues, you can:",
-    "",
-    "* File an issue at:",
-    "      https://github.com/typelead/eta/issues/new",
-    "",
-    "* Post your question on Eta-Discuss:",
-    "      https://groups.google.com/forum/#!newtopic/eta-discuss",
-    "",
-    "* Ask on the Gitter channel:",
-    "      https://gitter.im/typelead/eta" ]
-  return $ not (c == 'n' || c == 'N')
+    putStrLn $ unlines [
+        "Thank you for trying out Eta.",
+        "",
+        "If you face any issues, you can:",
+        "",
+        "* File an issue at:",
+        "      https://github.com/typelead/eta/issues/new",
+        "",
+        "* Post your question on Eta-Discuss:",
+        "      https://groups.google.com/forum/#!newtopic/eta-discuss",
+        "",
+        "* Ask on the Gitter channel:",
+        "      https://gitter.im/typelead/eta" ]
+    return $ not (c == 'n' || c == 'N')
 
 addSendMetrics :: SavedConfig -> Maybe Bool -> SavedConfig
 addSendMetrics savedConfig mSendMetrics

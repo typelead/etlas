@@ -1753,7 +1753,7 @@ elaborateInstallPlan verbosity platform compiler compilerprogdb pkgConfigDB
         elabSplitObjs     = perPkgOptionFlag pkgid False packageConfigSplitObjs
         elabStripLibs     = perPkgOptionFlag pkgid False packageConfigStripLibs
         elabStripExes     = perPkgOptionFlag pkgid False packageConfigStripExes
-        elabDebugInfo     = perPkgOptionFlag pkgid NoDebugInfo packageConfigDebugInfo
+        elabDebugInfo     = perPkgOptionFlag pkgid NormalDebugInfo packageConfigDebugInfo
 
         -- Combine the configured compiler prog settings with the user-supplied
         -- config. For the compiler progs any user-supplied config was taken

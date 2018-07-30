@@ -1299,12 +1299,12 @@ promptUserForTelemetry sendMetricsFlag
         "Would you like to help us make Eta the fastest growing programming language,",
         "and help pure functional programming become mainstream? (y/n)" ]
     c <- do
-    #ifdef MIN_VERSION_unix
+#ifdef MIN_VERSION_unix
             isTTY <- queryTerminal stdInput
             if isTTY then getChar else return 'n'
-    #else
+#else
             getChar
-    #endif
+#endif
 
     putStrLn $ unlines [
         "Thank you for trying out Eta.",

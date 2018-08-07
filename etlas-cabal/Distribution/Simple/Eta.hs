@@ -433,6 +433,7 @@ exeLauncherScript classPathSep exeName classPaths isWindows'
             , "    done"
             , "    local SCRIPT_DIR=`pwd -P`"
             , "    SCRIPT=\"$SCRIPT_DIR/$SCRIPT_BASE\""
+            , "    cd \"$OLD_DIR\""
             , "  else"
             , "    SCRIPT=\"$(readlink -f \"$SCRIPT\")\""
             , "  fi"

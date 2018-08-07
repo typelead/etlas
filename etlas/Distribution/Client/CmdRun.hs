@@ -128,7 +128,7 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags, runFlags)
     baseCtx <- establishProjectBaseContext verbosity cliConfig
 
     targetSelectors <- either (reportTargetSelectorProblems verbosity) return
-                   =<< readTargetSelectors (localPackages baseCtx)
+                   =<< readTargetSelectors (localPackages baseCtx) (Just ExeKind)
                          (take 1 targetStrings) -- Drop the exe's args.
 
     (buildCtx, _) <-
@@ -148,6 +148,7 @@ runAction (configFlags, configExFlags, installFlags, haddockFlags, runFlags)
                          selectComponentTarget
                          TargetProblemCommon
                          elaboratedPlan
+                         Nothing
                          targetSelectors
 
             -- Reject multiple targets, or at least targets in different

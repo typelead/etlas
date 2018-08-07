@@ -84,7 +84,7 @@ testAction (configFlags, configExFlags, installFlags, haddockFlags)
     baseCtx <- establishProjectBaseContext verbosity cliConfig
 
     targetSelectors <- either (reportTargetSelectorProblems verbosity) return
-                   =<< readTargetSelectors (localPackages baseCtx) targetStrings
+                   =<< readTargetSelectors (localPackages baseCtx) (Just TestKind) targetStrings
 
     (buildCtx, _) <-
       runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
@@ -103,6 +103,7 @@ testAction (configFlags, configExFlags, installFlags, haddockFlags)
                          selectComponentTarget
                          TargetProblemCommon
                          elaboratedPlan
+                         Nothing
                          targetSelectors
 
             let elaboratedPlan' = pruneInstallPlanToTargets

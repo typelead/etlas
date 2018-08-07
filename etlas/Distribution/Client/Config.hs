@@ -475,6 +475,7 @@ initialSavedConfig = do
   logsDir     <- defaultLogsDir
   worldFile   <- defaultWorldFile
   extraPath   <- defaultExtraPath
+  symlinkPath <- defaultSymlinkPath
   patchesDir  <- defaultPatchesDir
   binariesDir <- defaultBinariesDir
   return mempty {
@@ -493,7 +494,8 @@ initialSavedConfig = do
     savedInstallFlags    = mempty {
       installSummaryFile = toNubList [toPathTemplate (logsDir </> "build.log")],
       installBuildReports= toFlag AnonymousReports,
-      installNumJobs     = toFlag Nothing
+      installNumJobs     = toFlag Nothing,
+      installSymlinkBinDir = toFlag symlinkPath
     }
   }
 
@@ -524,6 +526,11 @@ defaultBinariesDir :: IO FilePath
 defaultBinariesDir = do
   dir <- defaultCabalDir
   return $ dir </> "binaries"
+
+defaultSymlinkPath :: IO FilePath
+defaultSymlinkPath = do
+  dir <- defaultCabalDir
+  return (dir </> "bin")
 
 -- | Default position of the world file
 defaultWorldFile :: IO FilePath

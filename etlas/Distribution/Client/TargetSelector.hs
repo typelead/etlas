@@ -201,21 +201,27 @@ instance Binary SubComponentTarget
 -- the available packages (and their locations).
 --
 readTargetSelectors :: [PackageSpecifier (SourcePackage (PackageLocation a))]
+                    -> Maybe ComponentKindFilter
+                    -- ^ This parameter is used when there are ambiguous selectors.
+                    --   If it is 'Just', then we attempt to resolve ambiguitiy
+                    --   by applying it, since otherwise there is no way to allow
+                    --   contextually valid yet syntactically ambiguous selectors.
+                    --   (#4676, #5461)
                     -> [String]
-                    -> IO (Either [TargetSelectorProblem]
-                                  [TargetSelector])
+                    -> IO (Either [TargetSelectorProblem] [TargetSelector])
 readTargetSelectors = readTargetSelectorsWith defaultDirActions
 
 readTargetSelectorsWith :: (Applicative m, Monad m) => DirActions m
                         -> [PackageSpecifier (SourcePackage (PackageLocation a))]
+                        -> Maybe ComponentKindFilter
                         -> [String]
                         -> m (Either [TargetSelectorProblem] [TargetSelector])
-readTargetSelectorsWith dirActions@DirActions{..} pkgs targetStrs =
+readTargetSelectorsWith dirActions@DirActions{..} pkgs mfilter targetStrs =
     case parseTargetStrings targetStrs of
       ([], usertargets) -> do
         usertargets' <- mapM (getTargetStringFileStatus dirActions) usertargets
         knowntargets <- getKnownTargets dirActions pkgs
-        case resolveTargetSelectors knowntargets usertargets' of
+        case resolveTargetSelectors knowntargets usertargets' mfilter of
           ([], btargets) -> return (Right btargets)
           (problems, _)  -> return (Left problems)
       (strs, _)          -> return (Left (map TargetSelectorUnrecognised strs))
@@ -436,29 +442,31 @@ forgetFileStatus t = case t of
 --
 resolveTargetSelectors :: KnownTargets
                        -> [TargetStringFileStatus]
+                       -> Maybe ComponentKindFilter
                        -> ([TargetSelectorProblem],
                            [TargetSelector])
 -- default local dir target if there's no given target:
-resolveTargetSelectors (KnownTargets{knownPackagesAll = []}) [] =
+resolveTargetSelectors (KnownTargets{knownPackagesAll = []}) [] _ =
     ([TargetSelectorNoTargetsInProject], [])
 
-resolveTargetSelectors (KnownTargets{knownPackagesPrimary = []}) [] =
+resolveTargetSelectors (KnownTargets{knownPackagesPrimary = []}) [] _ =
     ([TargetSelectorNoTargetsInCwd], [])
 
-resolveTargetSelectors (KnownTargets{knownPackagesPrimary}) [] =
+resolveTargetSelectors (KnownTargets{knownPackagesPrimary}) [] _ =
     ([], [TargetPackage TargetImplicitCwd pkgids Nothing])
   where
     pkgids = [ pinfoId | KnownPackage{pinfoId} <- knownPackagesPrimary ]
 
-resolveTargetSelectors knowntargets targetStrs =
+resolveTargetSelectors knowntargets targetStrs mfilter =
     partitionEithers
-  . map (resolveTargetSelector knowntargets)
+  . map (resolveTargetSelector knowntargets mfilter)
   $ targetStrs
 
 resolveTargetSelector :: KnownTargets
+                      -> Maybe ComponentKindFilter
                       -> TargetStringFileStatus
                       -> Either TargetSelectorProblem TargetSelector
-resolveTargetSelector knowntargets@KnownTargets{..} targetStrStatus =
+resolveTargetSelector knowntargets@KnownTargets{..} mfilter targetStrStatus =
     case findMatch (matcher targetStrStatus) of
 
       Unambiguous _
@@ -472,6 +480,10 @@ resolveTargetSelector knowntargets@KnownTargets{..} targetStrStatus =
       None errs
         | projectIsEmpty       -> Left TargetSelectorNoTargetsInProject
         | otherwise            -> Left (classifyMatchErrors errs)
+
+      Ambiguous _          targets
+        | Just kfilter <- mfilter
+        , [target] <- applyKindFilter kfilter targets -> Right target
 
       Ambiguous exactMatch targets ->
         case disambiguateTargetSelectors
@@ -531,6 +543,21 @@ resolveTargetSelector knowntargets@KnownTargets{..} targetStrStatus =
         innerErr _ (MatchErrorIn kind thing m)
                      = innerErr (Just (kind,thing)) m
         innerErr c m = (c,m)
+
+    applyKindFilter :: ComponentKindFilter -> [TargetSelector] -> [TargetSelector]
+    applyKindFilter kfilter = filter go
+      where
+        go (TargetPackage      _ _ (Just filter')) = kfilter == filter'
+        go (TargetPackageNamed _   (Just filter')) = kfilter == filter'
+        go (TargetAllPackages      (Just filter')) = kfilter == filter'
+        go (TargetComponent _ cname _)
+          | CLibName      <- cname                 = kfilter == LibKind
+          | CSubLibName _ <- cname                 = kfilter == LibKind
+          | CFLibName   _ <- cname                 = kfilter == FLibKind
+          | CExeName    _ <- cname                 = kfilter == ExeKind
+          | CTestName   _ <- cname                 = kfilter == TestKind
+          | CBenchName  _ <- cname                 = kfilter == BenchKind
+        go _                                       = True
 
 -- | The various ways that trying to resolve a 'TargetString' to a
 -- 'TargetSelector' can fail.
@@ -612,8 +639,9 @@ disambiguateTargetSelectors matcher matchInput exactMatch matchResults =
             Left  ( originalMatch
                   , [ (forgetFileStatus rendering, matches)
                     | rendering <- matchRenderings
-                    , let (Match m _ matches) | m /= Inexact =
+                    , let Match m _ matches =
                             memoisedMatches Map.! rendering
+                    , m /= Inexact
                     ] )
 
       | (originalMatch, matchRenderings) <- matchResultsRenderings ]
@@ -1820,7 +1848,7 @@ guardNamespaceFile :: String -> Match ()
 guardNamespaceFile = guardToken ["file"] "'file' namespace"
 
 guardToken :: [String] -> String -> String -> Match ()
-guardToken tokens msg s 
+guardToken tokens msg s
   | caseFold s `elem` tokens = increaseConfidence
   | otherwise                = matchErrorExpected msg s
 

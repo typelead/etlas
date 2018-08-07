@@ -356,7 +356,7 @@ componentGhcOptions verbosity implInfo lbi bi clbi odir =
     toGhcOptimisation MaximumOptimisation = toFlag GhcMaximumOptimisation
 
     -- GHC doesn't support debug info levels yet.
-    -- But eta currently does it, mimic ghc 8 debug levels  
+    -- But eta currently does it, mimic ghc 8 debug levels
     toGhcDebugInfo NoDebugInfo      = toFlag GhcNoDebugInfo
     toGhcDebugInfo MinimalDebugInfo = toFlag GhcMinimalDebugInfo
     toGhcDebugInfo NormalDebugInfo  = toFlag GhcNormalDebugInfo
@@ -511,6 +511,7 @@ data GhcEnvironmentFileEntry =
                                       --   @user-package-db@ or
                                       --   @package-db blah/package.conf.d/@
      | GhcEnvFileClearPackageDbStack  -- ^ @clear-package-db@
+     deriving (Eq, Ord, Show)
 
 -- | Make entries for a GHC environment file based on a 'PackageDBStack' and
 -- a bunch of package (unit) ids.
@@ -564,4 +565,3 @@ renderGhcEnvironmentFileEntry entry = case entry of
         UserPackageDB             -> "user-package-db"
         SpecificPackageDB dbfile  -> "package-db " ++ dbfile
     GhcEnvFileClearPackageDbStack -> "clear-package-db"
-

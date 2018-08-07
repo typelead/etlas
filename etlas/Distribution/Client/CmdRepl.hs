@@ -129,6 +129,7 @@ replAction (configFlags, configExFlags, installFlags, haddockFlags)
                          selectComponentTarget
                          TargetProblemCommon
                          elaboratedPlan
+                         Nothing
                          targetSelectors
 
             -- Reject multiple targets, or at least targets in different
@@ -157,7 +158,7 @@ replAction (configFlags, configExFlags, installFlags, haddockFlags)
 
     maybeGlobalEnvironment tmpDir = do
       catch (do baseCtx <- establishProjectBaseContext verbosity' cliConfig
-                eSelectors <- readTargetSelectors (localPackages baseCtx) targetStrings
+                eSelectors <- readTargetSelectors (localPackages baseCtx) (Just LibKind) targetStrings
                 either (reportTargetSelectorProblems verbosity')
                        (\selectors -> return (baseCtx, selectors, verbosity'))
                        eSelectors)

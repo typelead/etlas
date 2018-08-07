@@ -37,8 +37,9 @@ library
     process    >= 1.1.0.2 && <= 1.6.2.0,
     time       >= 1.4 && < 1.9,
     directory  >= 1.2 && < 1.4,
-    binary     >= 0.7 && < 0.9
-
+    binary     >= 0.7 && < 0.9,
+    parsec >= 3.1.13.0 && < 3.2
+    
   if !impl(eta)
     if !os(windows)
       build-depends:
@@ -243,6 +244,7 @@ library
     Distribution.Simple.GHC.IPI642
     Distribution.Simple.GHC.IPIConvert
     Distribution.Simple.GHC.ImplInfo
+    Distribution.Simple.GHC.EnvironmentParser
 
   default-language: Haskell2010
   other-extensions:

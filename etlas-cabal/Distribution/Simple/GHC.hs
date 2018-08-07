@@ -57,6 +57,11 @@ module Distribution.Simple.GHC (
         Internal.GhcEnvironmentFileEntry(..),
         Internal.simpleGhcEnvironmentFile,
         Internal.writeGhcEnvironmentFile,
+        Internal.renderGhcEnvironmentFile,
+        Internal.ghcPlatformAndVersionString,
+        readGhcEnvironmentFile,
+        parseGhcEnvironmentFile,
+        ParseErrorExc(..),
         -- * Version-specific implementation quirks
         getImplInfo,
         GhcImplInfo(..)
@@ -65,6 +70,7 @@ module Distribution.Simple.GHC (
 import Prelude ()
 import Distribution.Compat.Prelude
 
+import Distribution.Simple.GHC.EnvironmentParser
 import qualified Distribution.Simple.GHC.IPI642 as IPI642
 import qualified Distribution.Simple.GHC.Internal as Internal
 import Distribution.Simple.GHC.ImplInfo

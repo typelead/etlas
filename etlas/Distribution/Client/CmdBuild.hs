@@ -78,7 +78,7 @@ buildAction (configFlags, configExFlags, installFlags, haddockFlags)
     baseCtx <- establishProjectBaseContext verbosity cliConfig
 
     targetSelectors <- either (reportTargetSelectorProblems verbosity) return
-                   =<< readTargetSelectors (localPackages baseCtx) targetStrings
+                   =<< readTargetSelectors (localPackages baseCtx) Nothing targetStrings
 
     (buildCtx, _) <-
       runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
@@ -91,6 +91,7 @@ buildAction (configFlags, configExFlags, installFlags, haddockFlags)
                          selectComponentTarget
                          TargetProblemCommon
                          elaboratedPlan
+                         Nothing
                          targetSelectors
 
             let elaboratedPlan' = pruneInstallPlanToTargets
@@ -191,4 +192,3 @@ renderTargetProblem(TargetProblemNoTargets targetSelector) =
 reportCannotPruneDependencies :: Verbosity -> CannotPruneDependencies -> IO a
 reportCannotPruneDependencies verbosity =
     die' verbosity . renderCannotPruneDependencies
-

@@ -188,6 +188,7 @@ globalCommand commands = CommandUI {
           , "old-run"
           , "old-docs"
           , "old-test"
+          , "old-install"
           , "new-bench"
           ]
         maxlen    = maximum $ [length name | (name, _) <- cmdDescs]
@@ -249,6 +250,7 @@ globalCommand commands = CommandUI {
         , addCmd "old-docs"
         , addCmd "old-repl"
         , addCmd "old-run"
+        , addCmd "old-install"
         , addCmd "old-test"
         -- , addCmd "new-bench"
         , addCmd "old-freeze"
@@ -1587,9 +1589,9 @@ allSolvers = intercalate ", " (map display ([minBound .. maxBound] :: [PreSolver
 
 installCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
 installCommand = CommandUI {
-  commandName         = "install",
+  commandName         = "old-install",
   commandSynopsis     = "Install packages.",
-  commandUsage        = usageAlternatives "install" [ "[FLAGS]"
+  commandUsage        = usageAlternatives "old-install" [ "[FLAGS]"
                                                     , "[FLAGS] PACKAGES"
                                                     ],
   commandDescription  = Just $ \_ -> wrapText $

@@ -4,7 +4,7 @@
 
 -- | This module deals with building and incrementally rebuilding a collection
 -- of packages. It is what backs the @etlas build@ and @configure@ commands,
--- as well as being a core part of @run@, @test@, @bench@ and others. 
+-- as well as being a core part of @run@, @test@, @bench@ and others.
 --
 -- The primary thing is in fact rebuilding (and trying to make that quick by
 -- not redoing unnecessary work), so building from scratch is just a special
@@ -33,7 +33,7 @@
 -- This division helps us keep the code under control, making it easier to
 -- understand, test and debug. So when you are extending these modules, please
 -- think about which parts of your change belong in which part. It is
--- perfectly ok to extend the description of what to do (i.e. the 
+-- perfectly ok to extend the description of what to do (i.e. the
 -- 'ElaboratedInstallPlan') if that helps keep the policy decisions in the
 -- first phase. Also, the second phase does not have direct access to any of
 -- the input configuration anyway; all the information has to flow via the
@@ -47,6 +47,7 @@ module Distribution.Client.ProjectOrchestration (
     commandLineFlagsToProjectConfig,
 
     -- * Pre-build phase: decide what to do.
+    withInstallPlan,
     runProjectPreBuildPhase,
     ProjectBuildContext(..),
 
@@ -105,7 +106,9 @@ import           Distribution.Client.ProjectPlanOutput
 
 import           Distribution.Client.Types
                    ( GenericReadyPackage(..), UnresolvedSourcePackage
-                   , PackageSpecifier(..) )
+                   , PackageSpecifier(..), SourcePackageDb(..) )
+import           Distribution.Solver.Types.PackageIndex
+                  ( lookupPackageName )
 import qualified Distribution.Client.InstallPlan as InstallPlan
 import           Distribution.Client.TargetSelector
                    ( TargetSelector(..)
@@ -118,7 +121,7 @@ import           Distribution.Types.ComponentName
                    ( componentNameString )
 import           Distribution.Types.UnqualComponentName
                    ( UnqualComponentName, packageNameToUnqualComponentName )
-
+-- import           Distribution.Client.Types
 import           Distribution.Solver.Types.OptionalStanza
 
 import           Distribution.Package
@@ -233,6 +236,33 @@ data ProjectBuildContext = ProjectBuildContext {
       -- CmdRun, where we need a valid target to execute.
       targetsMap             :: TargetsMap
     }
+
+-- | Pre-build phase: decide what to do.
+--
+withInstallPlan
+    :: Verbosity
+    -> ProjectBaseContext
+    -> (ElaboratedInstallPlan -> ElaboratedSharedConfig -> IO a)
+    -> IO a
+withInstallPlan
+    verbosity
+    ProjectBaseContext {
+      distDirLayout,
+      cabalDirLayout,
+      projectConfig,
+      localPackages
+    }
+    action = do
+    -- Take the project configuration and make a plan for how to build
+    -- everything in the project. This is independent of any specific targets
+    -- the user has asked for.
+    --
+    (elaboratedPlan, _, elaboratedShared) <-
+      rebuildInstallPlan verbosity
+                         distDirLayout cabalDirLayout
+                         projectConfig
+                         localPackages
+    action elaboratedPlan elaboratedShared
 
 
 -- | Pre-build phase: decide what to do.
@@ -374,7 +404,7 @@ runProjectPostBuildPhase verbosity
     -- on it) all go into the install plan.
 
     -- Notionally, the 'BuildFlags' should be things that do not affect what
-    -- we build, just how we do it. These ones of course do 
+    -- we build, just how we do it. These ones of course do
 
 
 ------------------------------------------------------------------------------
@@ -433,17 +463,11 @@ resolveTargets :: forall err.
                           -> Either err  k )
                -> (TargetProblemCommon -> err)
                -> ElaboratedInstallPlan
+               -> Maybe (SourcePackageDb)
                -> [TargetSelector]
                -> Either [err] TargetsMap
 resolveTargets selectPackageTargets selectComponentTarget liftProblem
-               installPlan =
-    --TODO: [required eventually]
-    -- we cannot resolve names of packages other than those that are
-    -- directly in the current plan. We ought to keep a set of the known
-    -- hackage packages so we can resolve names to those. Though we don't
-    -- really need that until we can do something sensible with packages
-    -- outside of the project.
-
+               installPlan mPkgDb =
       fmap mkTargetsMap
     . checkErrors
     . map (\ts -> (,) ts <$> checkTarget ts)
@@ -524,10 +548,13 @@ resolveTargets selectPackageTargets selectComponentTarget liftProblem
       . selectPackageTargets bt
       $ ats
 
+      | Just SourcePackageDb{ packageIndex } <- mPkgDb
+      , let pkg = lookupPackageName packageIndex pkgname
+      , not (null pkg)
+      = Left (liftProblem (TargetAvailableInIndex pkgname))
+
       | otherwise
       = Left (liftProblem (TargetNotInProject pkgname))
-    --TODO: check if the package is in hackage and return different
-    -- error cases here so the commands can handle things appropriately
 
     componentTargets :: SubComponentTarget
                      -> [(b, ComponentName)]
@@ -698,6 +725,7 @@ selectComponentTargetBasic subtarget
 
 data TargetProblemCommon
    = TargetNotInProject                   PackageName
+   | TargetAvailableInIndex               PackageName
    | TargetComponentNotProjectLocal       PackageId ComponentName SubComponentTarget
    | TargetComponentNotBuildable          PackageId ComponentName SubComponentTarget
    | TargetOptionalStanzaDisabledByUser   PackageId ComponentName SubComponentTarget
@@ -1103,4 +1131,3 @@ cmdCommonHelpTextNewBuildBeta = ""
  -- ++ "https://github.com/haskell/cabal/issues and if you\nhave any time "
  -- ++ "to get involved and help with testing, fixing bugs etc then\nthat "
  -- ++ "is very much appreciated.\n"
-

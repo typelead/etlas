@@ -117,7 +117,7 @@ depsAction (configFlags, configExFlags, installFlags, haddockFlags)
     baseCtx <- establishProjectBaseContext verbosity cliConfig
 
     targetSelectors <- either (reportTargetSelectorProblems verbosity) return
-                   =<< readTargetSelectors (localPackages baseCtx) targetStrings
+                   =<< readTargetSelectors (localPackages baseCtx) Nothing targetStrings
 
     (buildCtx, pkg) <-
       runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
@@ -130,6 +130,7 @@ depsAction (configFlags, configExFlags, installFlags, haddockFlags)
                          selectComponentTarget
                          TargetProblemCommon
                          elaboratedPlan
+                         Nothing
                          targetSelectors
 
             -- Reject multiple targets, or at least targets in different

@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, RecordWildCards, NamedFieldPuns, DeriveDataTypeable #-}
+{-# LANGUAGE CPP, RecordWildCards, NamedFieldPuns, DeriveDataTypeable, LambdaCase #-}
 
 -- | Handling project configuration.
 --
@@ -20,12 +20,13 @@ module Distribution.Client.ProjectConfig (
 
     -- * Project config files
     readProjectConfig,
+    readGlobalConfig,
     readProjectLocalFreezeConfig,
     writeProjectLocalExtraConfig,
+    withProjectOrGlobalConfig,
     writeProjectLocalFreezeConfig,
     writeProjectConfigFile,
     commandLineFlagsToProjectConfig,
-    readGlobalConfig,
 
     -- * Packages within projects
     ProjectPackageLocation(..),
@@ -441,6 +442,32 @@ renderBadProjectRoot (BadProjectRootExplicitFile projectFile) =
 -- | Read all the config relevant for a project. This includes the project
 -- file if any, plus other global config.
 --
+withProjectOrGlobalConfig :: Verbosity
+                          -> Flag FilePath
+                          -> Flag Bool
+                          -> IO a
+                          -> (ProjectConfig -> IO a)
+                          -> IO a
+withProjectOrGlobalConfig verbosity globalConfigFlag sendMetricsFlag with without = do
+  globalConfig <- runRebuild "" $ readGlobalConfig verbosity globalConfigFlag sendMetricsFlag
+
+  let
+    res' = catch with
+      $ \case
+        (BadPackageLocations prov locs)
+          | prov == Set.singleton Implicit
+          , let
+            isGlobErr (BadLocGlobEmptyMatch _) = True
+            isGlobErr _ = False
+          , any isGlobErr locs ->
+            without globalConfig
+        err -> throwIO err
+
+  catch res'
+    $ \case
+      (BadProjectRootExplicitFile "") -> without globalConfig
+      err -> throwIO err
+
 readProjectConfig :: Verbosity -> Flag FilePath -> Flag Bool -> DistDirLayout
                   -> Rebuild ProjectConfig
 readProjectConfig verbosity configFileFlag sendMetricsFlag distDirLayout = do
@@ -571,7 +598,6 @@ writeProjectLocalFreezeConfig DistDirLayout{distProjectFile} =
 writeProjectConfigFile :: FilePath -> ProjectConfig -> IO ()
 writeProjectConfigFile file =
     writeFile file . showProjectConfig
-
 
 -- | Read the user's @~/.cabal/config@ file.
 --

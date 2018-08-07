@@ -156,7 +156,7 @@ installCommand = CommandUI
   , commandDescription  = Just $ \_ -> wrapText $
     "Installs one or more packages. This is done by installing them "
     ++ "in the store and symlinking the executables in the directory "
-    ++ "specified by the --symlink-bindir flag (`~/.cabal/bin/` by default). "
+    ++ "specified by the --symlink-bindir flag (`~/.etlas/bin/` by default). "
     ++ "If you want the installed executables to be available globally, "
     ++ "make sure that the PATH environment variable contains that directory. "
     ++ "\n\n"

@@ -1,3 +1,6 @@
 [submodule "hackage-security"]
 	path = hackage-security
 	url = https://github.com/Jyothsnasrinivas/hackage-security.git
+[submodule "dhall-to-etlas"]
+	path = dhall-to-etlas
+	url = https://github.com/eta-lang/dhall-to-etlas

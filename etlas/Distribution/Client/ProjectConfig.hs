@@ -631,6 +631,7 @@ reportParseResult verbosity filetype filename (ParseFailed err) =
 --
 data ProjectPackageLocation =
      ProjectPackageLocalCabalFile FilePath
+   | ProjectPackageLocalDhallFile FilePath
    | ProjectPackageLocalDirectory FilePath FilePath -- dir and .cabal file
    | ProjectPackageLocalTarball   FilePath
    | ProjectPackageRemoteTarball  URI
@@ -896,6 +897,9 @@ findProjectPackages DistDirLayout{distProjectRootDirectory}
 
           | extensionIsTarGz pkglocstr
          -> return (Right (ProjectPackageLocalTarball pkglocstr))
+
+          | takeExtension pkglocstr == ".dhall"
+         -> return (Right (ProjectPackageLocalDhallFile pkglocstr))
 
           | takeExtension pkglocstr == ".cabal"
          -> return (Right (ProjectPackageLocalCabalFile pkglocstr))

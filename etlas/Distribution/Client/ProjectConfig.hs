@@ -633,6 +633,7 @@ data ProjectPackageLocation =
      ProjectPackageLocalCabalFile FilePath
    | ProjectPackageLocalDhallFile FilePath
    | ProjectPackageLocalDirectory FilePath FilePath -- dir and .cabal file
+   | ProjectPackageLocalDhallDirectory FilePath FilePath -- dir and etlas.dhall file
    | ProjectPackageLocalTarball   FilePath
    | ProjectPackageRemoteTarball  URI
    | ProjectPackageRemoteRepo     SourceRepo

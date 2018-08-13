@@ -166,6 +166,7 @@ import           Data.List (groupBy)
 import           Data.Either
 import           Data.Function
 import           System.FilePath
+import           System.IO
 
 ------------------------------------------------------------------------------
 -- * Elaborated install plan
@@ -564,10 +565,11 @@ rebuildInstallPlan verbosity
                                    (compilerInfo compiler)
 
             notice verbosity "Resolving dependencies..."
-            plan <- foldProgress logMsg (die' verbosity) return $
-              planPackages verbosity compiler platform solver solverSettings
-                           installedPkgIndex sourcePkgDb pkgConfigDB
-                           localPackages localPackagesEnabledStanzas
+            plan <- withFile (distProjectCacheFile "solver-trace") WriteMode $ \h ->
+              foldProgress (logMsg h) (die' verbosity) return $
+                planPackages verbosity compiler platform solver solverSettings
+                            installedPkgIndex sourcePkgDb pkgConfigDB
+                            localPackages localPackagesEnabledStanzas
             return (plan, pkgConfigDB)
       where
         -- Note: In the presence of extra package dbs, we add in the storePackageDbs
@@ -587,7 +589,10 @@ rebuildInstallPlan verbosity
                            projectConfigBuildOnly
         binariesPath = Cabal.fromFlag $ projectConfigBinariesDir projectConfigBuildOnly
         solverSettings = resolveSolverSettings projectConfig
-        logMsg message rest = debugNoWrap verbosity message >> rest
+        logMsg h message rest = do
+          debugNoWrap verbosity message
+          hPutStrLn h message
+          rest
 
         localPackagesEnabledStanzas =
           Map.fromList

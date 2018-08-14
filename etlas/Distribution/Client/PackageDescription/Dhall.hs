@@ -29,7 +29,7 @@ import Control.Monad    (unless)
 
 readGenericPackageDescription :: Verbosity -> FilePath -> IO GenericPackageDescription
 readGenericPackageDescription verbosity path =
-       if (takeExtension path) == "dhall" then
+       if (takeExtension path) == ".dhall" then
           readDhallGenericPackageDescription verbosity path
        else
           Cabal.Parse.readGenericPackageDescription verbosity path

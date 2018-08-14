@@ -26,11 +26,10 @@ import System.Directory (doesFileExist)
 import System.FilePath (takeDirectory, takeExtension)
 
 import Control.Monad    (unless)
-import Debug.Trace
 
 readGenericPackageDescription :: Verbosity -> FilePath -> IO GenericPackageDescription
 readGenericPackageDescription verbosity path =
-       if (trace "Extension:" $ traceId $ takeExtension path) == "dhall" then
+       if (takeExtension path) == "dhall" then
           readDhallGenericPackageDescription verbosity path
        else
           Cabal.Parse.readGenericPackageDescription verbosity path

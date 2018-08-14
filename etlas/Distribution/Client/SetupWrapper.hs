@@ -36,13 +36,9 @@ import Distribution.PackageDescription
          ( GenericPackageDescription(packageDescription)
          , PackageDescription(..), specVersion
          , BuildType(..), knownBuildTypes )
-#ifdef CABAL_PARSEC
-import Distribution.PackageDescription.Parsec
+import Distribution.Client.PackageDescription.Dhall
          ( readGenericPackageDescription )
-#else
-import Distribution.PackageDescription.Parse
-         ( readGenericPackageDescription )
-#endif
+
 import Distribution.Simple.Compiler
          ( Compiler, PackageDB(..), PackageDBStack )
 import Distribution.Simple.Program

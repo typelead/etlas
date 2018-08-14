@@ -144,12 +144,8 @@ import Distribution.Client.BinaryUtils
 import Distribution.Package (packageId)
 import Distribution.PackageDescription
          ( BuildType(..), Executable(..), buildable)
-#ifdef CABAL_PARSEC
-import Distribution.PackageDescription.Parsec ( readGenericPackageDescription )
-#else
-import Distribution.PackageDescription.Parse ( readGenericPackageDescription )
-#endif
-
+import Distribution.Client.PackageDescription.Dhall
+         ( readGenericPackageDescription )
 import Distribution.PackageDescription.PrettyPrint
          ( writeGenericPackageDescription )
 import qualified Distribution.Simple as Simple

@@ -982,7 +982,7 @@ readSourcePackage verbosity _distDirLayout
   (ProjectPackageLocalDhallDirectory dir dhallFile) = do
     monitorFiles [monitorFileHashed dhallFile]
     root <- askRoot
-    pkgdesc <- liftIO $ Dhall.readGenericPackageDescription verbosity (root </> dhallFile)
+    pkgdesc <- liftIO $ Dhall.readDhallGenericPackageDescription verbosity (root </> dhallFile)
     return $ SpecificSourcePackage SourcePackage {
       packageInfoId        = packageId pkgdesc,
       packageDescription   = pkgdesc,

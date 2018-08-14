@@ -43,13 +43,8 @@ import Distribution.Verbosity                        (Verbosity, silent)
 import Distribution.Version
        (Version, LowerBound(..), UpperBound(..)
        ,asVersionIntervals, majorBoundVersion)
-#ifdef CABAL_PARSEC
-import Distribution.PackageDescription.Parsec
-       (readGenericPackageDescription)
-#else
-import Distribution.PackageDescription.Parse
-       (readGenericPackageDescription)
-#endif
+import Distribution.Client.PackageDescription.Dhall
+         ( readGenericPackageDescription )
 
 import qualified Data.Set as S
 import System.Directory                              (getCurrentDirectory)

@@ -86,14 +86,16 @@ import Distribution.Simple.Utils
 
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec
-         ( readGenericPackageDescription, parseGenericPackageDescriptionMaybe )
+         ( parseGenericPackageDescriptionMaybe )
 #else
 import Distribution.PackageDescription.Parse
-         ( readGenericPackageDescription, parseGenericPackageDescription, ParseResult(..) )
+         ( parseGenericPackageDescription, ParseResult(..) )
 import Distribution.Simple.Utils
          ( fromUTF8, ignoreBOM )
 import qualified Data.ByteString.Lazy.Char8 as BS.Char8
 #endif
+import Distribution.Client.PackageDescription.Dhall
+         ( readGenericPackageDescription )
 
 -- import Data.List ( find, nub )
 import Data.Either
@@ -182,7 +184,7 @@ readUserTargets verbosity targetStrs = do
     reportUserTargetProblems verbosity problems
     return targets
 
-
+-- TODO handle etlas.dhall with a new case UserTargetLocalDhallFile
 data UserTargetProblem
    = UserTargetUnexpectedFile      String
    | UserTargetNonexistantFile     String
@@ -274,7 +276,7 @@ readUserTarget targetstr =
           v | v == nullVersion -> Dependency (packageName p) anyVersion
             | otherwise        -> Dependency (packageName p) (thisVersion v)
 
-
+-- TODO handle etlas.dhall case
 reportUserTargetProblems :: Verbosity -> [UserTargetProblem] -> IO ()
 reportUserTargetProblems verbosity problems = do
     case [ target | UserTargetUnrecognised target <- problems ] of
@@ -421,6 +423,7 @@ expandUserTarget verbosity worldFile userTarget = case userTarget of
     UserTargetRemoteTarball tarballURL ->
       return [ PackageTargetLocation (RemoteTarballPackage tarballURL ()) ]
 
+-- Handle etlas.dhall case
 localPackageError :: FilePath -> String
 localPackageError dir =
     "Error reading local package.\nCouldn't find .cabal file in: " ++ dir
@@ -474,11 +477,12 @@ readPackageTarget verbosity = traverse modifyLocation
       ScmPackage _ _ _ _ ->
           error "TODO: readPackageTarget ScmPackage"
 
+    -- TODO: parse etlas.dhall file
     readTarballPackageTarget location tarballFile tarballOriginalLoc = do
       (filename, content) <- extractTarballPackageCabalFile
                                tarballFile tarballOriginalLoc
       case parsePackageDescription' content of
-        Nothing  -> die' verbosity $ "Could not parse the cabal file "
+        Nothing  -> die' verbosity $ "Could not parse the dhall or cabal file "
                        ++ filename ++ " in " ++ tarballFile
         Just pkg ->
           return $ SourcePackage {
@@ -488,7 +492,7 @@ readPackageTarget verbosity = traverse modifyLocation
                      packageDescrOverride = Nothing,
                      packagePatch         = Nothing
                    }
-
+    -- TODO: extract etlas.dhall file
     extractTarballPackageCabalFile :: FilePath -> String
                                    -> IO (FilePath, BS.ByteString)
     extractTarballPackageCabalFile tarballFile tarballOriginalLoc = do

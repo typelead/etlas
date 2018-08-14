@@ -1472,22 +1472,28 @@ defaultPackageDesc :: Verbosity -> IO FilePath
 defaultPackageDesc _verbosity = tryFindPackageDesc currentDir
 
 -- |Find a package description file in the given directory.  Looks for
--- @.cabal@ files.
+-- an @etlas.dhall@ file or @.cabal@ files.
 findPackageDesc :: FilePath                    -- ^Where to look
                 -> NoCallStackIO (Either String FilePath) -- ^<pkgname>.cabal
 findPackageDesc dir
- = do files <- getDirectoryContents dir
-      -- to make sure we do not mistake a ~/.cabal/ dir for a <pkgname>.cabal
-      -- file we filter to exclude dirs and null base file names:
-      cabalFiles <- filterM doesFileExist
-                       [ dir </> file
-                       | file <- files
-                       , let (name, ext) = splitExtension file
-                       , not (null name) && ext == ".cabal" ]
-      case cabalFiles of
-        []          -> return (Left  noDesc)
-        [cabalFile] -> return (Right cabalFile)
-        multiple    -> return (Left  $ multiDesc multiple)
+ = do let dhallFile = dir </> "etlas.dhall"
+
+      existDhallFile <- doesFileExist dhallFile
+      
+      if existDhallFile then return (Right dhallFile)
+      else do
+        files <- getDirectoryContents dir
+        -- to make sure we do not mistake a ~/.cabal/ dir for a <pkgname>.cabal
+        -- file we filter to exclude dirs and null base file names:
+        cabalFiles <- filterM doesFileExist
+                         [ dir </> file
+                         | file <- files
+                         , let (name, ext) = splitExtension file
+                         , not (null name) && ext == ".cabal" ]
+        case cabalFiles of
+          []          -> return (Left  noDesc)
+          [cabalFile] -> return (Right cabalFile)
+          multiple    -> return (Left  $ multiDesc multiple)
 
   where
     noDesc :: String

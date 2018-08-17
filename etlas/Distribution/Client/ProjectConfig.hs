@@ -974,24 +974,25 @@ readSourcePackage verbosity distDirLayout (ProjectPackageRemoteRepo sourceRepo) 
           | otherwise = show sourceRepo
         destDir = root </> distTempDirectory distDirLayout </> "scm" </>
                     showHashValue (hashString (show [sourceRepo]))
+        pkgDestDir = destDir </> fromMaybe "" (repoSubdir sourceRepo)
     cabalFile <- liftIO $ do
       exists <- doesDirectoryExist destDir
       when (not (exists)) $
         downloadSourceRepo verbosity destDir
           (Left sourceRepoLocation) [sourceRepo]
-      files <- getDirectoryContents destDir
+      files <- getDirectoryContents pkgDestDir
       let cabalFiles = filter (\file -> takeExtension file == ".cabal") files
       case length cabalFiles of
         0 -> die' verbosity $ "No cabal file found for " ++ sourceRepoLocation
         1 -> return ()
         _ -> die' verbosity $ "Multiple cabal files found for " ++ sourceRepoLocation
       return $ head cabalFiles
-    pkgdesc <- liftIO $ readGenericPackageDescription verbosity (destDir </> cabalFile)
+    pkgdesc <- liftIO $ readGenericPackageDescription verbosity (pkgDestDir </> cabalFile)
     let pkgid = packageId pkgdesc
     return $ SpecificSourcePackage SourcePackage {
       packageInfoId        = pkgid,
       packageDescription   = pkgdesc,
-      packageSource        = ScmPackage Nothing [sourceRepo] pkgid (Just destDir),
+      packageSource        = ScmPackage Nothing [sourceRepo] pkgid (Just pkgDestDir),
       packageDescrOverride = Nothing,
       packagePatch         = Nothing
     }

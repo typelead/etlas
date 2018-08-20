@@ -781,8 +781,12 @@ findProjectPackages DistDirLayout{distProjectRootDirectory}
     let repoPkgs  = map ProjectPackageRemoteRepo projectPackagesRepo
         namedPkgs = map ProjectPackageNamed      projectPackagesNamed
 
-    return (concat [requiredPkgs, optionalPkgs, repoPkgs, namedPkgs])
+    return $ removeDuplicatedPackageLocations
+           $ concat [requiredPkgs, optionalPkgs, repoPkgs, namedPkgs]
   where
+
+    removeDuplicatedPackageLocations = id
+    
     findPackageLocations required pkglocstr = do
       (problems, pkglocs) <-
         partitionEithers <$> mapM (findPackageLocation required) pkglocstr

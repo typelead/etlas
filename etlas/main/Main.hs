@@ -356,7 +356,7 @@ wrapperAction command verbosityFlag distPrefFlag =
     let config = either (\(SomeException _) -> mempty) snd load
     distPref <- findSavedDistPref config (distPrefFlag flags)
     let setupScriptOptions = defaultSetupScriptOptions { useDistPref = distPref }
-    setupWrapper verbosity setupScriptOptions Nothing
+    setupWrapper verbosity setupScriptOptions Nothing Nothing
                  command (const flags) extraArgs
 
 configureAction :: (ConfigFlags, ConfigExFlags)
@@ -522,7 +522,7 @@ buildAction (buildFlags, buildExFlags) extraArgs globalFlags = do
 -- 'reconfigure' twice.
 build :: Verbosity -> SavedConfig -> FilePath -> BuildFlags -> [String] -> IO ()
 build verbosity config distPref buildFlags extraArgs =
-  setupWrapper verbosity setupOptions Nothing
+  setupWrapper verbosity setupOptions Nothing Nothing
                (Cabal.buildCommand progDb) mkBuildFlags extraArgs
   where
     progDb       = defaultProgramDb
@@ -588,7 +588,7 @@ replAction (replFlags, buildExFlags) extraArgs globalFlags = do
 
       nixShell verbosity distPref globalFlags config $ do
         maybeWithSandboxDirOnSearchPath useSandbox $
-          setupWrapper verbosity setupOptions Nothing
+          setupWrapper verbosity setupOptions Nothing Nothing
           (Cabal.replCommand progDb) (const replFlags') extraArgs
 
     -- No .cabal file in the current directory: just start the REPL (possibly
@@ -616,7 +616,7 @@ installAction (configFlags, _, installFlags, _) _ globalFlags
       let setupOpts = defaultSetupScriptOptions { useDistPref = dist }
       nixShellIfSandboxed verb dist globalFlags config useSandbox $
         setupWrapper
-        verb setupOpts Nothing
+        verb setupOpts Nothing Nothing
         installCommand (const mempty) []
 
 installAction
@@ -746,7 +746,7 @@ testAction (testFlags, buildFlags, buildExFlags) extraArgs globalFlags = do
       build verbosity config distPref buildFlags' extraArgs'
 
     maybeWithSandboxDirOnSearchPath useSandbox $
-      setupWrapper verbosity setupOptions Nothing
+      setupWrapper verbosity setupOptions Nothing Nothing
       Cabal.testCommand (const testFlags') extraArgs'
 
 data ComponentNames = ComponentNamesUnknown
@@ -829,7 +829,7 @@ benchmarkAction
       build verbosity config' distPref buildFlags' extraArgs'
 
     maybeWithSandboxDirOnSearchPath useSandbox $
-      setupWrapper verbosity setupOptions Nothing
+      setupWrapper verbosity setupOptions Nothing Nothing
       Cabal.benchmarkCommand (const benchmarkFlags') extraArgs'
 
 haddockAction :: HaddockFlags -> [String] -> Action
@@ -847,7 +847,7 @@ haddockAction haddockFlags extraArgs globalFlags = do
                         haddockFlags { haddockDistPref = toFlag distPref }
         setupScriptOptions = defaultSetupScriptOptions
                              { useDistPref = distPref }
-    setupWrapper verbosity setupScriptOptions Nothing
+    setupWrapper verbosity setupScriptOptions Nothing Nothing
       haddockCommand (const haddockFlags') extraArgs
     when (haddockForHackage haddockFlags == Flag ForHackage) $ do
       pkg <- fmap LBI.localPkgDescr (getPersistBuildConfig distPref)
@@ -867,7 +867,7 @@ cleanAction cleanFlags extraArgs globalFlags = do
                            , useWin32CleanHack = True
                            }
       cleanFlags' = cleanFlags { cleanDistPref = toFlag distPref }
-  setupWrapper verbosity setupScriptOptions Nothing
+  setupWrapper verbosity setupScriptOptions Nothing Nothing
                cleanCommand (const cleanFlags') extraArgs
   where
     verbosity = fromFlagOrDefault normal (cleanVerbosity cleanFlags)

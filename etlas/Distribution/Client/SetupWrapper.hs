@@ -99,6 +99,7 @@ data Setup = Setup { setupMethod :: SetupMethod
                    , setupScriptOptions :: SetupScriptOptions
                    , setupVersion :: Version
                    , setupBuildType :: BuildType
+                   , setupGenericPackage :: GenericPackageDescription
                    , setupPackage :: PackageDescription
                    }
 
@@ -245,6 +246,7 @@ defaultSetupScriptOptions = SetupScriptOptions {
 type SetupRunner = Verbosity
                  -> SetupScriptOptions
                  -> BuildType
+                 -> GenericPackageDescription
                  -> [String]
                  -> IO ()
 
@@ -254,11 +256,13 @@ type SetupRunner = Verbosity
 -- 'setupScriptOptions'.
 getSetup :: Verbosity
          -> SetupScriptOptions
+         -> Maybe GenericPackageDescription
          -> Maybe PackageDescription
          -> IO Setup
-getSetup verbosity options mpkg = do
-  pkg <- maybe getPkg return mpkg
-  let options'    = options {
+getSetup verbosity options mgenPkg mpkg = do
+  genPkg <- maybe getGenPkg return mgenPkg 
+  let pkg         = fromMaybe (packageDescription genPkg) mpkg
+      options'    = options {
                       useCabalVersion = intersectVersionRanges
                                           (useCabalVersion options)
                                           (orLaterVersion (specVersion pkg))
@@ -271,12 +275,12 @@ getSetup verbosity options mpkg = do
                , setupScriptOptions = options''
                , setupVersion = version
                , setupBuildType = buildType'
+               , setupGenericPackage = genPkg
                , setupPackage = pkg
                }
   where
-    getPkg = tryFindPackageDesc (fromMaybe "." (useWorkingDir options))
-         >>= readGenericPackageDescription verbosity
-         >>= return . packageDescription
+    getGenPkg = tryFindPackageDesc (fromMaybe "." (useWorkingDir options))
+                >>= readGenericPackageDescription verbosity
 
     checkBuildType (UnknownBuildType name) =
       die' verbosity $ "The build-type '" ++ name ++ "' is not known. Use one of: "
@@ -319,13 +323,14 @@ runSetup verbosity setup args0 = do
   let method = setupMethod setup
       options = setupScriptOptions setup
       bt = setupBuildType setup
+      genPkg = setupGenericPackage setup
       args = verbosityHack (setupVersion setup) args0
   when (verbosity >= deafening {- avoid test if not debug -} && args /= args0) $
     infoNoWrap verbose $
         "Applied verbosity hack:\n" ++
         "  Before: " ++ show args0 ++ "\n" ++
         "  After:  " ++ show args ++ "\n"
-  runSetupMethod method verbosity options bt args
+  runSetupMethod method verbosity options bt genPkg args
 
 -- | This is a horrible hack to make sure passing fancy verbosity
 -- flags (e.g., @-v'info +callstack'@) doesn't break horribly on
@@ -369,14 +374,15 @@ runSetupCommand verbosity setup cmd flags extraArgs = do
 -- may depend on the Cabal library version in use.
 setupWrapper :: Verbosity
              -> SetupScriptOptions
+             -> Maybe GenericPackageDescription
              -> Maybe PackageDescription
              -> CommandUI flags
              -> (Version -> flags)
                 -- ^ produce command flags given the etlas-cabal library version
              -> [String]
              -> IO ()
-setupWrapper verbosity options mpkg cmd flags extraArgs = do
-  setup <- getSetup verbosity options mpkg
+setupWrapper verbosity options mgenPkg mpkg cmd flags extraArgs = do
+  setup <- getSetup verbosity options mgenPkg mpkg
   runSetupCommand verbosity setup cmd (flags $ setupVersion setup) extraArgs
 
 -- ------------------------------------------------------------
@@ -384,23 +390,23 @@ setupWrapper verbosity options mpkg cmd flags extraArgs = do
 -- ------------------------------------------------------------
 
 internalSetupMethod :: SetupRunner
-internalSetupMethod verbosity options bt args = do
+internalSetupMethod verbosity options bt genPkg args = do
   info verbosity $ "Using internal setup method with build-type " ++ show bt
                 ++ " and args:\n  " ++ show args
   inDir (useWorkingDir options) $ do
     withEnv "ETA_DIST_DIR" (useDistPref options) $
       withExtraPathEnv (useExtraPathEnv options) $
-        buildTypeAction bt args
+        buildTypeAction bt genPkg args
 
-buildTypeAction :: BuildType -> ([String] -> IO ())
-buildTypeAction Simple    = Simple.defaultMainArgs
-buildTypeAction Configure = Simple.defaultMainWithHooksArgs
+buildTypeAction :: BuildType -> GenericPackageDescription
+                -> ([String] -> IO ())
+buildTypeAction Simple    = Simple.defaultMainNoReadArgs
+buildTypeAction Configure = Simple.defaultMainWithHooksNoReadArgs
                               Simple.autoconfUserHooks
-buildTypeAction Make      = Make.defaultMainArgs
+buildTypeAction Make      = const Make.defaultMainArgs
 -- TODO: Change the following once you support custom build types
-buildTypeAction Custom    = Simple.defaultMainArgs
+buildTypeAction Custom    = Simple.defaultMainNoReadArgs
 buildTypeAction (UnknownBuildType _) = error "buildTypeAction UnknownBuildType"
-
 
 -- | @runProcess'@ is a version of @runProcess@ where we have
 -- the additional option to decide whether or not we should
@@ -436,7 +442,7 @@ runProcess' cmd args mb_cwd mb_env mb_stdin mb_stdout mb_stderr _delegate = do
 -- ------------------------------------------------------------
 
 selfExecSetupMethod :: SetupRunner
-selfExecSetupMethod verbosity options bt args0 = do
+selfExecSetupMethod verbosity options bt _ args0 = do
   let args = ["act-as-setup",
               "--build-type=" ++ display bt,
               "--"] ++ args0
@@ -466,7 +472,7 @@ selfExecSetupMethod verbosity options bt args0 = do
 -- ------------------------------------------------------------
 
 externalSetupMethod :: WithCallStack (FilePath -> SetupRunner)
-externalSetupMethod path verbosity options _ args = do
+externalSetupMethod path verbosity options _ _ args = do
   info verbosity $ unwords (path : args)
   case useLoggingHandle options of
     Nothing        -> return ()

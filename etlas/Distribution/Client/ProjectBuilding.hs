@@ -1076,7 +1076,7 @@ buildAndInstallUnpackedPackage verbosity
         setupWrapper
           verbosity
           scriptOptions { useLoggingHandle = mLogFileHandle }
-          (Just (elabPkgDescription pkg))
+          Nothing (Just (elabPkgDescription pkg))
           cmd flags args
 
     mlogFile :: Maybe FilePath
@@ -1313,14 +1313,14 @@ buildInplaceUnpackedPackage verbosity
     setupInteractive cmd flags args =
       setupWrapper verbosity
                    scriptOptions { isInteractive = True }
-                   (Just (elabPkgDescription pkg))
+                   Nothing (Just (elabPkgDescription pkg))
                    cmd flags args
 
     setup :: CommandUI flags -> (Version -> flags) -> [String] -> IO ()
     setup cmd flags args =
       setupWrapper verbosity
                    scriptOptions
-                   (Just (elabPkgDescription pkg))
+                   Nothing (Just (elabPkgDescription pkg))
                    cmd flags args
 
     generateInstalledPackageInfo :: IO InstalledPackageInfo

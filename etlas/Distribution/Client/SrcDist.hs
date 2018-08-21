@@ -22,13 +22,8 @@ import Distribution.PackageDescription
          ( PackageDescription )
 import Distribution.PackageDescription.Configuration
          ( flattenPackageDescription )
-#ifdef CABAL_PARSEC
-import Distribution.PackageDescription.Parsec
+import Distribution.Client.PackageDescription.Dhall
          ( readGenericPackageDescription )
-#else
-import Distribution.PackageDescription.Parse
-         ( readGenericPackageDescription )
-#endif
 import Distribution.Simple.Utils
          ( createDirectoryIfMissingVerbose, defaultPackageDesc
          , warn, die', notice, withTempDirectory )
@@ -49,7 +44,7 @@ import Distribution.Client.Utils
 import Distribution.Compat.Exception                 (catchIO)
 
 import System.FilePath ((</>), (<.>), normalise)
-import Control.Monad (when, unless, liftM)
+import Control.Monad (when, unless)
 import System.Directory (doesFileExist, removeFile, canonicalizePath, getTemporaryDirectory)
 import System.Process (runProcess, waitForProcess)
 import System.Exit    (ExitCode(..))
@@ -58,8 +53,9 @@ import Control.Exception                             (IOException, evaluate)
 -- |Create a source distribution.
 sdist :: SDistFlags -> SDistExFlags -> IO ()
 sdist flags exflags = do
-  pkg <- liftM flattenPackageDescription
-    (readGenericPackageDescription verbosity =<< defaultPackageDesc verbosity)
+  genPkg <- readGenericPackageDescription verbosity =<< defaultPackageDesc verbosity
+  let pkg = flattenPackageDescription genPkg
+
   let withDir :: (FilePath -> IO a) -> IO a
       withDir = if not needMakeArchive then \f -> f tmpTargetDir
                 else withTempDirectory verbosity tmpTargetDir "sdist."
@@ -76,7 +72,7 @@ sdist flags exflags = do
     -- Run 'setup sdist --output-directory=tmpDir' (or
     -- '--list-source'/'--output-directory=someOtherDir') in case we were passed
     -- those options.
-    setupWrapper verbosity setupOpts (Just pkg) sdistCommand (const flags') []
+    setupWrapper verbosity setupOpts (Just genPkg) (Just pkg) sdistCommand (const flags') []
 
     -- Unless we were given --list-sources or --output-directory ourselves,
     -- create an archive.
@@ -163,10 +159,11 @@ createZipArchive isBin verbosity pkg tmpDir targetPref = do
 allPackageSourceFiles :: Verbosity -> SetupScriptOptions -> FilePath
                          -> IO [FilePath]
 allPackageSourceFiles verbosity setupOpts0 packageDir = do
-  pkg <- do
+  genPkg <- do
     let err = "Error reading source files of package."
     desc <- tryFindAddSourcePackageDesc verbosity packageDir err
-    flattenPackageDescription `fmap` readGenericPackageDescription verbosity desc
+    readGenericPackageDescription verbosity desc
+  let pkg = flattenPackageDescription genPkg
   globalTmp <- getTemporaryDirectory
   withTempDirectory verbosity globalTmp "etlas-list-sources." $ \tempDir -> do
   let file      = tempDir </> "etlas-sdist-list-sources"
@@ -185,7 +182,7 @@ allPackageSourceFiles verbosity setupOpts0 packageDir = do
 
       doListSources :: IO [FilePath]
       doListSources = do
-        setupWrapper verbosity setupOpts (Just pkg) sdistCommand (const flags) []
+        setupWrapper verbosity setupOpts (Just genPkg) (Just pkg) sdistCommand (const flags) []
         fmap lines . readFile $ file
 
       onFailedListSources :: IOException -> IO ()

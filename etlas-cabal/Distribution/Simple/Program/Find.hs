@@ -150,7 +150,10 @@ getSystemSearchPath :: NoCallStackIO [FilePath]
 getSystemSearchPath = fmap nub $ do
 #if defined(mingw32_HOST_OS)
     processdir <- takeDirectory `fmap` Win32.getModuleFileName Win32.nullHANDLE
-    currentdir <- Win32.getCurrentDirectory
+    mcwd <- getMaybeCWD
+    currentdir <- case mcwd of
+                    Just cwd -> return cwd
+                    Nothing  -> Win32.getCurrentDirectory
     systemdir  <- Win32.getSystemDirectory
     windowsdir <- Win32.getWindowsDirectory
     pathdirs   <- FilePath.getSearchPath

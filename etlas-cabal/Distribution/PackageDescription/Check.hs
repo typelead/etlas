@@ -58,14 +58,11 @@ import Language.Haskell.Extension
 
 import Control.Monad (mapM)
 import Data.List  (group)
-import qualified System.Directory as System
-         ( doesFileExist, doesDirectoryExist )
 import qualified Data.Map as Map
 
 import qualified Text.PrettyPrint as Disp
 import Text.PrettyPrint ((<+>))
 
-import qualified System.Directory (getDirectoryContents)
 import System.IO (openBinaryFile, IOMode(ReadMode), hGetContents)
 import System.FilePath
          ( (</>), takeExtension, splitDirectories, splitPath, splitExtension )
@@ -1715,9 +1712,9 @@ checkPackageFiles :: PackageDescription -> FilePath -> NoCallStackIO [PackageChe
 checkPackageFiles pkg root = checkPackageContent checkFilesIO pkg
   where
     checkFilesIO = CheckPackageContentOps {
-      doesFileExist        = System.doesFileExist                  . relative,
-      doesDirectoryExist   = System.doesDirectoryExist             . relative,
-      getDirectoryContents = System.Directory.getDirectoryContents . relative,
+      doesFileExist        = doesFileExistEx        . relative,
+      doesDirectoryExist   = doesDirectoryExistEx   . relative,
+      getDirectoryContents = getDirectoryContentsEx . relative,
       getFileContents      = \f -> openBinaryFile (relative f) ReadMode
                                    >>= hGetContents
     }

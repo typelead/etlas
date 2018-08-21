@@ -24,8 +24,6 @@ import Control.Exception
 import qualified Data.ByteString.Lazy as BSL
 import System.IO.Error
          ( ioeSetLocation )
-import System.Directory
-         ( doesFileExist, renameFile, removeFile )
 import System.FilePath
          ( takeDirectory )
 import System.IO
@@ -48,8 +46,6 @@ import Control.Exception
 import qualified Data.ByteString.Lazy as BSL
 import System.IO.Error
   ( ioeSetLocation )
-import System.Directory
-  ( doesFileExist )
 import System.FilePath
   ( isRelative, normalise )
 import System.IO
@@ -82,20 +78,21 @@ setDirOrdinary = setFileExecutable
 -- | Copies a file to a new destination.
 -- Often you should use `copyFileChanged` instead.
 copyFile :: FilePath -> FilePath -> NoCallStackIO ()
-copyFile fromFPath toFPath =
-  copy
+copyFile fromFPath toFPath = do
+  cwd <- getCWD
+  copy cwd
     `catchIO` (\ioe -> throwIO (ioeSetLocation ioe "copyFile"))
     where
 #ifndef mingw32_HOST_OS
-      copy = withBinaryFile fromFPath ReadMode $ \hFrom ->
-             bracketOnError openTmp cleanTmp $ \(tmpFPath, hTmp) ->
+      copy cwd = withBinaryFile fromFPath ReadMode $ \hFrom ->
+             bracketOnError (openTmp cwd) cleanTmp $ \(tmpFPath, hTmp) ->
              do allocaBytes bufferSize $ copyContents hFrom hTmp
                 hClose hTmp
-                renameFile tmpFPath toFPath
+                renameFileEx tmpFPath toFPath
       openTmp = openBinaryTempFile (takeDirectory toFPath) ".copyFile.tmp"
       cleanTmp (tmpFPath, hTmp) = do
-        hClose hTmp          `catchIO` \_ -> return ()
-        removeFile tmpFPath  `catchIO` \_ -> return ()
+        hClose hTmp           `catchIO` \_ -> return ()
+        removeFileEx tmpFPath `catchIO` \_ -> return ()
       bufferSize = 4096
 
       copyContents hFrom hTo buffer = do
@@ -137,8 +134,8 @@ copyFileChanged src dest = do
 -- Returns False if either of the files do not exist.
 filesEqual :: FilePath -> FilePath -> NoCallStackIO Bool
 filesEqual f1 f2 = do
-  ex1 <- doesFileExist f1
-  ex2 <- doesFileExist f2
+  ex1 <- doesFileExistEx f1
+  ex2 <- doesFileExistEx f2
   if not (ex1 && ex2) then return False else
     withBinaryFile f1 ReadMode $ \h1 ->
       withBinaryFile f2 ReadMode $ \h2 -> do

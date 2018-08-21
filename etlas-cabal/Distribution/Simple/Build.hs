@@ -84,7 +84,6 @@ import Distribution.Compat.Graph (IsNode(..))
 import Control.Monad
 -- import qualified Data.Set as Set
 import System.FilePath ( (</>), (<.>), takeDirectory )
-import System.Directory ( getCurrentDirectory )
 
 -- -----------------------------------------------------------------------------
 -- |Build the libraries and executables in this package.
@@ -213,7 +212,7 @@ buildComponent verbosity numJobs pkg_descr lbi suffixes
       then do
         -- Register the library in-place, so exes can depend
         -- on internally defined libraries.
-        pwd <- getCurrentDirectory
+        pwd <- getCWD
         let -- The in place registration uses the "-inplace" suffix, not an ABI hash
             installedPkgInfo = inplaceInstalledPackageInfo pwd distPref pkg_descr
                                     -- NB: Use a fake ABI hash to avoid
@@ -270,7 +269,7 @@ buildComponent verbosity numJobs pkg_descr lbi0 suffixes
                     -- library and stub executable that will actually be
                     -- built.
                distPref = do
-    pwd <- getCurrentDirectory
+    pwd <- getCWD
     let (pkg, lib, libClbi, lbi, ipi, exe, exeClbi) =
           testSuiteLibV09AsLibAndExe pkg_descr test clbi lbi0 distPref pwd
     preprocessComponent pkg_descr comp lbi clbi False verbosity suffixes
@@ -367,7 +366,7 @@ replComponent verbosity pkg_descr lbi0 suffixes
                comp@(CTest
                  test@TestSuite { testInterface = TestSuiteLibV09{} })
                clbi distPref = do
-    pwd <- getCurrentDirectory
+    pwd <- getCWD
     let (pkg, lib, libClbi, lbi, _, _, _) =
           testSuiteLibV09AsLibAndExe pkg_descr test clbi lbi0 distPref pwd
     preprocessComponent pkg_descr comp lbi clbi False verbosity suffixes

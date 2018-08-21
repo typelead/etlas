@@ -30,7 +30,7 @@ import Distribution.Verbosity
 import Control.Concurrent (forkIO)
 import System.Directory
     ( createDirectoryIfMissing, doesDirectoryExist, doesFileExist
-    , getCurrentDirectory, removeDirectoryRecursive )
+    , removeDirectoryRecursive )
 import System.Exit ( ExitCode(..) )
 import System.FilePath ( (</>), (<.>) )
 import System.IO ( hGetContents, hPutStr, stdout, stderr )
@@ -46,7 +46,7 @@ runTest pkg_descr lbi clbi flags suite = do
         way = guessWay lbi
         tixDir_ = tixDir distPref way testName'
 
-    pwd <- getCurrentDirectory
+    pwd <- getCWD
     existingEnv <- getEnvironment
 
     let cmd = LBI.buildDir lbi </> testName'

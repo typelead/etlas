@@ -36,8 +36,7 @@ import Distribution.Verbosity
 import qualified Control.Exception as CE
 import System.Directory
     ( createDirectoryIfMissing, doesDirectoryExist, doesFileExist
-    , getCurrentDirectory, removeDirectoryRecursive, removeFile
-    , setCurrentDirectory, makeAbsolute )
+    , removeDirectoryRecursive, removeFile, makeAbsolute )
 import System.Exit ( ExitCode(..), exitWith )
 import System.FilePath ( (</>), (<.>) )
 import System.IO ( hClose, hGetContents, hPutStr )
@@ -53,7 +52,7 @@ runTest pkg_descr lbi clbi flags suite = do
     let isCoverageEnabled = LBI.testCoverage lbi
         way = guessWay lbi
 
-    pwd <- getCurrentDirectory
+    pwd <- getCWD
     existingEnv <- getEnvironment
 
     let cmd = LBI.buildDir lbi </> stubName suite
@@ -219,9 +218,9 @@ simpleTestStub m = unlines
 stubMain :: IO [Test] -> IO ()
 stubMain tests = do
     (f, n) <- fmap read getContents -- TODO: eradicateNoParse
-    dir <- getCurrentDirectory
+    dir <- getCWD
     results <- (tests >>= stubRunTests) `CE.catch` errHandler
-    setCurrentDirectory dir
+    setCWD dir
     stubWriteLog f n results
   where
     errHandler :: CE.SomeException -> NoCallStackIO TestLogs

@@ -229,7 +229,7 @@ generateRegistrationInfo :: Verbosity
                          -> IO InstalledPackageInfo
 generateRegistrationInfo verbosity pkg lib lbi clbi inplace reloc binary distPref packageDb = do
   --TODO: eliminate pwd!
-  pwd <- getCurrentDirectory
+  pwd <- getCWD
 
   installedPkgInfo <-
     if inplace

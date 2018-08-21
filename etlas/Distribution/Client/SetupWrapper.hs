@@ -67,7 +67,7 @@ import Distribution.Client.JobControl
 import Distribution.Simple.Utils
          ( die', notice, info, infoNoWrap, cabalVersion, tryFindPackageDesc )
 import Distribution.Client.Utils
-         ( inDir, withExtraPathEnv, withEnv )
+         ( inDir ) --, withExtraPathEnv, withEnv )
 -- #ifdef mingw32_HOST_OS
 --          , canonicalizePathNoThrow
 -- #endif
@@ -214,7 +214,8 @@ data SetupScriptOptions = SetupScriptOptions {
     -- | Is the task we are going to run an interactive foreground task,
     -- or an non-interactive background task? Based on this flag we
     -- decide whether or not to delegate ctrl+c to the spawned task
-    isInteractive            :: Bool
+    isInteractive            :: Bool,
+    isNewBuild               :: Bool
   }
 
 defaultSetupScriptOptions :: SetupScriptOptions
@@ -236,7 +237,8 @@ defaultSetupScriptOptions = SetupScriptOptions {
     useWin32CleanHack        = False,
     forceExternalSetupMethod = False,
     setupCacheLock           = Nothing,
-    isInteractive            = False
+    isInteractive            = False,
+    isNewBuild               = False
   }
 
 -- workingDir :: SetupScriptOptions -> FilePath
@@ -303,10 +305,11 @@ getSetupMethod _verbosity options _pkg _buildType'
   --   || maybe False (cabalVersion /=) (useCabalSpecVersion options)
   --   || not (cabalVersion `withinRange` useCabalVersion options)    =
   --        getExternalSetupMethod verbosity options pkg buildType'
-  | isJust (useLoggingHandle options)
+  | (isJust (useLoggingHandle options)
     -- Forcing is done to use an external process e.g. due to parallel
     -- build concerns.
-    || forceExternalSetupMethod options =
+    || forceExternalSetupMethod options)
+    && not (isNewBuild options) =
         return (cabalVersion, SelfExecMethod, options)
   | otherwise = return (cabalVersion, InternalMethod, options)
 
@@ -392,8 +395,9 @@ internalSetupMethod verbosity options bt args = do
   info verbosity $ "Using internal setup method with build-type " ++ show bt
                 ++ " and args:\n  " ++ show args
   inDir (useWorkingDir options) $ do
-    withEnv "ETA_DIST_DIR" (useDistPref options) $
-      withExtraPathEnv (useExtraPathEnv options) $
+    -- TOOD: Figure out whether we actually need these!
+    -- withEnv "ETA_DIST_DIR" (useDistPref options) $
+    --   withExtraPathEnv (useExtraPathEnv options) $
         buildTypeAction bt args
 
 buildTypeAction :: BuildType -> ([String] -> IO ())
@@ -450,8 +454,8 @@ selfExecSetupMethod verbosity options bt args0 = do
   info verbosity $ unwords (path : args)
   case useLoggingHandle options of
     Nothing        -> return ()
-    Just logHandle -> info verbosity $ "Redirecting build log to "
-                                    ++ show logHandle
+    Just logHandle ->
+      info verbosity $ "Redirecting build log to " ++ show logHandle
 
   searchpath <- programSearchPathAsPATHVar
                 (map ProgramSearchPathDir (useExtraPathEnv options) ++

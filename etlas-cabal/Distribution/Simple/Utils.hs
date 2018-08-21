@@ -166,6 +166,17 @@ module Distribution.Simple.Utils (
         -- * FilePath stuff
         isAbsoluteOnAnyPlatform,
         isRelativeOnAnyPlatform,
+
+        getHandleEx,
+        putHandleEx,
+        deleteHandleEx,
+        putStrLnEx,
+        getCWD,
+        setCWD,
+        getMaybeCWD,
+        resetCWD,
+        doesFileExistEx,
+        doesDirectoryExistEx
   ) where
 
 import Prelude ()
@@ -199,6 +210,8 @@ import Distribution.Types.PackageId
 
 import Control.Concurrent.MVar
     ( newEmptyMVar, putMVar, takeMVar )
+import GHC.Conc.Sync
+    ( ThreadId, myThreadId, newTVarIO, readTVar, writeTVar, atomically, TVar )
 import Data.Typeable
     ( cast )
 import qualified Data.ByteString.Lazy.Char8 as BS.Char8
@@ -206,7 +219,8 @@ import qualified Data.ByteString.Lazy.Char8 as BS.Char8
 import System.Directory
     ( Permissions(executable), getDirectoryContents, getPermissions
     , doesDirectoryExist, doesFileExist, removeFile, findExecutable
-    , getModificationTime, getCurrentDirectory, setCurrentDirectory )
+    , getModificationTime, createDirectory, removeDirectoryRecursive,
+    , getCurrentDirectory, setCurrentDirectory )
 import System.Environment
     ( getProgName )
 import System.Exit
@@ -216,14 +230,12 @@ import System.FilePath
     , getSearchPath, joinPath, takeDirectory, splitFileName
     , splitExtension, splitExtensions, splitDirectories
     , searchPathSeparator )
-import System.Directory
-    ( createDirectory, removeDirectoryRecursive )
 import System.IO
     ( Handle, hSetBinaryMode, hGetContents, stderr, stdout, hPutStr, hFlush
-    , hClose, hSetBuffering, BufferMode(..) )
+    , hClose, hSetBuffering, BufferMode(..), hPutStrLn )
 import System.IO.Error
 import System.IO.Unsafe
-    ( unsafeInterleaveIO )
+    ( unsafeInterleaveIO, unsafePerformIO )
 import qualified Control.Exception as Exception
 
 import Control.Exception (IOException, evaluate, throwIO)
@@ -231,10 +243,11 @@ import Control.Concurrent (forkIO)
 import qualified System.Process as Process
          ( CreateProcess(..), StdStream(..), proc)
 import System.Process
-         ( ProcessHandle, createProcess, rawSystem, runInteractiveProcess
+         ( ProcessHandle, createProcess, runInteractiveProcess, createProcess_
          , showCommandForUser, waitForProcess)
 
 import qualified Text.PrettyPrint as Disp
+import qualified Data.Map as M
 
 -- We only get our own version number when we're building with ourselves
 cabalVersion :: Version
@@ -438,10 +451,10 @@ topHandler prog = topHandlerWith (const $ exitWith (ExitFailure 1)) prog
 warn :: Verbosity -> String -> IO ()
 warn verbosity msg = withFrozenCallStack $ do
   when (verbosity >= normal) $ do
-    hFlush stdout
-    hPutStr stderr . withMetadata NormalMark FlagTrace verbosity
-                   . wrapTextVerbosity verbosity
-                   $ "Warning: " ++ msg
+    flushEx stdout
+    putStrExErr . withMetadata NormalMark FlagTrace verbosity
+                . wrapTextVerbosity verbosity
+                $ "Warning: " ++ msg
 
 -- | Useful status messages.
 --
@@ -453,9 +466,9 @@ warn verbosity msg = withFrozenCallStack $ do
 notice :: Verbosity -> String -> IO ()
 notice verbosity msg = withFrozenCallStack $ do
   when (verbosity >= normal) $ do
-    hPutStr stdout . withMetadata NormalMark FlagTrace verbosity
-                   . wrapTextVerbosity verbosity
-                   $ msg
+    putStrExOut . withMetadata NormalMark FlagTrace verbosity
+                . wrapTextVerbosity verbosity
+                $ msg
 
 -- | Display a message at 'normal' verbosity level, but without
 -- wrapping.
@@ -463,7 +476,7 @@ notice verbosity msg = withFrozenCallStack $ do
 noticeNoWrap :: Verbosity -> String -> IO ()
 noticeNoWrap verbosity msg = withFrozenCallStack $ do
   when (verbosity >= normal) $ do
-    hPutStr stdout . withMetadata NormalMark FlagTrace verbosity $ msg
+    putStrExOut . withMetadata NormalMark FlagTrace verbosity $ msg
 
 -- | Pretty-print a 'Disp.Doc' status message at 'normal' verbosity
 -- level.  Use this if you need fancy formatting.
@@ -471,8 +484,8 @@ noticeNoWrap verbosity msg = withFrozenCallStack $ do
 noticeDoc :: Verbosity -> Disp.Doc -> IO ()
 noticeDoc verbosity msg = withFrozenCallStack $ do
   when (verbosity >= normal) $ do
-    hPutStr stdout . withMetadata NormalMark FlagTrace verbosity
-                   . Disp.renderStyle defaultStyle $ msg
+    putStrExOut . withMetadata NormalMark FlagTrace verbosity
+                . Disp.renderStyle defaultStyle $ msg
 
 -- | Display a "setup status message".  Prefer using setupMessage'
 -- if possible.
@@ -488,15 +501,15 @@ setupMessage verbosity msg pkgid = withFrozenCallStack $ do
 info :: Verbosity -> String -> IO ()
 info verbosity msg = withFrozenCallStack $
   when (verbosity >= verbose) $ do
-    hPutStr stdout . withMetadata NeverMark FlagTrace verbosity
-                   . wrapTextVerbosity verbosity
-                   $ msg
+    putStrExOut . withMetadata NeverMark FlagTrace verbosity
+                . wrapTextVerbosity verbosity
+                $ msg
 
 infoNoWrap :: Verbosity -> String -> IO ()
 infoNoWrap verbosity msg = withFrozenCallStack $
   when (verbosity >= verbose) $ do
-    hPutStr stdout . withMetadata NeverMark FlagTrace verbosity
-                   $ msg
+    putStrExOut . withMetadata NeverMark FlagTrace verbosity
+                $ msg
 
 -- | Detailed internal debugging information
 --
@@ -505,21 +518,21 @@ infoNoWrap verbosity msg = withFrozenCallStack $
 debug :: Verbosity -> String -> IO ()
 debug verbosity msg = withFrozenCallStack $
   when (verbosity >= deafening) $ do
-    hPutStr stdout . withMetadata NeverMark FlagTrace verbosity
-                   . wrapTextVerbosity verbosity
-                   $ msg
+    putStrExOut . withMetadata NeverMark FlagTrace verbosity
+                . wrapTextVerbosity verbosity
+                $ msg
     -- ensure that we don't lose output if we segfault/infinite loop
-    hFlush stdout
+    flushEx stdout
 
 -- | A variant of 'debug' that doesn't perform the automatic line
 -- wrapping. Produces better output in some cases.
 debugNoWrap :: Verbosity -> String -> IO ()
 debugNoWrap verbosity msg = withFrozenCallStack $
   when (verbosity >= deafening) $ do
-    hPutStr stdout . withMetadata NeverMark FlagTrace verbosity
+    putStrExOut . withMetadata NeverMark FlagTrace verbosity
                    $ msg
     -- ensure that we don't lose output if we segfault/infinite loop
-    hFlush stdout
+    flushEx stdout
 
 -- | Perform an IO action, catching any IO exceptions and printing an error
 --   if one occurs.
@@ -693,8 +706,10 @@ rawSystemExitWithEnv :: Verbosity
 rawSystemExitWithEnv verbosity path args env = withFrozenCallStack $ do
     printRawCommandAndArgsAndEnv verbosity path args (Just env)
     hFlush stdout
+    mcwd <- getMaybeCWD
     (_,_,_,ph) <- createProcess $
                   (Process.proc path args) { Process.env = (Just env)
+                                           , Process.cwd = mcwd
 #ifdef MIN_VERSION_process
 #if MIN_VERSION_process(1,2,0)
 -- delegate_ctlc has been added in process 1.2, and we still want to be able to
@@ -741,9 +756,11 @@ createProcessWithEnv ::
   -> IO (Maybe Handle, Maybe Handle, Maybe Handle,ProcessHandle)
   -- ^ Any handles created for stdin, stdout, or stderr
   -- with 'CreateProcess', and a handle to the process.
-createProcessWithEnv verbosity path args mcwd menv inp out err = withFrozenCallStack $ do
+createProcessWithEnv verbosity path args mcwd0 menv inp out err = withFrozenCallStack $ do
     printRawCommandAndArgsAndEnv verbosity path args menv
     hFlush stdout
+    mcwd1 <- getMaybeCWD
+    let mcwd = mcwd0 <|> mcwd1
     (inp', out', err', ph) <- createProcess $
                                 (Process.proc path args) {
                                     Process.cwd           = mcwd
@@ -787,9 +804,11 @@ rawSystemStdInOut :: Verbosity
                   -> Maybe (String, Bool)     -- ^ input text and binary mode
                   -> Bool                     -- ^ output in binary mode
                   -> IO (String, String, ExitCode) -- ^ output, errors, exit
-rawSystemStdInOut verbosity path args mcwd menv input outputBinary = withFrozenCallStack $ do
+rawSystemStdInOut verbosity path args mcwd0 menv input outputBinary = withFrozenCallStack $ do
   printRawCommandAndArgs verbosity path args
 
+  mcwd1 <- getMaybeCWD
+  let mcwd = mcwd0 <|> mcwd1
   Exception.bracket
      (runInteractiveProcess path args mcwd menv)
      (\(inh,outh,errh,_) -> hClose inh >> hClose outh >> hClose errh)
@@ -971,13 +990,13 @@ findFileWithExtension' extensions searchPath baseName =
 findFirstFile :: (a -> FilePath) -> [a] -> NoCallStackIO (Maybe a)
 findFirstFile file = findFirst
   where findFirst []     = return Nothing
-        findFirst (x:xs) = do exists <- doesFileExist (file x)
+        findFirst (x:xs) = do exists <- doesFileExistEx (file x)
                               if exists
                                 then return (Just x)
                                 else findFirst xs
 
 findAllFiles :: (a -> FilePath) -> [a] -> NoCallStackIO [a]
-findAllFiles file = filterM (doesFileExist . file)
+findAllFiles file = filterM (doesFileExistEx . file)
 
 -- | Finds the files corresponding to a list of Haskell module names.
 --
@@ -1020,7 +1039,7 @@ getDirectoryContentsRecursive topdir = recurseDirectories [""]
     recurseDirectories :: [FilePath] -> IO [FilePath]
     recurseDirectories []         = return []
     recurseDirectories (dir:dirs) = unsafeInterleaveIO $ do
-      (files, dirs') <- collect [] [] =<< getDirectoryContents (topdir </> dir)
+      (files, dirs') <- collect [] [] =<< getDirectoryContentsEx (topdir </> dir)
       files' <- recurseDirectories (dirs' ++ dirs)
       return (files ++ files')
 
@@ -1031,7 +1050,7 @@ getDirectoryContentsRecursive topdir = recurseDirectories [""]
                                             = collect files dirs' entries
         collect files dirs' (entry:entries) = do
           let dirEntry = dir </> entry
-          isDirectory <- doesDirectoryExist (topdir </> dirEntry)
+          isDirectory <- doesDirectoryExistEx (topdir </> dirEntry)
           if isDirectory
             then collect files (dirEntry:dirs') entries
             else collect (dirEntry:files) dirs' entries
@@ -1099,7 +1118,7 @@ matchDirFileGlob dir filepath = case parseFileGlob filepath of
                 ++ " If a wildcard is used it must be with an file extension."
   Just (NoGlob filepath') -> return [filepath']
   Just (FileGlob dir' ext) -> do
-    files <- getDirectoryContents (dir </> dir')
+    files <- getDirectoryContentsEx (dir </> dir')
     case   [ dir' </> file
            | file <- files
            , let (name, ext') = splitExtensions file
@@ -1118,17 +1137,17 @@ matchDirFileGlob dir filepath = case parseFileGlob filepath of
 --
 moreRecentFile :: FilePath -> FilePath -> NoCallStackIO Bool
 moreRecentFile a b = do
-  exists <- doesFileExist b
+  exists <- doesFileExistEx b
   if not exists
     then return True
-    else do tb <- getModificationTime b
-            ta <- getModificationTime a
+    else do tb <- getModificationTimeEx b
+            ta <- getModificationTimeEx a
             return (ta > tb)
 
 -- | Like 'moreRecentFile', but also checks that the first file exists.
 existsAndIsMoreRecentThan :: FilePath -> FilePath -> NoCallStackIO Bool
 existsAndIsMoreRecentThan a b = do
-  exists <- doesFileExist a
+  exists <- doesFileExistEx a
   if not exists
     then return False
     else a `moreRecentFile` b
@@ -1170,7 +1189,7 @@ createDirectoryIfMissingVerbose verbosity create_parents path0
           -- directory and creates a file in its place before we can check
           -- that the directory did indeed exist.
           | isAlreadyExistsError e -> (do
-              isDir <- doesDirectoryExist dir
+              isDir <- doesDirectoryExistEx dir
               if isDir then return ()
                        else throwIO e
               ) `catchIO` ((\_ -> return ()) :: IOException -> IO ())
@@ -1179,7 +1198,7 @@ createDirectoryIfMissingVerbose verbosity create_parents path0
 createDirectoryVerbose :: Verbosity -> FilePath -> IO ()
 createDirectoryVerbose verbosity dir = withFrozenCallStack $ do
   info verbosity $ "creating " ++ dir
-  createDirectory dir
+  createDirectoryEx dir
   setDirOrdinary dir
 
 -- | Copies a file without copying file permissions. The target file is created
@@ -1213,7 +1232,7 @@ installExecutableFile verbosity src dest = withFrozenCallStack $ do
 -- | Install a file that may or not be executable, preserving permissions.
 installMaybeExecutableFile :: Verbosity -> FilePath -> FilePath -> IO ()
 installMaybeExecutableFile verbosity src dest = withFrozenCallStack $ do
-  perms <- getPermissions src
+  perms <- getPermissionsEx src
   if (executable perms) --only checks user x bit
     then installExecutableFile verbosity src dest
     else installOrdinaryFile   verbosity src dest
@@ -1307,9 +1326,9 @@ copyDirectoryRecursive verbosity srcDir destDir = withFrozenCallStack $ do
 -- | Like 'doesFileExist', but also checks that the file is executable.
 doesExecutableExist :: FilePath -> NoCallStackIO Bool
 doesExecutableExist f = do
-  exists <- doesFileExist f
+  exists <- doesFileExistEx f
   if exists
-    then do perms <- getPermissions f
+    then do perms <- getPermissionsEx f
             return (executable perms)
     else return False
 
@@ -1325,6 +1344,7 @@ withCurrentDirectoryVerbose verbosity newCurrentDir inDirAction =
        setCurrentDirectory dir) $ \dir -> do
     info verbosity ("Setting current directory to " ++ newCurrentDir
                     ++ " from " ++ dir ++ ".")
+
     setCurrentDirectory newCurrentDir
     inDirAction
 
@@ -1372,12 +1392,13 @@ withTempFileEx :: TempFileOptions
                  -> FilePath -- ^ Temp dir to create the file in
                  -> String   -- ^ File name template. See 'openTempFile'.
                  -> (FilePath -> Handle -> IO a) -> IO a
-withTempFileEx opts tmpDir template action =
+withTempFileEx opts tmpDir template action = do
+  cwd <- getCWD
   Exception.bracket
-    (openTempFile tmpDir template)
+    (openTempFile (cwd </> tmpDir) template)
     (\(name, handle) -> do hClose handle
                            unless (optKeepTempFiles opts) $
-                             handleDoesNotExist () . removeFile $ name)
+                             handleDoesNotExist () . removeFileEx $ name)
     (withLexicalCallStack (uncurry action))
 
 -- | Create and use a temporary directory.
@@ -1399,11 +1420,12 @@ withTempDirectory verbosity targetDir template f = withFrozenCallStack $
 -- 'TempFileOptions' argument.
 withTempDirectoryEx :: Verbosity -> TempFileOptions
                        -> FilePath -> String -> (FilePath -> IO a) -> IO a
-withTempDirectoryEx _verbosity opts targetDir template f = withFrozenCallStack $
+withTempDirectoryEx _verbosity opts targetDir template f = withFrozenCallStack $ do
+  cwd <- getCWD
   Exception.bracket
-    (createTempDirectory targetDir template)
+    (createTempDirectory (cwd </> targetDir) template)
     (unless (optKeepTempFiles opts)
-     . handleDoesNotExist () . removeDirectoryRecursive)
+     . handleDoesNotExist () . removeDirectoryRecursiveEx)
     (withLexicalCallStack f)
 
 -----------------------------------
@@ -1476,10 +1498,10 @@ defaultPackageDesc _verbosity = tryFindPackageDesc currentDir
 findPackageDesc :: FilePath                    -- ^Where to look
                 -> NoCallStackIO (Either String FilePath) -- ^<pkgname>.cabal
 findPackageDesc dir
- = do files <- getDirectoryContents dir
+ = do files <- getDirectoryContentsEx dir
       -- to make sure we do not mistake a ~/.cabal/ dir for a <pkgname>.cabal
       -- file we filter to exclude dirs and null base file names:
-      cabalFiles <- filterM doesFileExist
+      cabalFiles <- filterM doesFileExistEx
                        [ dir </> file
                        | file <- files
                        , let (name, ext) = splitExtension file
@@ -1513,8 +1535,8 @@ findHookedPackageDesc
     :: FilePath                 -- ^Directory to search
     -> IO (Maybe FilePath)      -- ^/dir/@\/@/pkgname/@.buildinfo@, if present
 findHookedPackageDesc dir = do
-    files <- getDirectoryContents dir
-    buildInfoFiles <- filterM doesFileExist
+    files <- getDirectoryContentsEx dir
+    buildInfoFiles <- filterM doesFileExistEx
                         [ dir </> file
                         | file <- files
                         , let (name, ext) = splitExtension file
@@ -1526,3 +1548,136 @@ findHookedPackageDesc dir = do
 
 buildInfoExt  :: String
 buildInfoExt = ".buildinfo"
+
+-- Work with forking handles across threads
+{-# NOINLINE handlesVar #-}
+handlesVar :: TVar (Map ThreadId Handle)
+handlesVar = unsafePerformIO (newTVarIO M.empty)
+
+getHandleEx :: Handle -> IO Handle
+getHandleEx def = do
+  tid <- myThreadId
+  m   <- atomically $ readTVar handlesVar
+  case M.lookup tid m of
+    Nothing     -> return def
+    Just handle -> return handle
+
+putHandleEx :: Handle -> IO ()
+putHandleEx handle = do
+  tid <- myThreadId
+  atomically $ do
+    m <- readTVar handlesVar
+    writeTVar handlesVar (M.insert tid handle m)
+
+deleteHandleEx :: IO ()
+deleteHandleEx = do
+  tid <- myThreadId
+  atomically $ do
+    m <- readTVar handlesVar
+    writeTVar handlesVar (M.delete tid m)
+
+putStrLnEx :: String -> IO ()
+putStrLnEx str = do
+  handle <- getHandleEx stdout
+  hPutStrLn handle str
+
+putStrExOut :: String -> IO ()
+putStrExOut str = do
+  handle <- getHandleEx stdout
+  hPutStr handle str
+
+putStrExErr :: String -> IO ()
+putStrExErr str = do
+  handle <- getHandleEx stderr
+  hPutStr handle str
+
+flushEx :: Handle -> IO ()
+flushEx def = do
+  handle <- getHandleEx def
+  hFlush handle
+
+-- Work with forking cwds across threads
+
+{-# NOINLINE cwdsVar #-}
+cwdsVar :: TVar (Map ThreadId FilePath)
+cwdsVar = unsafePerformIO (newTVarIO M.empty)
+
+getMaybeCWD :: IO (Maybe FilePath)
+getMaybeCWD = do
+  tid <- myThreadId
+  m   <- atomically $ readTVar cwdsVar
+  return $ M.lookup tid m
+
+getCWD :: IO FilePath
+getCWD = do
+  mcwd <- getMaybeCWD
+  case mcwd of
+    Just cwd -> return cwd
+    Nothing  -> getCurrentDirectory
+
+setCWD :: FilePath -> IO ()
+setCWD cwd = do
+  tid <- myThreadId
+  atomically $ do
+    m <- readTVar cwdsVar
+    writeTVar cwdsVar (M.insert tid cwd m)
+
+resetCWD :: IO ()
+resetCWD = do
+  tid <- myThreadId
+  atomically $ do
+    m <- readTVar cwdsVar
+    writeTVar cwdsVar (M.delete tid m)
+
+rawSystem :: String -> [String] -> IO ExitCode
+rawSystem cmd args = do
+  mcwd <- getMaybeCWD
+  (_,_,_,p) <- createProcess_ "rawSystem" (Process.proc cmd args)
+    { Process.delegate_ctlc = True
+    , Process.cwd = mcwd }
+  waitForProcess p
+
+doesFileExistEx :: FilePath -> IO Bool
+doesFileExistEx path = do
+  cwd <- getCWD
+  doesFileExist (cwd </> path)
+
+doesDirectoryExistEx :: FilePath -> IO Bool
+doesDirectoryExistEx path = do
+  cwd <- getCWD
+  doesDirectoryExist (cwd </> path)
+
+getDirectoryContentsEx :: FilePath -> IO [FilePath]
+getDirectoryContentsEx path = do
+  cwd <- getCWD
+  getDirectoryContents (cwd </> path)
+
+removeFileEx :: FilePath -> IO ()
+removeFileEx path = do
+  cwd <- getCWD
+  removeFile (cwd </> path)
+
+renameFileEx :: FilePath -> FilePath -> IO ()
+renameFileEx path1 path2 = do
+  cwd <- getCWD
+  renameFile (cwd </> path1) (cwd </> path2)
+
+getModificationTimeEx :: FilePath -> IO UTCTime
+getModificationTimeEx path = do
+  cwd <- getCWD
+  getModificationTime (cwd </> path)
+
+getPermissionsEx :: FilePath -> IO Permissions
+getPermissionsEx path = do
+  cwd <- getCWD
+  getPermissions (cwd </> path)
+
+createDirectoryEx :: FilePath -> IO ()
+createDirectoryEx path =  do
+  cwd <- getCWD
+  createDirectory (cwd </> path)
+
+removeDirectoryRecursiveEx :: FilePath -> IO ()
+removeDirectoryRecursiveEx path = do
+  cwd <- getCWD
+  removeDirectoryRecursive (cwd </> path)

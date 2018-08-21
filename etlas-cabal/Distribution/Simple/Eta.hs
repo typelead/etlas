@@ -397,7 +397,7 @@ generateExeLauncherScript _verbosity lbi exeName classPaths targetDir = do
         where prefix = targetDir </> exeName
 
   writeUTF8File scriptFile exeScript
-  p <- getPermissions scriptFile
+  p <- getPermissionsEx scriptFile
   setPermissions scriptFile (p { executable = True })
 
 exeLauncherScript :: Char -> String -> String -> Bool -> String

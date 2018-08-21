@@ -1073,11 +1073,13 @@ buildAndInstallUnpackedPackage verbosity
     setup' :: CommandUI flags -> (Version -> flags) -> [String] -> IO ()
     setup' cmd flags args =
       withLogging $ \mLogFileHandle ->
-        setupWrapper
-          verbosity
-          scriptOptions { useLoggingHandle = mLogFileHandle }
-          (Just (elabPkgDescription pkg))
-          cmd flags args
+        bracket (maybe (return ()) putHandleEx mLogFileHandle)
+                (const deleteHandleEx) $ const $ 
+          setupWrapper
+            verbosity
+            scriptOptions { useLoggingHandle = mLogFileHandle, isNewBuild = True }
+            (Just (elabPkgDescription pkg))
+            cmd flags args
 
     mlogFile :: Maybe FilePath
     mlogFile =
@@ -1312,14 +1314,14 @@ buildInplaceUnpackedPackage verbosity
                      -> (Version -> flags) -> [String] -> IO ()
     setupInteractive cmd flags args =
       setupWrapper verbosity
-                   scriptOptions { isInteractive = True }
+                   scriptOptions { isInteractive = True, isNewBuild = True }
                    (Just (elabPkgDescription pkg))
                    cmd flags args
 
     setup :: CommandUI flags -> (Version -> flags) -> [String] -> IO ()
     setup cmd flags args =
       setupWrapper verbosity
-                   scriptOptions
+                   scriptOptions { isNewBuild = True }
                    (Just (elabPkgDescription pkg))
                    cmd flags args
 

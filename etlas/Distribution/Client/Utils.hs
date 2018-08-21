@@ -28,7 +28,7 @@ import Distribution.Compat.Exception   ( catchIO )
 import Distribution.Compat.Time ( getModTime )
 import Distribution.Simple.Setup       ( Flag(..) )
 import Distribution.Verbosity
-import Distribution.Simple.Utils       ( die', findPackageDesc )
+import Distribution.Simple.Utils       ( die', findPackageDesc, setCWD, resetCWD )
 import qualified Data.ByteString.Lazy as BS
 import Data.Bits
          ( (.|.), shiftL, shiftR )
@@ -40,7 +40,7 @@ import qualified Control.Exception as Exception
          ( finally, bracket )
 import System.Directory
          ( canonicalizePath, doesFileExist, getCurrentDirectory
-         , removeFile, setCurrentDirectory )
+         , removeFile )
 import System.IO
          ( Handle, hClose, openTempFile
 #if MIN_VERSION_base(4,4,0)
@@ -116,9 +116,8 @@ withTempFileName tmpDir template action =
 inDir :: Maybe FilePath -> IO a -> IO a
 inDir Nothing m = m
 inDir (Just d) m = do
-  old <- getCurrentDirectory
-  setCurrentDirectory d
-  m `Exception.finally` setCurrentDirectory old
+  setCWD d
+  m `Exception.finally` resetCWD
 
 -- | Executes the action with an environment variable set to some
 -- value.

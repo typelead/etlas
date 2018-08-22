@@ -79,11 +79,11 @@ import Distribution.Client.Setup
          ( RepoContext(..), updateCommand  )
 import Distribution.Simple.Command
 import qualified Distribution.Simple.Eta as Eta
-
+import qualified Distribution.Client.PackageDescription.Dhall as PackageDesc.Parse
+         ( readGenericPackageDescription )
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec
          ( parseGenericPackageDescriptionMaybe )
-import qualified Distribution.PackageDescription.Parsec as PackageDesc.Parse
 #else
 import Distribution.ParseUtils
          ( ParseResult(..) )
@@ -91,7 +91,6 @@ import Distribution.PackageDescription.Parse
          ( parseGenericPackageDescription )
 import Distribution.Simple.Utils
          ( fromUTF8, ignoreBOM )
-import qualified Distribution.PackageDescription.Parse as PackageDesc.Parse
 #endif
 
 import           Distribution.Solver.Types.PackageIndex (PackageIndex)

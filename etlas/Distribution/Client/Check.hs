@@ -18,11 +18,8 @@ module Distribution.Client.Check (
 
 import Control.Monad ( when, unless )
 
-#ifdef CABAL_PARSEC
-import Distribution.PackageDescription.Parsec ( readGenericPackageDescription )
-#else
-import Distribution.PackageDescription.Parse ( readGenericPackageDescription )
-#endif
+import Distribution.Client.PackageDescription.Dhall
+         ( readGenericPackageDescription )
 
 import Distribution.PackageDescription.Check
 import Distribution.PackageDescription.Configuration

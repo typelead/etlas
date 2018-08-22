@@ -10,20 +10,23 @@ import DhallToCabal (dhallToCabal)
 
 import Distribution.Verbosity
 import Distribution.PackageDescription
-import Distribution.PackageDescription.PrettyPrint (showGenericPackageDescription)
+import Distribution.PackageDescription.PrettyPrint
+         (showGenericPackageDescription)
 #ifdef CABAL_PARSEC
 import qualified Distribution.PackageDescription.Parsec as Cabal.Parse
-         ( readGenericPackageDescription, parseGenericPackageDescriptionMaybe ) 
+         (readGenericPackageDescription, parseGenericPackageDescriptionMaybe) 
 #else
 import Distribution.PackageDescription.Parse as Cabal.Parse
-         ( readGenericPackageDescription , parseGenericPackageDescription, ParseResult(..) )
+         (readGenericPackageDescription , parseGenericPackageDescription, ParseResult(..))
 #endif
 import Distribution.Simple.Utils (die', info)
 
-import Lens.Micro ( set )
+import Distribution.Client.DistDirLayout
+
+import Lens.Micro (set)
 
 import System.Directory (doesFileExist)
-import System.FilePath (takeDirectory, takeExtension)
+import System.FilePath (takeDirectory, takeExtension, (</>))
 
 import Control.Monad    (unless)
 
@@ -71,3 +74,11 @@ parseCabalGenericPackageDescription content =
         ParseOk _ pkg -> Just pkg
         _             -> Nothing
 #endif
+
+writeDerivedCabalFile :: Verbosity -> DistDirLayout -> GenericPackageDescription -> IO ()
+writeDerivedCabalFile verbosity distDirLayout _genPkg = do
+  let distCacheDir = distProjectCacheDirectory distDirLayout
+      path = distCacheDir </> "etlas.dhall.cabal"
+  info verbosity $ "Writing derived from dhall cabal file: " ++ path
+  -- writeGenericPackageDescription 
+  

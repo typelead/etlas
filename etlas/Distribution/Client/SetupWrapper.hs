@@ -37,7 +37,8 @@ import Distribution.PackageDescription
          , PackageDescription(..), specVersion
          , BuildType(..), knownBuildTypes )
 import Distribution.Client.PackageDescription.Dhall
-         ( readGenericPackageDescription )
+         ( readGenericPackageDescription
+         , writeDerivedCabalFile)
 
 import Distribution.Simple.Compiler
          ( Compiler, PackageDB(..), PackageDBStack )
@@ -383,6 +384,12 @@ setupWrapper :: Verbosity
              -> IO ()
 setupWrapper verbosity options mgenPkg mpkg cmd flags extraArgs = do
   setup <- getSetup verbosity options mgenPkg mpkg
+  case setupMethod setup of
+    InternalMethod -> return ()
+    _ -> do let dir = useDistPref options
+                genPkg = setupGenericPackage setup
+            writeDerivedCabalFile verbosity dir genPkg
+      
   runSetupCommand verbosity setup cmd (flags $ setupVersion setup) extraArgs
 
 -- ------------------------------------------------------------

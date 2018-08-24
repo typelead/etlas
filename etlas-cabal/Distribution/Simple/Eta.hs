@@ -413,7 +413,8 @@ exeLauncherScript classPathSep exeName classPaths isWindows'
             , "set ETA_JAVA_HOME=%JAVA_HOME:\"=%"
             , "set ETA_JAVA_CMD=%ETA_JAVA_HOME%\\bin\\java.exe"
             , ":execute"
-            , "\"%ETA_JAVA_CMD%\" %JAVA_ARGS% %JAVA_OPTS% %ETA_JAVA_ARGS% "
+            , "\"%ETA_JAVA_CMD%\" -Deta.programName=" ++ exeName
+           ++ " %JAVA_ARGS% %JAVA_OPTS% %ETA_JAVA_ARGS% "
            ++ "-classpath " ++ winClassPath ++ " eta.main %*" ]
   | otherwise
   = unlines [ "#!/usr/bin/env bash"
@@ -451,7 +452,8 @@ exeLauncherScript classPathSep exeName classPaths isWindows'
             , "        ETA_JAVA_CMD=\"java\""
             , "    fi"
             , "fi"
-            , "$ETA_JAVA_CMD $JAVA_ARGS $JAVA_OPTS $ETA_JAVA_ARGS "
+            , "$ETA_JAVA_CMD -Deta.programName=" ++ exeName
+           ++ " $JAVA_ARGS $JAVA_OPTS $ETA_JAVA_ARGS "
            ++ "-classpath \"" ++ totalClassPath ++ "\" eta.main \"$@\"" ]
   where (dirEnvVar, dirEnvVarRef) = dirEnvVarAndRef isWindows'
         exeJarEnv   = dirEnvVarRef </> realExeName exeName

@@ -90,7 +90,7 @@ import Distribution.Simple.Utils
 
 import Control.Exception   ( bracket )
 import System.FilePath     ( takeDirectory, (</>), (<.>) )
-import System.Directory    ( doesDirectoryExist )
+import System.Directory    ( doesDirectoryExist, doesFileExist )
 import qualified System.Win32 as Win32
 #endif
 
@@ -113,7 +113,7 @@ data SetupMethod = InternalMethod
                    -- child process
                  | ExternalMethod FilePath
                    -- ^ run Cabal commands through a custom \"Setup\" executable
-
+ deriving (Eq)
 --TODO: The 'setupWrapper' and 'SetupScriptOptions' should be split into two
 -- parts: one that has no policy and just does as it's told with all the
 -- explicit options, and an optional initial part that applies certain
@@ -384,13 +384,23 @@ setupWrapper :: Verbosity
              -> IO ()
 setupWrapper verbosity options mgenPkg mpkg cmd flags extraArgs = do
   setup <- getSetup verbosity options mgenPkg mpkg
-  case setupMethod setup of
-    InternalMethod -> return ()
-    _ -> do let dir = useDistPref options
-                genPkg = setupGenericPackage setup
-            writeDerivedCabalFile verbosity dir genPkg
-      
-  runSetupCommand verbosity setup cmd (flags $ setupVersion setup) extraArgs
+
+  existEtlasDhallFile <- doesFileExist $
+                         (fromMaybe "." (useWorkingDir options)) </> "etlas.dhall"
+  let needDerivedCabalFile =  setupMethod setup == SelfExecMethod
+                           && commandName cmd == "configure"
+                           && not ( "cabal-file" `elem` extraArgs )
+                           && existEtlasDhallFile
+
+  cabalFileArg <- 
+    if needDerivedCabalFile then do
+      let dir = useDistPref options
+          genPkg = setupGenericPackage setup
+      cabalFilePath <- writeDerivedCabalFile verbosity dir genPkg
+      return ["--cabal-file", cabalFilePath]
+    else return []
+  let extraArgs' = extraArgs ++ cabalFileArg
+  runSetupCommand verbosity setup cmd (flags $ setupVersion setup) extraArgs' 
 
 -- ------------------------------------------------------------
 -- * Internal SetupMethod

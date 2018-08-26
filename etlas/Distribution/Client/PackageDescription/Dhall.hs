@@ -73,9 +73,11 @@ parseCabalGenericPackageDescription content =
         _             -> Nothing
 #endif
 
-writeDerivedCabalFile :: Verbosity -> FilePath -> GenericPackageDescription -> IO ()
+writeDerivedCabalFile :: Verbosity -> FilePath
+                      -> GenericPackageDescription -> IO FilePath
 writeDerivedCabalFile verbosity dir genPkg = do
   let path = dir </> "etlas.dhall.cabal"
   info verbosity $ "Writing derived cabal file from dhall file: " ++ path
   writeGenericPackageDescription path genPkg
+  return path
   

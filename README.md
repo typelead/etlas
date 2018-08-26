@@ -1,9 +1,7 @@
 # Etlas - Build Tool for Eta
 
 <!-- @VERSION -->
-**Version:** 1.2.0.0
-
-**Synced with Cabal:** 110d522f6c6c9bce61f6a847d1d6caa6fdb262e7
+**Version:** 1.5.1.0
 
 ## Installation
 
@@ -14,7 +12,7 @@ You can download the binaries from [here](https://eta-lang.org/docs/user-guides/
 ### Source
 
 If you have not installed Eta yet, you can find the source installation instructions
-[here](https://eta-lang.org/docs/user-guides/eta-user-guide/installation/source). If you're looking for Etlas 1.0.2.0, make sure you clone the `etlas-1.0.2.0` tag.
+[here](https://eta-lang.org/docs/user-guides/eta-user-guide/installation/source).
 
 If you have already installed Eta, and you want upgrade your version of Etlas:
 
@@ -29,7 +27,7 @@ git clone --recursive --branch [etlas-version] https://github.com/typelead/etlas
 Example:
 
 ```shell
-git clone --recursive --branch 1.0.2.0 https://github.com/typelead/etlas
+git clone --recursive --branch 1.5.1.0 https://github.com/typelead/etlas
 ```
 
 3. Install Etlas.

@@ -520,12 +520,14 @@ readPackageTarget verbosity = traverse modifyLocation
               _                        -> Left noCabalFile
             _files -> Left multipleCabalFiles
           where
-            noCabalFile        = "No cabal file found"
+            noCabalFile        = "No cabal or etlas.dhall file found"
             multipleCabalFiles = "Multiple cabal files found"
 
         isCabalFile e = case splitPath (Tar.entryPath e) of
           [     _dir, file] -> takeExtension file == ".cabal"
+                            || file == "etlas.dhall"
           [".", _dir, file] -> takeExtension file == ".cabal"
+                            || file == "etlas.dhall"
           _                 -> False
 
     parsePackageDescription' :: BS.ByteString -> Maybe GenericPackageDescription

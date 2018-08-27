@@ -387,10 +387,12 @@ setupWrapper verbosity options mgenPkg mpkg cmd flags extraArgs = do
 
   existEtlasDhallFile <- doesFileExist $
                          (fromMaybe "." (useWorkingDir options)) </> "etlas.dhall"
-  let needDerivedCabalFile =  setupMethod setup == SelfExecMethod
+  let flags' = flags $ setupVersion setup
+      needDerivedCabalFile =  setupMethod setup == SelfExecMethod
                            && commandName cmd == "configure"
-                           && not ( "cabal-file" `elem` extraArgs )
+                           && not ( "cabal-file" `elem` allArgs )
                            && existEtlasDhallFile
+        where allArgs = commandShowOptions cmd flags' ++ extraArgs
 
   cabalFileArg <- 
     if needDerivedCabalFile then do
@@ -399,8 +401,10 @@ setupWrapper verbosity options mgenPkg mpkg cmd flags extraArgs = do
       cabalFilePath <- writeDerivedCabalFile verbosity dir genPkg
       return ["--cabal-file", cabalFilePath]
     else return []
+    
   let extraArgs' = extraArgs ++ cabalFileArg
-  runSetupCommand verbosity setup cmd (flags $ setupVersion setup) extraArgs' 
+
+  runSetupCommand verbosity setup cmd flags' extraArgs' 
 
 -- ------------------------------------------------------------
 -- * Internal SetupMethod

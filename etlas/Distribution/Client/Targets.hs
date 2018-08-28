@@ -521,7 +521,7 @@ readPackageTarget verbosity = traverse modifyLocation
                       case Tar.entryContent file of
                          Tar.NormalFile content _ -> Right (Tar.entryPath file, content)
                          _                        -> Left noCabalFile
-                      where file = maybe (head files) $ find isDhallFile files
+                      where file = fromMaybe (head files) $ find isDhallFile files
             _  -> Left multipleCabalFiles
           where
             noCabalFile        = "No etlas.dhall or cabal file found"
@@ -539,7 +539,7 @@ readPackageTarget verbosity = traverse modifyLocation
                              -> IO (Maybe GenericPackageDescription)
     parsePackageDescription' filePath content =
       if takeExtension filePath == ".dhall"
-        then Just `fmap` parseGenericPackageDescriptionFromDhall filePath
+        then fmap Just $ parseGenericPackageDescriptionFromDhall filePath
                        $ StrictText.decodeUtf8 $ BS.toStrict content
         else return $
 #ifdef CABAL_PARSEC

@@ -323,7 +323,7 @@ renderGhcOptions comp _platform@(Platform _arch os) opts
 
   , case flagToMaybe (ghcOptOptimisation opts) of
       Nothing                         -> []
-      Just GhcNoOptimisation          -> ["-O0"]
+      Just GhcNoOptimisation          -> ["-O0", "-floopification"]
       Just GhcNormalOptimisation      -> ["-O"]
       Just GhcMaximumOptimisation     -> ["-O2"]
       Just (GhcSpecialOptimisation s) -> ["-O" ++ s] -- eg -Odph

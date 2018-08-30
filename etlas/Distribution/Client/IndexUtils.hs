@@ -80,7 +80,7 @@ import Distribution.Client.Setup
 import Distribution.Simple.Command
 import qualified Distribution.Simple.Eta as Eta
 import qualified Distribution.Client.PackageDescription.Dhall as PackageDesc.Parse
-         ( readGenericPackageDescription )
+         ( readGenericPackageDescription, parseGenericPackageDescriptionFromDhall )
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec
          ( parseGenericPackageDescriptionMaybe )
@@ -107,6 +107,7 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as BS.Char8
 import qualified Data.ByteString.Char8 as BSS
 import Data.ByteString.Lazy (ByteString)
+import qualified Data.Text.Encoding as StrictText
 import Distribution.Client.HttpUtils
 import Distribution.Client.GZipUtils (maybeDecompress)
 import Distribution.Client.Utils ( byteStringToFilePath
@@ -527,25 +528,36 @@ tarEntriesList = go 0
 extractPkg :: Verbosity -> Tar.Entry -> BlockNo -> Maybe (IO (Maybe PackageEntry))
 extractPkg verbosity entry blockNo = case Tar.entryContent entry of
   Tar.NormalFile content _
-     | takeExtension fileName == ".cabal"
+     | takeExtension fileName == ".cabal" || takeFileName fileName == "etlas.dhall"
     -> case splitDirectories (normalise fileName) of
         [pkgname,vers,_] -> case simpleParse vers of
-          Just ver -> Just . return $ Just (NormalPackage pkgid descr content (Right blockNo) Nothing)
+          Just ver -> do
+            Just $ do 
+              descr' <- descr
+              return $ Just (NormalPackage pkgid descr' content (Right blockNo) Nothing)
             where
               pkgid  = PackageIdentifier (mkPackageName pkgname) ver
+              parsed = if takeExtension fileName == ".dhall"
+                then fmap Just $ PackageDesc.Parse.parseGenericPackageDescriptionFromDhall fileName
+                               $ StrictText.decodeUtf8 $ BS.toStrict content
+                else return $
 #ifdef CABAL_PARSEC
-              parsed = parseGenericPackageDescriptionMaybe (BS.toStrict content)
-              descr = case parsed of
-                  Just d  -> d
-                  Nothing -> error $ "Couldn't read cabal file "
-                                    ++ show fileName
+                  parseGenericPackageDescriptionMaybe (BS.toStrict content)
+              descr = do
+                  parsed' <- parsed
+                  case parsed' of
+                    Just d  -> return d
+                    Nothing -> error $ "Couldn't read cabal file "
+                                     ++ show fileName
 #else
-              parsed = parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack
+                  parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack
                                                $ content
-              descr  = case parsed of
-                ParseOk _ d -> d
-                _           -> error $ "Couldn't read cabal file "
-                                    ++ show fileName
+              descr  = do
+                parsed' <- parsed
+                case parsed' of
+                  ParseOk _ d -> return d
+                  _           -> error $ "Couldn't read cabal file "
+                                       ++ show fileName
 #endif
           _ -> Nothing
         _ -> Nothing
@@ -783,9 +795,10 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
       -- from the index tarball if it turns out that we need it.
       -- Most of the time we only need the package id.
       ~(pkg, pkgtxt, mPatchPath) <- unsafeInterleaveIO $ do
-        mPatch <- patchedPackageCabalFile pkgid patchesDir
-        pkgtxt <- maybe (getPackageDesc descLoc) return (fmap snd mPatch)
-        pkg    <- readPackageDescription pkgtxt
+        mPatch  <- patchedPackageCabalFile pkgid patchesDir
+        pkgtxt  <- maybe (getPackageDesc descLoc) return (fmap snd mPatch)
+        let pkgpath = fromMaybe (show pkgid ++ ".cabal") (fmap fst mPatch)
+        pkg     <- readPackageDescription pkgpath pkgtxt
         return (pkg, pkgtxt, (fmap fst mPatch))
       let descLoc' = left (\x -> indexDir </> x) descLoc
       case mode of
@@ -824,20 +837,24 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
           -> return content
         _ -> interror "unexpected tar entry type"
 
-    readPackageDescription :: ByteString -> IO GenericPackageDescription
-    readPackageDescription content =
+    readPackageDescription :: FilePath -> ByteString -> IO GenericPackageDescription
+    readPackageDescription fileName content =
+      if takeExtension fileName == ".dhall"
+        then PackageDesc.Parse.parseGenericPackageDescriptionFromDhall fileName
+                     $ StrictText.decodeUtf8 $ BS.toStrict content
+        else
 #ifdef CABAL_PARSEC
-      case parseGenericPackageDescriptionMaybe (BS.toStrict content) of
-        Just gpd -> return gpd
-        Nothing  -> interror "failed to parse .cabal file"
+          case parseGenericPackageDescriptionMaybe (BS.toStrict content) of
+            Just gpd -> return gpd
+            Nothing  -> interror "failed to parse .cabal file using parsec"
 #else
-      case parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack $ content of
-        ParseOk _ d -> return d
-        _           -> interror "failed to parse .cabal file"
+          case parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack $ content of
+            ParseOk _ d -> return d
+            _           -> interror "failed to parse .cabal file"
 #endif
 
     interror :: String -> IO a
-    interror msg = die' verbosity $ "internal error when reading package index: " ++ msg
+    interror msg = die' verbosity $ "internal error when reading package index: " ++ msg ++". "
                       ++ "The package index or index cache is probably "
                       ++ "corrupt. Running 'etlas update' might fix it."
 

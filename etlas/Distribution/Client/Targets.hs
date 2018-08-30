@@ -538,7 +538,7 @@ readPackageTarget verbosity = traverse modifyLocation
     parsePackageDescription' :: FilePath -> BS.ByteString
                              -> IO (Maybe GenericPackageDescription)
     parsePackageDescription' filePath content =
-      if takeExtension filePath == ".dhall"
+      if takeExtension filePath == ".dhall" 
         then fmap Just $ parseGenericPackageDescriptionFromDhall filePath
                        $ StrictText.decodeUtf8 $ BS.toStrict content
         else return $

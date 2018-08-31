@@ -6,7 +6,7 @@ extra-deps:
 - mintty-0.1.1
 - parsec-3.1.13.0
 # - dhall-1.16.1
-- git: https://github.com/eta-lang/dhall-haskell.git
+- git: https://github.com/dhall-lang/dhall-haskell.git
   commit: dd92735677ac093222b02eab88d5cb5f88c163fd
 - ansi-terminal-0.7.1.1
 - ansi-wl-pprint-0.6.8.2

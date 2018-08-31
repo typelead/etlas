@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP #-}
 module Distribution.Client.PackageDescription.Dhall where
 
-import qualified Data.ByteString.Char8 as BS.Char8
 import Data.Function ( (&) )
 
 import qualified Data.Text as StrictText
@@ -15,6 +14,7 @@ import Distribution.PackageDescription
 import Distribution.PackageDescription.PrettyPrint
          (showGenericPackageDescription, writeGenericPackageDescription)
 #ifdef CABAL_PARSEC
+import qualified Data.ByteString.Char8 as BS.Char8
 import qualified Distribution.PackageDescription.Parsec as Cabal.Parse
          (readGenericPackageDescription, parseGenericPackageDescriptionMaybe) 
 #else

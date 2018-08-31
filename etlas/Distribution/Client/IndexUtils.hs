@@ -131,8 +131,6 @@ import Network.HTTP.Headers
 import qualified Hackage.Security.Client    as Sec
 import qualified Hackage.Security.Util.Some as Sec
 
-import Debug.Trace
-
 -- | Reduced-verbosity version of 'Configure.getInstalledPackages'
 getInstalledPackages :: Verbosity -> Compiler
                      -> PackageDBStack -> ProgramDb
@@ -534,33 +532,30 @@ extractPkg verbosity entry blockNo = case Tar.entryContent entry of
      | takeExtension fileName == ".cabal" || takeFileName fileName == "etlas.dhall"
     -> case splitDirectories (normalise fileName) of
         [pkgname,vers,_] -> case simpleParse vers of
-          Just ver -> do
-            Just $ do 
+          Just ver -> Just $ do 
               descr' <- descr
               return $ Just (NormalPackage pkgid descr' content (Right blockNo) Nothing)
             where
               pkgid  = PackageIdentifier (mkPackageName pkgname) ver
+              descr = do
+                 parsed' <- parsed
+                 case parsed' of
+                    Just d  -> return d
+                    Nothing -> error $ "Couldn't read cabal file "
+                                     ++ show fileName
               parsed = if takeExtension fileName == ".dhall"
                 then fmap Just $ PackageDesc.Parse.parseGenericPackageDescriptionFromDhall fileName
                                $ StrictText.decodeUtf8 $ BS.toStrict content
                 else return $
 #ifdef CABAL_PARSEC
                   parseGenericPackageDescriptionMaybe (BS.toStrict content)
-              descr = do
-                  parsed' <- parsed
-                  case parsed' of
-                    Just d  -> return d
-                    Nothing -> error $ "Couldn't read cabal file "
-                                     ++ show fileName
+              
 #else
-                  parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack
-                                               $ content
-              descr  = do
-                parsed' <- parsed
-                case parsed' of
-                  ParseOk _ d -> return d
-                  _           -> error $ "Couldn't read cabal file "
-                                       ++ show fileName
+                  case parseGenericPackageDescription . ignoreBOM . fromUTF8
+                                                      . BS.Char8.unpack
+                                                      $ content of
+                    ParseOk _ d -> Just d
+                    _           -> Nothing
 #endif
           _ -> Nothing
         _ -> Nothing
@@ -860,7 +855,7 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
 #else
           case parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack $ content of
             ParseOk _ d -> return d
-            _           -> interror "failed to parse " ++ fileName ++ " file"
+            _           -> interror $ "failed to parse " ++ fileName ++ " file"
 #endif
 
     interror :: String -> IO a

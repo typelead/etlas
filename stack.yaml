@@ -38,7 +38,7 @@ flags:
   etlas-cabal:
     parsec: true
   etlas:
-    parsec: false
+    parsec: true
   mintty:
     win32-2-5: false
 packages:

@@ -83,7 +83,8 @@ import qualified Distribution.Client.PackageDescription.Dhall as PackageDesc.Par
          ( readGenericPackageDescription, parseGenericPackageDescriptionFromDhall )
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec
-         ( parseGenericPackageDescriptionMaybe )
+         ( parseGenericPackageDescriptionMaybe, parseGenericPackageDescription, runParseResult  )
+import Distribution.Parsec.Types.Common
 #else
 import Distribution.ParseUtils
          ( ParseResult(..) )
@@ -129,6 +130,8 @@ import Network.HTTP.Headers
 
 import qualified Hackage.Security.Client    as Sec
 import qualified Hackage.Security.Util.Some as Sec
+
+import Debug.Trace
 
 -- | Reduced-verbosity version of 'Configure.getInstalledPackages'
 getInstalledPackages :: Verbosity -> Compiler
@@ -796,9 +799,8 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
       -- Most of the time we only need the package id.
       ~(pkg, pkgtxt, mPatchPath) <- unsafeInterleaveIO $ do
         mPatch  <- patchedPackageCabalFile pkgid patchesDir
-        pkgtxt  <- maybe (getPackageDesc descLoc) return (fmap snd mPatch)
-        let pkgpath = fromMaybe (show pkgid ++ ".cabal") (fmap fst mPatch)
-        pkg     <- readPackageDescription pkgpath pkgtxt
+        (pkgpath, pkgtxt)  <- maybe (getPackageDesc descLoc) return mPatch
+        pkg     <- parsePackageDescription pkgpath pkgtxt
         return (pkg, pkgtxt, (fmap fst mPatch))
       let descLoc' = left (\x -> indexDir </> x) descLoc
       case mode of
@@ -811,7 +813,7 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
       -- We have to read the .cabal file eagerly here because we can't cache the
       -- package id for build tree references - the user might edit the .cabal
       -- file after the reference was added to the index.
-      path <- liftM byteStringToFilePath . getEntryContent $ blockno
+      path <- liftM ( byteStringToFilePath . snd ) . getEntryInfo  $ blockno
       pkg  <- do let err = "Error reading package index from cache."
                  file <- tryFindAddSourcePackageDesc verbosity path err
                  PackageDesc.Parse.readGenericPackageDescription normal file
@@ -823,34 +825,42 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
 
     indexDir = takeDirectory idxFile
 
-    getPackageDesc :: Either FilePath BlockNo -> IO ByteString
-    getPackageDesc (Left relPath)  = BS.readFile (indexDir </> relPath)
-    getPackageDesc (Right blockNo) = getEntryContent blockNo
+    getPackageDesc :: Either FilePath BlockNo -> IO (FilePath, ByteString)
+    getPackageDesc (Left relPath)  = do
+      let path = indexDir </> relPath   
+      content <- BS.readFile path
+      return (path, content)
+    getPackageDesc (Right blockNo) = getEntryInfo blockNo
 
-    getEntryContent :: BlockNo -> IO ByteString
-    getEntryContent blockno = do
+    getEntryInfo :: BlockNo -> IO (FilePath, ByteString)
+    getEntryInfo blockno = do
       entry <- Tar.hReadEntry hnd blockno
+      let path = Tar.entryPath entry
       case Tar.entryContent entry of
-        Tar.NormalFile content _size -> return content
+        Tar.NormalFile content _size -> return (path, content)
         Tar.OtherEntryType typecode content _size
           | Tar.isBuildTreeRefTypeCode typecode
-          -> return content
+          -> return (path, content)
         _ -> interror "unexpected tar entry type"
 
-    readPackageDescription :: FilePath -> ByteString -> IO GenericPackageDescription
-    readPackageDescription fileName content =
+    parsePackageDescription :: FilePath -> ByteString -> IO GenericPackageDescription
+    parsePackageDescription fileName content = do
       if takeExtension fileName == ".dhall"
         then PackageDesc.Parse.parseGenericPackageDescriptionFromDhall fileName
                      $ StrictText.decodeUtf8 $ BS.toStrict content
         else
 #ifdef CABAL_PARSEC
-          case parseGenericPackageDescriptionMaybe (BS.toStrict content) of
-            Just gpd -> return gpd
-            Nothing  -> interror "failed to parse .cabal file using parsec"
+          do
+            let res = parseGenericPackageDescription (BS.toStrict content)
+            let (_, errors, result) = runParseResult res
+            mapM_ (warn verbosity . showPError fileName) errors
+            case result of
+              Nothing -> interror $ "failed to parse " ++ fileName ++ " file using parsec"
+              Just x  -> return x
 #else
           case parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack $ content of
             ParseOk _ d -> return d
-            _           -> interror "failed to parse .cabal file"
+            _           -> interror "failed to parse " ++ fileName ++ " file"
 #endif
 
     interror :: String -> IO a

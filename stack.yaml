@@ -5,7 +5,7 @@ extra-deps:
 - ed25519-0.0.5.0
 - mintty-0.1.1
 - parsec-3.1.13.0
-- dhall-1.17
+- dhall-1.17.0
 - ansi-terminal-0.7.1.1
 - ansi-wl-pprint-0.6.8.2
 - cryptonite-0.24

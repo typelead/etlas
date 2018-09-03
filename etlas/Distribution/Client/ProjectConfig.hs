@@ -785,8 +785,20 @@ findProjectPackages DistDirLayout{distProjectRootDirectory}
            $ concat [requiredPkgs, optionalPkgs, repoPkgs, namedPkgs]
   where
 
-    removeDuplicatedPackageLocations = id
-    
+    removeDuplicatedPackageLocations pkgLocs =
+      filter (not . ( hasCabalLocationAnyParentDir dhallLocationsParentDirs )) pkgLocs
+      where dhallLocationsParentDirs = concatMap dhallParentDir pkgLocs
+
+            dhallParentDir (ProjectPackageLocalDhallFile path) = [takeDirectory path]
+            dhallParentDir (ProjectPackageLocalDhallDirectory dir _) = [dir]
+            dhallParentDir _ = []
+
+            hasCabalLocationAnyParentDir dirs (ProjectPackageLocalCabalFile path) =
+              takeDirectory path `elem` dirs
+            hasCabalLocationAnyParentDir dirs (ProjectPackageLocalCabalDirectory dir _) =
+              dir `elem` dirs
+            hasCabalLocationAnyParentDir _ _ = False
+            
     findPackageLocations required pkglocstr = do
       (problems, pkglocs) <-
         partitionEithers <$> mapM (findPackageLocation required) pkglocstr

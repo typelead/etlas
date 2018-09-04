@@ -86,20 +86,23 @@ import Distribution.Simple.Utils
 
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec
-         ( readGenericPackageDescription, parseGenericPackageDescriptionMaybe )
+         ( parseGenericPackageDescriptionMaybe )
 #else
 import Distribution.PackageDescription.Parse
-         ( readGenericPackageDescription, parseGenericPackageDescription, ParseResult(..) )
+         ( parseGenericPackageDescription, ParseResult(..) )
 import Distribution.Simple.Utils
          ( fromUTF8, ignoreBOM )
 import qualified Data.ByteString.Lazy.Char8 as BS.Char8
 #endif
+import Distribution.Client.PackageDescription.Dhall
+         ( readGenericPackageDescription, parseGenericPackageDescriptionFromDhall )
 
 -- import Data.List ( find, nub )
 import Data.Either
          ( partitionEithers )
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy as BS
+import qualified Data.Text.Encoding as StrictText
 import qualified Distribution.Client.GZipUtils as GZipUtils
 import Control.Monad (mapM)
 import qualified Distribution.Compat.ReadP as Parse
@@ -108,7 +111,7 @@ import Distribution.Compat.ReadP
 import Distribution.ParseUtils
          ( readPToMaybe )
 import System.FilePath
-         ( takeExtension, dropExtension, takeDirectory, splitPath )
+         ( takeExtension, dropExtension, takeDirectory, takeFileName, splitPath )
 import System.Directory
          ( doesFileExist, doesDirectoryExist )
 import Network.URI
@@ -154,7 +157,7 @@ data UserTarget =
      -- > etlas install foo.cabal
      -- > etlas install ../lib/other/bar.cabal
      --
-   | UserTargetLocalCabalFile FilePath
+   | UserTargetLocalPkgConfigFile FilePath
 
      -- | A specific package that is available as a local tarball file
      --
@@ -181,7 +184,6 @@ readUserTargets verbosity targetStrs = do
                                  (mapM readUserTarget targetStrs)
     reportUserTargetProblems verbosity problems
     return targets
-
 
 data UserTargetProblem
    = UserTargetUnexpectedFile      String
@@ -212,30 +214,31 @@ readUserTarget targetstr =
   where
     testNamedTargets = readPToMaybe parseDependencyOrPackageId
 
-    testFileTargets filename = do
-      isDir  <- doesDirectoryExist filename
-      isFile <- doesFileExist filename
-      parentDirExists <- case takeDirectory filename of
+    testFileTargets path = do
+      isDir  <- doesDirectoryExist path
+      isFile <- doesFileExist path
+      parentDirExists <- case takeDirectory path of
                            []  -> return False
                            dir -> doesDirectoryExist dir
       let result
             | isDir
-            = Just (Right (UserTargetLocalDir filename))
+            = Just (Right (UserTargetLocalDir path))
 
-            | isFile && extensionIsBinaryTarGz filename
-            = Just (Right (UserTargetLocalTarball filename True))
+            | isFile && extensionIsBinaryTarGz path
+            = Just (Right (UserTargetLocalTarball path True))
 
-            | isFile && extensionIsTarGz filename
-            = Just (Right (UserTargetLocalTarball filename False))
+            | isFile && extensionIsTarGz path
+            = Just (Right (UserTargetLocalTarball path False))
 
-            | isFile && takeExtension filename == ".cabal"
-            = Just (Right (UserTargetLocalCabalFile filename))
+            | isFile && ( takeExtension path == ".cabal" ||
+                          takeFileName path == "etlas.dhall" )
+            = Just (Right (UserTargetLocalPkgConfigFile path))
 
             | isFile
-            = Just (Left (UserTargetUnexpectedFile filename))
+            = Just (Left (UserTargetUnexpectedFile path))
 
             | parentDirExists
-            = Just (Left (UserTargetNonexistantFile filename))
+            = Just (Left (UserTargetNonexistantFile path))
 
             | otherwise
             = Nothing
@@ -274,7 +277,6 @@ readUserTarget targetstr =
           v | v == nullVersion -> Dependency (packageName p) anyVersion
             | otherwise        -> Dependency (packageName p) (thisVersion v)
 
-
 reportUserTargetProblems :: Verbosity -> [UserTargetProblem] -> IO ()
 reportUserTargetProblems verbosity problems = do
     case [ target | UserTargetUnrecognised target <- problems ] of
@@ -286,7 +288,7 @@ reportUserTargetProblems verbosity problems = do
              ++ "Targets can be:\n"
              ++ " - package names, e.g. 'pkgname', 'pkgname-1.0.1', 'pkgname < 2.0'\n"
              ++ " - the special 'world' target\n"
-             ++ " - cabal files 'pkgname.cabal' or package directories 'pkgname/'\n"
+             ++ " - cabal files 'pkgname.cabal', an 'etlas.dhall' file or package directories 'pkgname/'\n"
              ++ " - package tarballs 'pkgname.tar.gz' or 'http://example.com/pkgname.tar.gz'"
 
     case [ () | UserTargetBadWorldPkg <- problems ] of
@@ -307,7 +309,7 @@ reportUserTargetProblems verbosity problems = do
                   [ "Unrecognised file target '" ++ name ++ "'."
                   | name <- target ]
              ++ "File targets can be either package tarballs 'pkgname.tar.gz' "
-             ++ "or cabal files 'pkgname.cabal'."
+             ++ ", cabal files 'pkgname.cabal' or an 'etlas.dhall' file."
 
     case [ target | UserTargetUnexpectedUriScheme target <- problems ] of
       []     -> return ()
@@ -410,7 +412,7 @@ expandUserTarget verbosity worldFile userTarget = case userTarget of
     UserTargetLocalDir dir ->
       return [ PackageTargetLocation (LocalUnpackedPackage dir) ]
 
-    UserTargetLocalCabalFile file -> do
+    UserTargetLocalPkgConfigFile file -> do
       let dir = takeDirectory file
       _   <- tryFindPackageDesc verbosity dir (localPackageError dir) -- just as a check
       return [ PackageTargetLocation (LocalUnpackedPackage dir) ]
@@ -423,7 +425,7 @@ expandUserTarget verbosity worldFile userTarget = case userTarget of
 
 localPackageError :: FilePath -> String
 localPackageError dir =
-    "Error reading local package.\nCouldn't find .cabal file in: " ++ dir
+    "Error reading local package.\nCouldn't find etlas.dhall or .cabal file in: " ++ dir
 
 -- ------------------------------------------------------------
 -- * Fetching and reading package targets
@@ -477,8 +479,9 @@ readPackageTarget verbosity = traverse modifyLocation
     readTarballPackageTarget location tarballFile tarballOriginalLoc = do
       (filename, content) <- extractTarballPackageCabalFile
                                tarballFile tarballOriginalLoc
-      case parsePackageDescription' content of
-        Nothing  -> die' verbosity $ "Could not parse the cabal file "
+      genPkgDesc <- parsePackageDescription' filename content 
+      case genPkgDesc of
+        Nothing  -> die' verbosity $ "Could not parse dhall or cabal file "
                        ++ filename ++ " in " ++ tarballFile
         Just pkg ->
           return $ SourcePackage {
@@ -497,7 +500,7 @@ readPackageTarget verbosity = traverse modifyLocation
           either (die' verbosity . formatErr) return
         . check
         . accumEntryMap
-        . Tar.filterEntries isCabalFile
+        . Tar.filterEntries (\ e -> isDhallFile e || isCabalFile e )
         . Tar.read
         . GZipUtils.maybeDecompress
       =<< BS.readFile tarballFile
@@ -511,28 +514,37 @@ readPackageTarget verbosity = traverse modifyLocation
         check (Left e)  = Left (show e)
         check (Right m) = case Map.elems m of
             []     -> Left noCabalFile
-            [file] -> case Tar.entryContent file of
-              Tar.NormalFile content _ -> Right (Tar.entryPath file, content)
-              _                        -> Left noCabalFile
-            _files -> Left multipleCabalFiles
+            files | any isDhallFile files || length files == 1 -> 
+                      case Tar.entryContent file of
+                         Tar.NormalFile content _ -> Right (Tar.entryPath file, content)
+                         _                        -> Left noCabalFile
+                      where file = fromMaybe (head files) $ find isDhallFile files
+            _  -> Left multipleCabalFiles
           where
-            noCabalFile        = "No cabal file found"
+            noCabalFile        = "No etlas.dhall or cabal file found"
             multipleCabalFiles = "Multiple cabal files found"
 
-        isCabalFile e = case splitPath (Tar.entryPath e) of
-          [     _dir, file] -> takeExtension file == ".cabal"
-          [".", _dir, file] -> takeExtension file == ".cabal"
+        isFile pred e = case splitPath (Tar.entryPath e) of
+          [     _dir, file] -> pred file
+          [".", _dir, file] -> pred file
           _                 -> False
 
-    parsePackageDescription' :: BS.ByteString -> Maybe GenericPackageDescription
+        isCabalFile = isFile ( \f -> takeExtension f == ".cabal" )
+        isDhallFile = isFile ( == "etlas.dhall" )
+
+    parsePackageDescription' :: FilePath -> BS.ByteString
+                             -> IO (Maybe GenericPackageDescription)
+    parsePackageDescription' filePath content =
+      if takeExtension filePath == ".dhall" 
+        then fmap Just $ parseGenericPackageDescriptionFromDhall filePath
+                       $ StrictText.decodeUtf8 $ BS.toStrict content
+        else return $
 #ifdef CABAL_PARSEC
-    parsePackageDescription' bs =
-        parseGenericPackageDescriptionMaybe (BS.toStrict bs)
+          parseGenericPackageDescriptionMaybe (BS.toStrict content)
 #else
-    parsePackageDescription' content =
-      case parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack $ content of
-        ParseOk _ pkg -> Just pkg
-        _             -> Nothing
+          case parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack $ content of
+            ParseOk _ pkg -> Just pkg
+            _             -> Nothing
 #endif
 
 -- ------------------------------------------------------------

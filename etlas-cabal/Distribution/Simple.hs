@@ -45,11 +45,12 @@ module Distribution.Simple (
         module Distribution.Simple.Compiler,
         module Language.Haskell.Extension,
         -- * Simple interface
-        defaultMain, defaultMainNoRead, defaultMainArgs,
+        defaultMain, defaultMainNoRead,
+        defaultMainNoReadArgs, defaultMainArgs,
         -- * Customization
         UserHooks(..), Args,
         defaultMainWithHooks, defaultMainWithHooksArgs,
-        defaultMainWithHooksNoRead,
+        defaultMainWithHooksNoRead, defaultMainWithHooksNoReadArgs,
         -- ** Standard sets of hooks
         simpleUserHooks,
         autoconfUserHooks,
@@ -139,10 +140,17 @@ defaultMainWithHooksArgs = defaultMainHelper
 defaultMainNoRead :: GenericPackageDescription -> IO ()
 defaultMainNoRead = defaultMainWithHooksNoRead simpleUserHooks
 
+defaultMainNoReadArgs :: GenericPackageDescription -> [String] -> IO ()
+defaultMainNoReadArgs = defaultMainWithHooksNoReadArgs simpleUserHooks
+
 -- | A customizable version of 'defaultMainNoRead'.
 defaultMainWithHooksNoRead :: UserHooks -> GenericPackageDescription -> IO ()
 defaultMainWithHooksNoRead hooks pkg_descr =
-  getArgs >>=
+  getArgs >>= defaultMainWithHooksNoReadArgs hooks pkg_descr
+
+defaultMainWithHooksNoReadArgs :: UserHooks -> GenericPackageDescription
+                               -> [String] -> IO ()
+defaultMainWithHooksNoReadArgs hooks pkg_descr =
   defaultMainHelper hooks { readDesc = return (Just pkg_descr) }
 
 defaultMainHelper :: UserHooks -> Args -> IO ()
@@ -239,9 +247,6 @@ confPkgDescr hooks verbosity mb_path = do
         pdfile <- case mb_path of
                     Nothing -> defaultPackageDesc verbosity
                     Just path -> return path
-#ifdef CABAL_PARSEC
-        info verbosity "Using Parsec parser"
-#endif
         descr  <- readGenericPackageDescription verbosity pdfile
         return (Just pdfile, descr)
 

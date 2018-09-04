@@ -68,13 +68,8 @@ import Distribution.Package
 import Distribution.Types.Dependency
          ( Dependency(..), thisPackageVersion )
 import qualified Distribution.PackageDescription as PkgDesc
-#ifdef CABAL_PARSEC
-import Distribution.PackageDescription.Parsec
+import Distribution.Client.PackageDescription.Dhall
          ( readGenericPackageDescription )
-#else
-import Distribution.PackageDescription.Parse
-         ( readGenericPackageDescription )
-#endif
 import Distribution.PackageDescription.Configuration
          ( finalizePD )
 import Distribution.Version
@@ -144,7 +139,7 @@ configure verbosity packageDBs repoCtxt binariesPath comp platform progdb
         ++ message
         ++ "\nTrying configure anyway."
       setupWrapper verbosity (setupScriptOptions installedPkgIndex Nothing)
-        Nothing configureCommand (const configFlags) extraArgs
+        Nothing Nothing configureCommand (const configFlags) extraArgs
 
     Right installPlan0 ->
      let installPlan = InstallPlan.configureInstallPlan configFlags installPlan0
@@ -397,7 +392,7 @@ configurePackage verbosity platform comp scriptOptions configFlags
                  extraArgs =
 
   setupWrapper verbosity
-    scriptOptions (Just pkg) configureCommand configureFlags extraArgs
+    scriptOptions (Just gpkg) (Just pkg) configureCommand configureFlags extraArgs
 
   where
     gpkg = packageDescription spkg

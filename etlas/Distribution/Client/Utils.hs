@@ -301,7 +301,7 @@ relaxEncodingErrors handle = do
 -- |Like 'tryFindPackageDesc', but with error specific to add-source deps.
 tryFindAddSourcePackageDesc :: Verbosity -> FilePath -> String -> IO FilePath
 tryFindAddSourcePackageDesc verbosity depPath err = tryFindPackageDesc verbosity depPath $
-    err ++ "\n" ++ "Failed to read cabal file of add-source dependency: "
+    err ++ "\n" ++ "Failed to read etlas.dhall or cabal file of add-source dependency: "
     ++ depPath
 
 -- |Try to find a @.cabal@ file, in directory @depPath@. Fails if one cannot be

@@ -139,8 +139,8 @@ get verbosity repoCtxt globalFlags getFlags userTargets = do
 
 checkTarget :: Verbosity -> UserTarget -> IO ()
 checkTarget verbosity target = case target of
-    UserTargetLocalDir       dir  -> die' verbosity (notTarball dir)
-    UserTargetLocalCabalFile file -> die' verbosity (notTarball file)
+    UserTargetLocalDir           dir  -> die' verbosity (notTarball dir)
+    UserTargetLocalPkgConfigFile file -> die' verbosity (notTarball file)
     _                             -> return ()
   where
     notTarball t =

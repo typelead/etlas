@@ -1592,8 +1592,7 @@ installUnpackedPackage verbosity installLock numJobs
         setupWrapper verbosity
           scriptOptions { useLoggingHandle = logFileHandle
                         , useWorkingDir    = workingDir }
-          (Just pkg)
-          cmd flags [])
+          Nothing (Just pkg) cmd flags [])
     withBuildTestDocs mLogPath action
       | isBinary = maybeBuildBinaries >> action DocsNotTried TestsNotTried
       | otherwise = do

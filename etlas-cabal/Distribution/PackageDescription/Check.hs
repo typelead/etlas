@@ -1781,19 +1781,26 @@ findPackageDesc :: Monad m => CheckPackageContentOps m
                  -> m (Either PackageCheck FilePath) -- ^<pkgname>.cabal
 findPackageDesc ops
  = do let dir = "."
-      files <- getDirectoryContents ops dir
-      -- to make sure we do not mistake a ~/.cabal/ dir for a <pkgname>.cabal
-      -- file we filter to exclude dirs and null base file names:
-      cabalFiles <- filterM (doesFileExist ops)
-                       [ dir </> file
-                       | file <- files
-                       , let (name, ext) = splitExtension file
-                       , not (null name) && ext == ".cabal" ]
-      case cabalFiles of
-        []          -> return (Left $ PackageBuildImpossible noDesc)
-        [cabalFile] -> return (Right cabalFile)
-        multiple    -> return (Left $ PackageBuildImpossible
-                               $ multiDesc multiple)
+          dhallFile = dir </> "etlas.dhall"
+
+      existDhallFile <- doesFileExist ops dhallFile
+
+      if existDhallFile then return (Right dhallFile)
+      else do
+
+        files <- getDirectoryContents ops dir
+        -- to make sure we do not mistake a ~/.cabal/ dir for a <pkgname>.cabal
+        -- file we filter to exclude dirs and null base file names:
+        cabalFiles <- filterM (doesFileExist ops)
+                         [ dir </> file
+                         | file <- files
+                         , let (name, ext) = splitExtension file
+                         , not (null name) && ext == ".cabal" ]
+        case cabalFiles of
+          []          -> return (Left $ PackageBuildImpossible noDesc)
+          [cabalFile] -> return (Right cabalFile)
+          multiple    -> return (Left $ PackageBuildImpossible
+                                 $ multiDesc multiple)
 
   where
     noDesc :: String

@@ -20,13 +20,8 @@ import Distribution.PackageDescription
          ( PackageDescription )
 import Distribution.PackageDescription.Configuration
          ( flattenPackageDescription )
-#ifdef CABAL_PARSEC
-import Distribution.PackageDescription.Parsec
+import Distribution.Client.PackageDescription.Dhall
          ( readGenericPackageDescription )
-#else
-import Distribution.PackageDescription.Parse
-         ( readGenericPackageDescription )
-#endif
 import Distribution.Simple.Utils
          ( createDirectoryIfMissingVerbose, defaultPackageDesc
          , withTempDirectory )
@@ -38,13 +33,13 @@ import Distribution.Simple.BuildPaths ( binPref )
 import Distribution.Text ( display )
 
 import System.FilePath ((</>))
-import Control.Monad (liftM)
 
 -- |Create a binary distribution.
 bdist :: BDistFlags -> BDistExFlags -> IO ()
 bdist flags exflags = do
-  pkg <- liftM flattenPackageDescription
-    (readGenericPackageDescription verbosity =<< defaultPackageDesc verbosity)
+  genPkg <- readGenericPackageDescription verbosity =<< defaultPackageDesc verbosity
+  let pkg = flattenPackageDescription genPkg
+
   let withDir :: (FilePath -> IO a) -> IO a
       withDir = withTempDirectory verbosity tmpTargetDir "bdist."
 
@@ -57,7 +52,7 @@ bdist flags exflags = do
     createDirectoryIfMissingVerbose verbosity True outDir
     createDirectoryIfMissingVerbose verbosity True tarBallPath
 
-    setupWrapper verbosity setupOpts (Just pkg) bdistCommand (const flags') []
+    setupWrapper verbosity setupOpts (Just genPkg) (Just pkg) bdistCommand (const flags') []
 
     createArchive verbosity pkg tmpDir tarBallPath
 

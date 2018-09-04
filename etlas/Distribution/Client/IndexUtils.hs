@@ -79,11 +79,12 @@ import Distribution.Client.Setup
          ( RepoContext(..), updateCommand  )
 import Distribution.Simple.Command
 import qualified Distribution.Simple.Eta as Eta
-
+import qualified Distribution.Client.PackageDescription.Dhall as PackageDesc.Parse
+         ( readGenericPackageDescription, parseGenericPackageDescriptionFromDhall )
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec
-         ( parseGenericPackageDescriptionMaybe )
-import qualified Distribution.PackageDescription.Parsec as PackageDesc.Parse
+         ( parseGenericPackageDescriptionMaybe, parseGenericPackageDescription, runParseResult  )
+import Distribution.Parsec.Types.Common
 #else
 import Distribution.ParseUtils
          ( ParseResult(..) )
@@ -91,7 +92,6 @@ import Distribution.PackageDescription.Parse
          ( parseGenericPackageDescription )
 import Distribution.Simple.Utils
          ( fromUTF8, ignoreBOM )
-import qualified Distribution.PackageDescription.Parse as PackageDesc.Parse
 #endif
 
 import           Distribution.Solver.Types.PackageIndex (PackageIndex)
@@ -108,6 +108,7 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as BS.Char8
 import qualified Data.ByteString.Char8 as BSS
 import Data.ByteString.Lazy (ByteString)
+import qualified Data.Text.Encoding as StrictText
 import Distribution.Client.HttpUtils
 import Distribution.Client.GZipUtils (maybeDecompress)
 import Distribution.Client.Utils ( byteStringToFilePath
@@ -528,25 +529,33 @@ tarEntriesList = go 0
 extractPkg :: Verbosity -> Tar.Entry -> BlockNo -> Maybe (IO (Maybe PackageEntry))
 extractPkg verbosity entry blockNo = case Tar.entryContent entry of
   Tar.NormalFile content _
-     | takeExtension fileName == ".cabal"
+     | takeExtension fileName == ".cabal" || takeFileName fileName == "etlas.dhall"
     -> case splitDirectories (normalise fileName) of
         [pkgname,vers,_] -> case simpleParse vers of
-          Just ver -> Just . return $ Just (NormalPackage pkgid descr content (Right blockNo) Nothing)
+          Just ver -> Just $ do 
+              descr' <- descr
+              return $ Just (NormalPackage pkgid descr' content (Right blockNo) Nothing)
             where
               pkgid  = PackageIdentifier (mkPackageName pkgname) ver
+              descr = do
+                 parsed' <- parsed
+                 case parsed' of
+                    Just d  -> return d
+                    Nothing -> error $ "Couldn't read cabal file "
+                                     ++ show fileName
+              parsed = if takeExtension fileName == ".dhall"
+                then fmap Just $ PackageDesc.Parse.parseGenericPackageDescriptionFromDhall fileName
+                               $ StrictText.decodeUtf8 $ BS.toStrict content
+                else return $
 #ifdef CABAL_PARSEC
-              parsed = parseGenericPackageDescriptionMaybe (BS.toStrict content)
-              descr = case parsed of
-                  Just d  -> d
-                  Nothing -> error $ "Couldn't read cabal file "
-                                    ++ show fileName
+                  parseGenericPackageDescriptionMaybe (BS.toStrict content)
+              
 #else
-              parsed = parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack
-                                               $ content
-              descr  = case parsed of
-                ParseOk _ d -> d
-                _           -> error $ "Couldn't read cabal file "
-                                    ++ show fileName
+                  case parseGenericPackageDescription . ignoreBOM . fromUTF8
+                                                      . BS.Char8.unpack
+                                                      $ content of
+                    ParseOk _ d -> Just d
+                    _           -> Nothing
 #endif
           _ -> Nothing
         _ -> Nothing
@@ -784,9 +793,9 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
       -- from the index tarball if it turns out that we need it.
       -- Most of the time we only need the package id.
       ~(pkg, pkgtxt, mPatchPath) <- unsafeInterleaveIO $ do
-        mPatch <- patchedPackageCabalFile pkgid patchesDir
-        pkgtxt <- maybe (getPackageDesc descLoc) return (fmap snd mPatch)
-        pkg    <- readPackageDescription pkgtxt
+        mPatch  <- patchedPackageCabalFile pkgid patchesDir
+        (pkgpath, pkgtxt)  <- maybe (getPackageDesc descLoc) return mPatch
+        pkg     <- parsePackageDescription pkgpath pkgtxt
         return (pkg, pkgtxt, (fmap fst mPatch))
       let descLoc' = left (\x -> indexDir </> x) descLoc
       case mode of
@@ -799,7 +808,7 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
       -- We have to read the .cabal file eagerly here because we can't cache the
       -- package id for build tree references - the user might edit the .cabal
       -- file after the reference was added to the index.
-      path <- liftM byteStringToFilePath . getEntryContent $ blockno
+      path <- liftM ( byteStringToFilePath . snd ) . getEntryInfo  $ blockno
       pkg  <- do let err = "Error reading package index from cache."
                  file <- tryFindAddSourcePackageDesc verbosity path err
                  PackageDesc.Parse.readGenericPackageDescription normal file
@@ -811,34 +820,46 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
 
     indexDir = takeDirectory idxFile
 
-    getPackageDesc :: Either FilePath BlockNo -> IO ByteString
-    getPackageDesc (Left relPath)  = BS.readFile (indexDir </> relPath)
-    getPackageDesc (Right blockNo) = getEntryContent blockNo
+    getPackageDesc :: Either FilePath BlockNo -> IO (FilePath, ByteString)
+    getPackageDesc (Left relPath)  = do
+      let path = indexDir </> relPath   
+      content <- BS.readFile path
+      return (path, content)
+    getPackageDesc (Right blockNo) = getEntryInfo blockNo
 
-    getEntryContent :: BlockNo -> IO ByteString
-    getEntryContent blockno = do
+    getEntryInfo :: BlockNo -> IO (FilePath, ByteString)
+    getEntryInfo blockno = do
       entry <- Tar.hReadEntry hnd blockno
+      let path = Tar.entryPath entry
       case Tar.entryContent entry of
-        Tar.NormalFile content _size -> return content
+        Tar.NormalFile content _size -> return (path, content)
         Tar.OtherEntryType typecode content _size
           | Tar.isBuildTreeRefTypeCode typecode
-          -> return content
+          -> return (path, content)
         _ -> interror "unexpected tar entry type"
 
-    readPackageDescription :: ByteString -> IO GenericPackageDescription
-    readPackageDescription content =
+    parsePackageDescription :: FilePath -> ByteString -> IO GenericPackageDescription
+    parsePackageDescription fileName content = do
+      if takeExtension fileName == ".dhall"
+        then PackageDesc.Parse.parseGenericPackageDescriptionFromDhall fileName
+                     $ StrictText.decodeUtf8 $ BS.toStrict content
+        else
 #ifdef CABAL_PARSEC
-      case parseGenericPackageDescriptionMaybe (BS.toStrict content) of
-        Just gpd -> return gpd
-        Nothing  -> interror "failed to parse .cabal file"
+          do
+            let res = parseGenericPackageDescription (BS.toStrict content)
+            let (_, errors, result) = runParseResult res
+            mapM_ (warn verbosity . showPError fileName) errors
+            case result of
+              Nothing -> interror $ "failed to parse " ++ fileName ++ " file using parsec"
+              Just x  -> return x
 #else
-      case parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack $ content of
-        ParseOk _ d -> return d
-        _           -> interror "failed to parse .cabal file"
+          case parseGenericPackageDescription . ignoreBOM . fromUTF8 . BS.Char8.unpack $ content of
+            ParseOk _ d -> return d
+            _           -> interror $ "failed to parse " ++ fileName ++ " file"
 #endif
 
     interror :: String -> IO a
-    interror msg = die' verbosity $ "internal error when reading package index: " ++ msg
+    interror msg = die' verbosity $ "internal error when reading package index: " ++ msg ++". "
                       ++ "The package index or index cache is probably "
                       ++ "corrupt. Running 'etlas update' might fix it."
 

@@ -80,11 +80,8 @@ import Distribution.Client.Utils              ( inDir, tryCanonicalizePath
                                               , tryFindAddSourcePackageDesc)
 import Distribution.PackageDescription.Configuration
                                               ( flattenPackageDescription )
-#ifdef CABAL_PARSEC
-import Distribution.PackageDescription.Parsec ( readGenericPackageDescription )
-#else
-import Distribution.PackageDescription.Parse  ( readGenericPackageDescription )
-#endif
+import Distribution.Client.PackageDescription.Dhall
+         ( readGenericPackageDescription )
 import Distribution.Simple.Compiler           ( Compiler(..), PackageDB(..) )
 import Distribution.Simple.Configure          ( configCompilerAuxEx
                                               , getPackageDBContents

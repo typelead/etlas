@@ -90,6 +90,7 @@ import Distribution.PackageDescription.Parsec
 import Distribution.PackageDescription.Parse
          ( readGenericPackageDescription )
 #endif
+import qualified Distribution.Client.PackageDescription.Dhall as Dhall
 import Distribution.Simple.Compiler
          ( Compiler, compilerInfo )
 import Distribution.Simple.Program
@@ -509,10 +510,10 @@ readProjectLocalConfig verbosity DistDirLayout{distProjectFile} = do
     defaultImplicitProjectConfig =
       mempty {
         -- We expect a package in the current directory.
-        projectPackages         = [ "./*.cabal" ],
+        projectPackages         = [ ],
 
         -- This is to automatically pick up deps that we unpack locally.
-        projectPackagesOptional = [ "./*/*.cabal" ],
+        projectPackagesOptional = [ "./*.cabal", "./etlas.dhall", "./*/*.cabal", "./*/etlas.dhall" ],
 
         projectConfigProvenance = Set.singleton Implicit
       }
@@ -630,12 +631,14 @@ reportParseResult verbosity filetype filename (ParseFailed err) =
 -- to the project root.
 --
 data ProjectPackageLocation =
-     ProjectPackageLocalCabalFile FilePath
-   | ProjectPackageLocalDirectory FilePath FilePath -- dir and .cabal file
-   | ProjectPackageLocalTarball   FilePath
-   | ProjectPackageRemoteTarball  URI
-   | ProjectPackageRemoteRepo     SourceRepo
-   | ProjectPackageNamed          Dependency
+     ProjectPackageLocalCabalFile      FilePath
+   | ProjectPackageLocalDhallFile      FilePath
+   | ProjectPackageLocalCabalDirectory FilePath FilePath -- dir and .cabal file
+   | ProjectPackageLocalDhallDirectory FilePath FilePath -- dir and etlas.dhall file
+   | ProjectPackageLocalTarball        FilePath
+   | ProjectPackageRemoteTarball       URI
+   | ProjectPackageRemoteRepo          SourceRepo
+   | ProjectPackageNamed               Dependency
   deriving Show
 
 
@@ -670,8 +673,8 @@ data BadPackageLocation
 data BadPackageLocationMatch
    = BadLocUnexpectedFile      String
    | BadLocNonexistantFile     String
-   | BadLocDirNoCabalFile      String
-   | BadLocDirManyCabalFiles   String
+   | BadLocDirNoConfigFiles    String
+   | BadLocDirManyConfigFiles  String
   deriving Show
 
 renderBadPackageLocations :: BadPackageLocations -> String
@@ -721,9 +724,9 @@ renderBadPackageLocations (BadPackageLocations provenance bpls)
 renderImplicitBadPackageLocation :: BadPackageLocation -> String
 renderImplicitBadPackageLocation bpl = case bpl of
     BadLocGlobEmptyMatch pkglocstr ->
-        "No cabal.project file or cabal file matching the default glob '"
+        "No cabal.project file, etlas.dhall file or cabal file matching the default glob '"
      ++ pkglocstr ++ "' was found.\n"
-     ++ "Please create a package description file <pkgname>.cabal "
+     ++ "Please create a package description file etlas.dhall/<pkgname>.cabal "
      ++ "or a cabal.project file referencing the packages you "
      ++ "want to build."
     _ -> renderBadPackageLocation bpl
@@ -753,14 +756,14 @@ renderBadPackageLocationMatch :: BadPackageLocationMatch -> String
 renderBadPackageLocationMatch bplm = case bplm of
     BadLocUnexpectedFile pkglocstr ->
         "The package location '" ++ pkglocstr ++ "' is not recognised. The "
-     ++ "supported file targets are .cabal files, .tar.gz tarballs or package "
-     ++ "directories (i.e. directories containing a .cabal file)."
+     ++ "supported file targets are etlas.dhall file, .cabal files, .tar.gz tarballs or package "
+     ++ "directories (i.e. directories containing an etlas.dhall or .cabal file)."
     BadLocNonexistantFile pkglocstr ->
         "The package location '" ++ pkglocstr ++ "' does not exist."
-    BadLocDirNoCabalFile pkglocstr ->
-        "The package directory '" ++ pkglocstr ++ "' does not contain any "
-     ++ ".cabal file."
-    BadLocDirManyCabalFiles pkglocstr ->
+    BadLocDirNoConfigFiles pkglocstr ->
+        "The package directory '" ++ pkglocstr ++ "' does not contain an "
+     ++ "etlas.dhall file or any .cabal file."
+    BadLocDirManyConfigFiles pkglocstr ->
         "The package directory '" ++ pkglocstr ++ "' contains multiple "
      ++ ".cabal files (which is not currently supported)."
 
@@ -778,8 +781,24 @@ findProjectPackages DistDirLayout{distProjectRootDirectory}
     let repoPkgs  = map ProjectPackageRemoteRepo projectPackagesRepo
         namedPkgs = map ProjectPackageNamed      projectPackagesNamed
 
-    return (concat [requiredPkgs, optionalPkgs, repoPkgs, namedPkgs])
+    return $ removeDuplicatedPackageLocations
+           $ concat [requiredPkgs, optionalPkgs, repoPkgs, namedPkgs]
   where
+
+    removeDuplicatedPackageLocations pkgLocs =
+      filter (not . ( hasCabalLocationAnyParentDir dhallLocationsParentDirs )) pkgLocs
+      where dhallLocationsParentDirs = concatMap dhallParentDir pkgLocs
+
+            dhallParentDir (ProjectPackageLocalDhallFile path) = [takeDirectory path]
+            dhallParentDir (ProjectPackageLocalDhallDirectory dir _) = [dir]
+            dhallParentDir _ = []
+
+            hasCabalLocationAnyParentDir dirs (ProjectPackageLocalCabalFile path) =
+              takeDirectory path `elem` dirs
+            hasCabalLocationAnyParentDir dirs (ProjectPackageLocalCabalDirectory dir _) =
+              dir `elem` dirs
+            hasCabalLocationAnyParentDir _ _ = False
+            
     findPackageLocations required pkglocstr = do
       (problems, pkglocs) <-
         partitionEithers <$> mapM (findPackageLocation required) pkglocstr
@@ -886,16 +905,23 @@ findProjectPackages DistDirLayout{distProjectRootDirectory}
                            dir -> liftIO $ doesDirectoryExist dir
       case () of
         _ | isDir
-         -> do matches <- matchFileGlob (globStarDotCabal pkglocstr)
-               case matches of
-                 [cabalFile]
-                     -> return (Right (ProjectPackageLocalDirectory
-                                         pkglocstr cabalFile))
-                 []  -> return (Left (BadLocDirNoCabalFile pkglocstr))
-                 _   -> return (Left (BadLocDirManyCabalFiles pkglocstr))
+         -> do matchesDhall <- matchFileGlob (globEtlasDotDhall pkglocstr)
+               matchesCabal <- matchFileGlob (globStarDotCabal  pkglocstr)
+               return $ case (matchesDhall, matchesCabal) of
+                 ([etlasDhall],_)
+                         -> Right (ProjectPackageLocalDhallDirectory
+                                   pkglocstr etlasDhall)
+                 ([],[cabalFile])
+                         -> Right (ProjectPackageLocalCabalDirectory
+                                   pkglocstr cabalFile)
+                 ([],[]) -> Left  (BadLocDirNoConfigFiles pkglocstr)
+                 _       -> Left  (BadLocDirManyConfigFiles pkglocstr)
 
           | extensionIsTarGz pkglocstr
          -> return (Right (ProjectPackageLocalTarball pkglocstr))
+
+          | takeFileName pkglocstr == "etlas.dhall"
+         -> return (Right (ProjectPackageLocalDhallFile pkglocstr))
 
           | takeExtension pkglocstr == ".cabal"
          -> return (Right (ProjectPackageLocalCabalFile pkglocstr))
@@ -919,16 +945,27 @@ findProjectPackages DistDirLayout{distProjectRootDirectory}
 -- For a directory @some/dir/@, this is a glob of the form @some/dir/\*.cabal@.
 -- The directory part can be either absolute or relative.
 --
+
 globStarDotCabal :: FilePath -> FilePathGlob
-globStarDotCabal dir =
+globStarDotCabal = globFilePath $ GlobFile [WildCard, Literal ".cabal"]
+
+-- | A glob to find the etlas.dhall file in a directory.
+--
+-- For a directory @some/dir/@, this is a glob of the form @some/dir/\etlas.dhall@.
+-- The directory part can be either absolute or relative.
+--
+
+globEtlasDotDhall :: FilePath -> FilePathGlob
+globEtlasDotDhall = globFilePath $ GlobFile [Literal "etlas.dhall"]
+
+globFilePath :: FilePathGlobRel -> FilePath -> FilePathGlob
+globFilePath globFile dir = 
     FilePathGlob
       (if isAbsolute dir then FilePathRoot root else FilePathRelative)
-      (foldr (\d -> GlobDir [Literal d])
-             (GlobFile [WildCard, Literal ".cabal"]) dirComponents)
+      (foldr (\d -> GlobDir [Literal d]) globFile dirComponents)
   where
     (root, dirComponents) = fmap splitDirectories (splitDrive dir)
-
-
+    
 --TODO: [code cleanup] use sufficiently recent transformers package
 mplusMaybeT :: Monad m => m (Maybe a) -> m (Maybe a) -> m (Maybe a)
 mplusMaybeT ma mb = do
@@ -938,19 +975,40 @@ mplusMaybeT ma mb = do
     Just x  -> return (Just x)
 
 
--- | Read the @.cabal@ file of the given package.
+-- | Read the @etlas.dhall@ or @.cabal@ file of the given package.
 --
 -- Note here is where we convert from project-root relative paths to absolute
 -- paths.
 --
 readSourcePackage :: Verbosity -> DistDirLayout -> ProjectPackageLocation
                   -> Rebuild (PackageSpecifier UnresolvedSourcePackage)
-readSourcePackage verbosity distDirLayout (ProjectPackageLocalCabalFile cabalFile) =
-    readSourcePackage verbosity distDirLayout (ProjectPackageLocalDirectory dir cabalFile)
+readSourcePackage verbosity distDirLayout
+  (ProjectPackageLocalDhallFile dhallFile) =
+    readSourcePackage verbosity distDirLayout (ProjectPackageLocalDhallDirectory dir dhallFile)
+  where
+    dir = takeDirectory dhallFile
+
+readSourcePackage verbosity distDirLayout
+  (ProjectPackageLocalCabalFile cabalFile) =
+    readSourcePackage verbosity distDirLayout (ProjectPackageLocalCabalDirectory dir cabalFile)
   where
     dir = takeDirectory cabalFile
 
-readSourcePackage verbosity _distDirLayout (ProjectPackageLocalDirectory dir cabalFile) = do
+readSourcePackage verbosity _distDirLayout
+  (ProjectPackageLocalDhallDirectory dir dhallFile) = do
+    monitorFiles [monitorFileHashed dhallFile]
+    root <- askRoot
+    pkgdesc <- liftIO $ Dhall.readDhallGenericPackageDescription verbosity (root </> dhallFile)
+    return $ SpecificSourcePackage SourcePackage {
+      packageInfoId        = packageId pkgdesc,
+      packageDescription   = pkgdesc,
+      packageSource        = LocalUnpackedPackage (root </> dir),
+      packageDescrOverride = Nothing,
+      packagePatch         = Nothing
+    }
+
+readSourcePackage verbosity _distDirLayout
+  (ProjectPackageLocalCabalDirectory dir cabalFile) = do
     monitorFiles [monitorFileHashed cabalFile]
     root <- askRoot
     pkgdesc <- liftIO $ readGenericPackageDescription verbosity (root </> cabalFile)
@@ -966,7 +1024,8 @@ readSourcePackage _verbosity _distDirLayout
   (ProjectPackageNamed (Dependency pkgname verrange)) =
     return $ NamedPackage pkgname [PackagePropertyVersion verrange]
 
-readSourcePackage verbosity distDirLayout (ProjectPackageRemoteRepo sourceRepo) = do
+readSourcePackage verbosity distDirLayout
+  (ProjectPackageRemoteRepo sourceRepo) = do
     root <- askRoot
     let sourceRepoLocation
           | Just location <- repoLocation sourceRepo
@@ -975,19 +1034,28 @@ readSourcePackage verbosity distDirLayout (ProjectPackageRemoteRepo sourceRepo) 
         destDir = root </> distTempDirectory distDirLayout </> "scm" </>
                     showHashValue (hashString (show [sourceRepo]))
         pkgDestDir = destDir </> fromMaybe "" (repoSubdir sourceRepo)
-    cabalFile <- liftIO $ do
-      exists <- doesDirectoryExist destDir
-      when (not (exists)) $
-        downloadSourceRepo verbosity destDir
-          (Left sourceRepoLocation) [sourceRepo]
-      files <- getDirectoryContents pkgDestDir
-      let cabalFiles = filter (\file -> takeExtension file == ".cabal") files
-      case length cabalFiles of
-        0 -> die' verbosity $ "No cabal file found for " ++ sourceRepoLocation
-        1 -> return ()
-        _ -> die' verbosity $ "Multiple cabal files found for " ++ sourceRepoLocation
-      return $ head cabalFiles
-    pkgdesc <- liftIO $ readGenericPackageDescription verbosity (pkgDestDir </> cabalFile)
+  
+    pkgdesc <- liftIO $ do
+      files <- do
+        exists <- doesDirectoryExist destDir
+        when (not (exists)) $
+          downloadSourceRepo verbosity destDir
+            (Left sourceRepoLocation) [sourceRepo]
+        getDirectoryContents destDir
+      let mbDhallFile = find (== "etlas.dhall") files
+      case mbDhallFile of
+        Just dhallFile ->
+          Dhall.readGenericPackageDescription verbosity (destDir </> dhallFile)
+        Nothing -> do
+          let cabalFiles = filter (\file -> takeExtension file == ".cabal") files
+          cabalFile <- do
+            case length cabalFiles of
+              0 -> die' verbosity $ "No etlas.dhall or cabal file found for " ++ sourceRepoLocation
+              1 -> return ()
+              _ -> die' verbosity $ "Multiple cabal files found for " ++ sourceRepoLocation
+            return $ head cabalFiles
+          readGenericPackageDescription verbosity (destDir </> cabalFile)
+
     let pkgid = packageId pkgdesc
     return $ SpecificSourcePackage SourcePackage {
       packageInfoId        = pkgid,

@@ -775,8 +775,8 @@ reportTargetSelectorProblems verbosity problems = do
       []  -> return ()
       _:_ ->
         die' verbosity $
-            "There is no <pkgname>.cabal package file or cabal.project file. "
-         ++ "To build packages locally you need at minimum a <pkgname>.cabal "
+            "There is no etlas.dhall, <pkgname>.cabal package file or cabal.project file. "
+         ++ "To build packages locally you need at minimum an etlas.dhall or <pkgname>.cabal "
          ++ "file. You can use 'etlas init' to create one.\n"
          ++ "\n"
          ++ "For non-trivial projects you will also want a cabal.project "

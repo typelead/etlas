@@ -97,6 +97,7 @@ import System.Directory    ( doesFileExist )
 
 import System.FilePath     ( takeDirectory, (</>), (<.>) )
 import System.Directory    ( doesDirectoryExist, doesFileExist )
+
 -- | @Setup@ encapsulates the outcome of configuring a setup method to build a
 -- particular package.
 data Setup = Setup { setupMethod :: SetupMethod

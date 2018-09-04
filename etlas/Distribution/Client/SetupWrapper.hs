@@ -92,6 +92,9 @@ import Control.Exception   ( bracket )
 import System.FilePath     ( takeDirectory, (</>), (<.>) )
 import System.Directory    ( doesDirectoryExist, doesFileExist )
 import qualified System.Win32 as Win32
+#else
+import System.FilePath     ( (</>) )
+import System.Directory    ( doesFileExist )
 #endif
 
 -- | @Setup@ encapsulates the outcome of configuring a setup method to build a
@@ -261,7 +264,7 @@ getSetup :: Verbosity
          -> Maybe PackageDescription
          -> IO Setup
 getSetup verbosity options mgenPkg mpkg = do
-  genPkg <- maybe getGenPkg return mgenPkg 
+  genPkg <- maybe getGenPkg return mgenPkg
   let pkg         = fromMaybe (packageDescription genPkg) mpkg
       options'    = options {
                       useCabalVersion = intersectVersionRanges
@@ -394,17 +397,17 @@ setupWrapper verbosity options mgenPkg mpkg cmd flags extraArgs = do
                            && existEtlasDhallFile
         where allArgs = commandShowOptions cmd flags' ++ extraArgs
 
-  cabalFileArg <- 
+  cabalFileArg <-
     if needDerivedCabalFile then do
       let dir = useDistPref options
           genPkg = setupGenericPackage setup
       cabalFilePath <- writeDerivedCabalFile verbosity dir genPkg
       return ["--cabal-file", cabalFilePath]
     else return []
-    
+
   let extraArgs' = extraArgs ++ cabalFileArg
 
-  runSetupCommand verbosity setup cmd flags' extraArgs' 
+  runSetupCommand verbosity setup cmd flags' extraArgs'
 
 -- ------------------------------------------------------------
 -- * Internal SetupMethod

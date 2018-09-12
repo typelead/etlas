@@ -34,7 +34,7 @@ import qualified Lens.Micro.Extras as Lens
 
 import System.Directory (doesFileExist)
 import System.FilePath (takeDirectory, takeExtension, (</>))
-
+import System.CPUTime (getCPUTime)
 import Control.Monad    (unless)
 
 readGenericPackageDescription :: Verbosity -> FilePath
@@ -55,11 +55,15 @@ readDhallGenericPackageDescription verbosity dhallFilePath = do
   
   source <- StrictText.readFile dhallFilePath
   info verbosity $ "Reading package configuration from " ++ dhallFilePath
-  explaining $ parseGenericPackageDescriptionFromDhall
-               dhallFilePath source
-
+  start <- getCPUTime
+  gpd <- explaining $ parseGenericPackageDescriptionFromDhall dhallFilePath source
+  end   <- getCPUTime
+  let diff = (fromIntegral (end - start)) / (10^(12 :: Integer))
+  info verbosity $ "Configuration readed in " ++ show (diff :: Double) ++ " seconds"
+  return gpd
+  
   where explaining = if verbosity >= verbose then Dhall.detailed else id
- 
+
 parseCabalGenericPackageDescription :: String
                                     -> Maybe GenericPackageDescription
 #ifdef CABAL_PARSEC

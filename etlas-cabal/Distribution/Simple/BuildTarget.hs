@@ -1023,7 +1023,7 @@ checkBuildTargets verbosity pkg_descr lbi targets = do
 
     formatReason cn DisabledComponent =
         "Cannot process the " ++ cn ++ " because the component is marked "
-     ++ "as disabled in the .cabal file."
+     ++ "as disabled in the config file."
     formatReason cn DisabledAllTests =
         "Cannot process the " ++ cn ++ " because test suites are not "
      ++ "enabled. Run configure with the flag --enable-tests"

@@ -839,9 +839,10 @@ unpackPackageTarball verbosity patchesDir tarball parentdir pkgid _pkgTextOverri
 
       -- Sanity check
       --
-      exists <- doesFileExist cabalFile
-      when (not exists) $
-        die' verbosity $ "Package .cabal file not found in the tarball: " ++ cabalFile
+      existsAny <- forM [dhallFile,etlasFile,cabalFile] doesFileExist
+      when (not $ or existsAny) $
+        die' verbosity $ "Package etlas.dhall, .etlas or .cabal file not found in the tarball: "
+                       ++ cabalFile
 
       -- TODO: We ignore revisions because that messes with patches. If for some reason
       --       someone needs a revision, they can submit the revision as an updated
@@ -856,8 +857,10 @@ unpackPackageTarball verbosity patchesDir tarball parentdir pkgid _pkgTextOverri
       --     writeFileAtomic cabalFile pkgtxt
 
   where
-    cabalFile = parentdir </> pkgsubdir
-                          </> display pkgname <.> "cabal"
+    cabalFile = configFile $ display pkgname <.> "cabal"
+    etlasFile = configFile $ display pkgname <.> "etlas"
+    dhallFile = configFile $ "etlas.dhall"
+    configFile file = parentdir </> pkgsubdir </> file
     pkgsubdir = display pkgid
     pkgname   = packageName pkgid
 

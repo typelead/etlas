@@ -513,7 +513,8 @@ readProjectLocalConfig verbosity DistDirLayout{distProjectFile} = do
         projectPackages         = [ ],
 
         -- This is to automatically pick up deps that we unpack locally.
-        projectPackagesOptional = [ "./*.cabal", "./etlas.dhall", "./*/*.cabal", "./*/etlas.dhall" ],
+        projectPackagesOptional = [ "./*.cabal", "./*.etlas", "./etlas.dhall"
+                                  , "./*/*.cabal", "./*/*.etlas", "./*/etlas.dhall" ],
 
         projectConfigProvenance = Set.singleton Implicit
       }
@@ -724,9 +725,9 @@ renderBadPackageLocations (BadPackageLocations provenance bpls)
 renderImplicitBadPackageLocation :: BadPackageLocation -> String
 renderImplicitBadPackageLocation bpl = case bpl of
     BadLocGlobEmptyMatch pkglocstr ->
-        "No cabal.project file, etlas.dhall file or cabal file matching the default glob '"
+        "No cabal.project, etlas.dhall, .etlas or .cabal file matching the default glob '"
      ++ pkglocstr ++ "' was found.\n"
-     ++ "Please create a package description file etlas.dhall/<pkgname>.cabal "
+     ++ "Please create a package description file (etlas.dhall, <pkgname>.etlas or <pkgname>.cabal) "
      ++ "or a cabal.project file referencing the packages you "
      ++ "want to build."
     _ -> renderBadPackageLocation bpl
@@ -756,16 +757,16 @@ renderBadPackageLocationMatch :: BadPackageLocationMatch -> String
 renderBadPackageLocationMatch bplm = case bplm of
     BadLocUnexpectedFile pkglocstr ->
         "The package location '" ++ pkglocstr ++ "' is not recognised. The "
-     ++ "supported file targets are etlas.dhall file, .cabal files, .tar.gz tarballs or package "
+     ++ "supported file targets are etlas.dhall file, .etlas or .cabal files, .tar.gz tarballs or package "
      ++ "directories (i.e. directories containing an etlas.dhall or .cabal file)."
     BadLocNonexistantFile pkglocstr ->
         "The package location '" ++ pkglocstr ++ "' does not exist."
     BadLocDirNoConfigFiles pkglocstr ->
         "The package directory '" ++ pkglocstr ++ "' does not contain an "
-     ++ "etlas.dhall file or any .cabal file."
+     ++ "etlas.dhall file or any .etlas/.cabal file."
     BadLocDirManyConfigFiles pkglocstr ->
         "The package directory '" ++ pkglocstr ++ "' contains multiple "
-     ++ ".cabal files (which is not currently supported)."
+     ++ ".etlas or .cabal files (which is not currently supported)."
 
 -- | Given the project config,
 --
@@ -905,17 +906,18 @@ findProjectPackages DistDirLayout{distProjectRootDirectory}
                            dir -> liftIO $ doesDirectoryExist dir
       case () of
         _ | isDir
-         -> do matchesDhall <- matchFileGlob (globEtlasDotDhall pkglocstr)
-               matchesCabal <- matchFileGlob (globStarDotCabal  pkglocstr)
-               return $ case (matchesDhall, matchesCabal) of
-                 ([etlasDhall],_)
-                         -> Right (ProjectPackageLocalDhallDirectory
-                                   pkglocstr etlasDhall)
-                 ([],[cabalFile])
-                         -> Right (ProjectPackageLocalCabalDirectory
-                                   pkglocstr cabalFile)
-                 ([],[]) -> Left  (BadLocDirNoConfigFiles pkglocstr)
-                 _       -> Left  (BadLocDirManyConfigFiles pkglocstr)
+         -> do let checkCfgFile ((glob,pkgLoc):xs) = do
+                     match <- matchFileGlob (glob pkglocstr)
+                     case match of
+                           [cfgFile] -> return $ Right (pkgLoc pkglocstr cfgFile)
+                           []        -> checkCfgFile xs
+                           _         -> return $ Left (BadLocDirManyConfigFiles pkglocstr)
+                   checkCfgFile [] = return $ Left (BadLocDirNoConfigFiles pkglocstr)
+
+               checkCfgFile [(globEtlasDotDhall,ProjectPackageLocalDhallDirectory)
+                            ,(globStarDotEtlas,ProjectPackageLocalCabalDirectory)
+                            ,(globStarDotCabal,ProjectPackageLocalCabalDirectory)
+                            ]
 
           | extensionIsTarGz pkglocstr
          -> return (Right (ProjectPackageLocalTarball pkglocstr))
@@ -923,7 +925,7 @@ findProjectPackages DistDirLayout{distProjectRootDirectory}
           | takeFileName pkglocstr == "etlas.dhall"
          -> return (Right (ProjectPackageLocalDhallFile pkglocstr))
 
-          | takeExtension pkglocstr == ".cabal"
+          | (takeExtension pkglocstr) `elem` [".etlas", ".cabal"]
          -> return (Right (ProjectPackageLocalCabalFile pkglocstr))
 
           | isFile
@@ -947,7 +949,13 @@ findProjectPackages DistDirLayout{distProjectRootDirectory}
 --
 
 globStarDotCabal :: FilePath -> FilePathGlob
-globStarDotCabal = globFilePath $ GlobFile [WildCard, Literal ".cabal"]
+globStarDotCabal = globStarDotExt ".cabal"
+
+globStarDotEtlas :: FilePath -> FilePathGlob
+globStarDotEtlas = globStarDotExt ".etlas"
+
+globStarDotExt :: String -> FilePath -> FilePathGlob
+globStarDotExt ext = globFilePath $ GlobFile [WildCard, Literal ext]
 
 -- | A glob to find the etlas.dhall file in a directory.
 --
@@ -1042,19 +1050,21 @@ readSourcePackage verbosity distDirLayout
           downloadSourceRepo verbosity destDir
             (Left sourceRepoLocation) [sourceRepo]
         getDirectoryContents destDir
-      let mbDhallFile = find (== "etlas.dhall") files
-      case mbDhallFile of
-        Just dhallFile ->
-          Dhall.readGenericPackageDescription verbosity (destDir </> dhallFile)
-        Nothing -> do
-          let cabalFiles = filter (\file -> takeExtension file == ".cabal") files
-          cabalFile <- do
-            case length cabalFiles of
-              0 -> die' verbosity $ "No etlas.dhall or cabal file found for " ++ sourceRepoLocation
-              1 -> return ()
-              _ -> die' verbosity $ "Multiple cabal files found for " ++ sourceRepoLocation
-            return $ head cabalFiles
-          readGenericPackageDescription verbosity (destDir </> cabalFile)
+      let hasExtension ext file = takeExtension file == ext
+          readFirstCfgFile ((pred,reader):xs) = do
+            let cfgFiles = filter pred files
+            case cfgFiles of
+              [] -> readFirstCfgFile xs
+              [cfgFile] -> reader verbosity (destDir </> cfgFile)
+              _ -> die' verbosity $ "Multiple config files ("
+                                  ++ concatMap (intersperse ',') cfgFiles
+                                  ++ ") found for " ++ sourceRepoLocation
+          readFirstCfgFile [] = die' verbosity $ "No etlas.dhall, .etlas or .cabal file found for "
+                                          ++ sourceRepoLocation
+      readFirstCfgFile [((== "etlas.dhall"), Dhall.readGenericPackageDescription)
+                       ,(hasExtension ".etlas", readGenericPackageDescription)
+                       ,(hasExtension ".cabal", readGenericPackageDescription)
+                       ]
 
     let pkgid = packageId pkgdesc
     return $ SpecificSourcePackage SourcePackage {

@@ -15,7 +15,7 @@ module Distribution.PackageDescription.Utils (
 -- Exception and logging utils
 
 userBug :: String -> a
-userBug msg = error $ msg ++ ". This is a bug in your .cabal file."
+userBug msg = error $ msg ++ ". This is a bug in your .etlas or .cabal file."
 
 cabalBug :: String -> a
 cabalBug msg = error $ msg ++ ". This is possibly a bug in Cabal.\n"

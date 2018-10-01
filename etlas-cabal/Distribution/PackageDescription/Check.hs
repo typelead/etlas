@@ -1787,30 +1787,40 @@ findPackageDesc ops
 
       if existDhallFile then return (Right dhallFile)
       else do
-
+        
         files <- getDirectoryContents ops dir
-        -- to make sure we do not mistake a ~/.cabal/ dir for a <pkgname>.cabal
-        -- file we filter to exclude dirs and null base file names:
-        cabalFiles <- filterM (doesFileExist ops)
-                         [ dir </> file
-                         | file <- files
-                         , let (name, ext) = splitExtension file
-                         , not (null name) && ext == ".cabal" ]
-        case cabalFiles of
-          []          -> return (Left $ PackageBuildImpossible noDesc)
-          [cabalFile] -> return (Right cabalFile)
-          multiple    -> return (Left $ PackageBuildImpossible
-                                 $ multiDesc multiple)
 
+        let findConfigFile extCfg = do
+              cfgFiles <- filterM (doesFileExist ops)
+                            [ dir </> file
+                            | file <- files
+                            , let (name, ext) = splitExtension file
+                            , not (null name) && ext == extCfg ]
+              return cfgFiles
+
+        etlasFiles <- findConfigFile ".etlas"
+        if (not $ null etlasFiles)
+          then return $ checkConfigFile etlasFiles
+          else do
+            cabalFiles <- findConfigFile ".cabal"
+            return $ checkConfigFile cabalFiles
   where
     noDesc :: String
-    noDesc = "No cabal file found.\n"
-             ++ "Please create a package description file <pkgname>.cabal"
+    noDesc = "No etlas or cabal file found.\n"
+             ++ "Please create a package description file "
+             ++ "etlas.dhall, <pkgname>.etlas or <pkgname>.cabal"
 
     multiDesc :: [String] -> String
-    multiDesc l = "Multiple cabal files found while checking.\n"
+    multiDesc l = "Multiple config files found while checking.\n"
                   ++ "Please use only one of: "
                   ++ intercalate ", " l
+
+    checkConfigFile :: [FilePath] -> Either PackageCheck FilePath
+    checkConfigFile files = 
+      case files of
+        []          -> Left $ PackageBuildImpossible noDesc
+        [cfgFile]   -> Right cfgFile
+        multiple    -> Left $ PackageBuildImpossible $ multiDesc multiple
 
 checkLicensesExist :: Monad m => CheckPackageContentOps m
                    -> PackageDescription

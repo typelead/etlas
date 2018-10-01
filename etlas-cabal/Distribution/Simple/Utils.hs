@@ -1475,33 +1475,40 @@ defaultPackageDesc _verbosity = tryFindPackageDesc currentDir
 -- an @etlas.dhall@ file or @.cabal@ files.
 findPackageDesc :: FilePath                    -- ^Where to look
                 -> NoCallStackIO (Either String FilePath) -- ^<pkgname>.cabal
-findPackageDesc dir
- = do let dhallFile = dir </> "etlas.dhall"
+findPackageDesc dir = do 
+  files <- getDirectoryContents dir
+  -- to make sure we do not mistake a ~/.<ext>/ dir for a <pkgname>.<ext>
+  -- file we filter to exclude dirs and null base file names:
+  let findConfigFiles pred = do
+         cfgFiles <- filterM doesFileExist
+                  [ dir </> file | file <- files , pred file ] 
+         return cfgFiles
 
-      existDhallFile <- doesFileExist dhallFile
-      
-      if existDhallFile then return (Right dhallFile)
-      else do
-        files <- getDirectoryContents dir
-        -- to make sure we do not mistake a ~/.cabal/ dir for a <pkgname>.cabal
-        -- file we filter to exclude dirs and null base file names:
-        cabalFiles <- filterM doesFileExist
-                         [ dir </> file
-                         | file <- files
-                         , let (name, ext) = splitExtension file
-                         , not (null name) && ext == ".cabal" ]
-        case cabalFiles of
-          []          -> return (Left  noDesc)
-          [cabalFile] -> return (Right cabalFile)
-          multiple    -> return (Left  $ multiDesc multiple)
+      findFirstConfigFile [] = return $ Left noDesc
+      findFirstConfigFile (pred:preds) = do
+        cfgFiles <- findConfigFiles pred
+        case cfgFiles of
+          []          -> findFirstConfigFile preds
+          [cfgFile]   -> return (Right cfgFile)
+          multiple    -> return (Left $ multiDesc multiple)
 
+  findFirstConfigFile [(== "etlas.dhall")
+                      ,hasNotNullNameAndExtension ".etlas"
+                      ,hasNotNullNameAndExtension ".cabal"
+                      ]
+   
   where
+    hasNotNullNameAndExtension extCfg file =
+      let (name, ext) = splitExtension file
+      in not (null name) && ext == extCfg
+
     noDesc :: String
-    noDesc = "No cabal file found.\n"
-             ++ "Please create a package description file <pkgname>.cabal"
+    noDesc = "No config file found.\n"
+             ++ "Please create a package description file "
+             ++ "etlas.dhall, <pkgname>.etlas or <pkgname>.cabal"
 
     multiDesc :: [String] -> String
-    multiDesc l = "Multiple cabal files found.\n"
+    multiDesc l = "Multiple config files found.\n"
                   ++ "Please use only one of: "
                   ++ intercalate ", " l
 

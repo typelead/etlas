@@ -1369,15 +1369,15 @@ installLocalTarballPackage verbosity pkgid
       let relUnpackedPath = if isGit then ""
                             else display pkgid ++ (if isBinary then "-bin" else "")
           absUnpackedPath = tmpDirPath </> relUnpackedPath
-          descFilePath = absUnpackedPath
-                     </> display (packageName pkgid) <.> "cabal"
+          descFilePath ext = absUnpackedPath
+                         </> display (packageName pkgid) <.> ext
       info verbosity $ (if isGit then "Copying " else "Extracting ")
                     ++ tarballPath
                     ++ " to " ++ tmpDirPath ++ "..."
       patchedExtractTarGzFile verbosity False tmpDirPath relUnpackedPath tarballPath patchesDir isGit isBinary
-      exists <- doesFileExist descFilePath
-      when (not exists) $
-        die' verbosity $ "Package .cabal file not found: " ++ show descFilePath
+      existsAny <- forM ["etlas", "cabal"] $ (doesFileExist . descFilePath)
+      when (not $ or existsAny) $
+        die' verbosity $ "Package .etlas or .cabal file not found: " ++ show (descFilePath "")
       maybeRenameDistDir absUnpackedPath
       installPkg (Just absUnpackedPath)
 

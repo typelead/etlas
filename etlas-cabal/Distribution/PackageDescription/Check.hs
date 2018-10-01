@@ -1779,34 +1779,35 @@ checkCabalFileBOM ops = do
 -- but generalized over monads.
 findPackageDesc :: Monad m => CheckPackageContentOps m
                  -> m (Either PackageCheck FilePath) -- ^<pkgname>.cabal
-findPackageDesc ops
- = do let dir = "."
-          dhallFile = dir </> "etlas.dhall"
+findPackageDesc ops = do
+  let dir = "."
+  files <- getDirectoryContents ops dir
+  let findConfigFiles pred = do
+         cfgFiles <- filterM (doesFileExist ops)
+                  [ dir </> file | file <- files , pred file ] 
+         return cfgFiles
 
-      existDhallFile <- doesFileExist ops dhallFile
+      findFirstConfigFile [] = return $ Left
+                                      $ PackageBuildImpossible noDesc
+      findFirstConfigFile (pred:preds) = do
+        cfgFiles <- findConfigFiles pred
+        case cfgFiles of
+          []          -> findFirstConfigFile preds
+          [cfgFile]   -> return (Right cfgFile)
+          multiple    -> return (Left $ PackageBuildImpossible
+                                      $ multiDesc multiple)
 
-      if existDhallFile then return (Right dhallFile)
-      else do
-        
-        files <- getDirectoryContents ops dir
-
-        let findConfigFile extCfg = do
-              cfgFiles <- filterM (doesFileExist ops)
-                            [ dir </> file
-                            | file <- files
-                            , let (name, ext) = splitExtension file
-                            , not (null name) && ext == extCfg ]
-              return cfgFiles
-
-        etlasFiles <- findConfigFile ".etlas"
-        if (not $ null etlasFiles)
-          then return $ checkConfigFile etlasFiles
-          else do
-            cabalFiles <- findConfigFile ".cabal"
-            return $ checkConfigFile cabalFiles
+  findFirstConfigFile [(== "etlas.dhall")
+                      ,hasNotNullNameAndExtension ".etlas"
+                      ,hasNotNullNameAndExtension ".cabal"
+                      ]   
   where
+    hasNotNullNameAndExtension extCfg file =
+      let (name, ext) = splitExtension file
+      in not (null name) && ext == extCfg
+    
     noDesc :: String
-    noDesc = "No etlas or cabal file found.\n"
+    noDesc = "No config file found.\n"
              ++ "Please create a package description file "
              ++ "etlas.dhall, <pkgname>.etlas or <pkgname>.cabal"
 
@@ -1814,13 +1815,6 @@ findPackageDesc ops
     multiDesc l = "Multiple config files found while checking.\n"
                   ++ "Please use only one of: "
                   ++ intercalate ", " l
-
-    checkConfigFile :: [FilePath] -> Either PackageCheck FilePath
-    checkConfigFile files = 
-      case files of
-        []          -> Left $ PackageBuildImpossible noDesc
-        [cfgFile]   -> Right cfgFile
-        multiple    -> Left $ PackageBuildImpossible $ multiDesc multiple
 
 checkLicensesExist :: Monad m => CheckPackageContentOps m
                    -> PackageDescription

@@ -1057,7 +1057,7 @@ readSourcePackage verbosity distDirLayout
               [] -> readFirstCfgFile xs
               [cfgFile] -> reader verbosity (destDir </> cfgFile)
               _ -> die' verbosity $ "Multiple config files ("
-                                  ++ concatMap (intersperse ',') cfgFiles
+                                  ++ intercalate ", " cfgFiles
                                   ++ ") found for " ++ sourceRepoLocation
           readFirstCfgFile [] = die' verbosity $ "No etlas.dhall, .etlas or .cabal file found for "
                                           ++ sourceRepoLocation

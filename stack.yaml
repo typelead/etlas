@@ -25,7 +25,6 @@ extra-deps:
 - process-1.2.3.0
 - repline-0.1.7.0
 - haskeline-0.7.4.2
-- insert-ordered-containers-0.2.1.0
 - aeson-1.2.3.0
 - th-abstraction-0.2.6.0
 - hashable-1.2.7.0

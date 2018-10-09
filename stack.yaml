@@ -5,8 +5,8 @@ extra-deps:
 - mintty-0.1.1
 - parsec-3.1.13.0
 # - dhall-1.17.0
-- github: dhall-lang/dhall-haskell
-  commit: 762c5907a8cf0bc4f61358be4513d1a6d37c165c
+- github: eta-lang/dhall-haskell
+  commit: 3737b6fecad671c2e03dc86ce77ccebfad7ee9a6
 - ansi-terminal-0.7.1.1
 - ansi-wl-pprint-0.6.8.2
 - cryptonite-0.24

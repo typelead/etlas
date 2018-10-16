@@ -6,7 +6,7 @@ extra-deps:
 - parsec-3.1.13.0
 # - dhall-1.17.0
 - github: eta-lang/dhall-haskell
-  commit: 3737b6fecad671c2e03dc86ce77ccebfad7ee9a6
+  commit: 25a0d69797cfe0aa9f9094b413c19e491ec6444a
 - ansi-terminal-0.7.1.1
 - ansi-wl-pprint-0.6.8.2
 - cryptonite-0.24

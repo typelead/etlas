@@ -1763,12 +1763,18 @@ collectKnownPackageInfo dirActions@DirActions{..}
           dirabs <- canonicalizePath dir
           dirrel <- makeRelativeToCwd dirActions dirabs
           --TODO: ought to get this earlier in project reading
-          let fileabs = dirabs </> display (packageName pkg) <.> "cabal"
-              filerel = dirrel </> display (packageName pkg) <.> "cabal"
-          exists <- doesFileExist fileabs
-          return ( Just (dirabs, dirrel)
-                 , if exists then Just (fileabs, filerel) else Nothing
-                 )
+          let fileAbsRel ext = ( dirabs </> display (packageName pkg) <.> ext
+                               , dirrel </> display (packageName pkg) <.> ext
+                               )
+              etlasDhallAbsRel = ( dirabs </> "etlas.dhall"
+                                 , dirrel </> "etlas.dhall"
+                                 )
+              configFiles = [ etlasDhallAbsRel
+                            , fileAbsRel "etlas"
+                            , fileAbsRel "cabal"
+                            ]
+          knownCfgFiles <- filterM ( doesFileExist . fst ) configFiles 
+          return ( Just (dirabs, dirrel) , listToMaybe knownCfgFiles )
         _ -> return (Nothing, Nothing)
     let pinfo =
           KnownPackage {

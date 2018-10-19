@@ -1,0 +1,19 @@
+resolver: lts-11.22
+flags:
+  etlas-cabal:
+    parsec: true
+  etlas:
+    parsec: true
+  mintty:
+    win32-2-5: false
+packages:
+- etlas-cabal/
+- dhall-to-etlas/
+- etlas/
+- hackage-security/hackage-security
+
+extra-deps:
+- cborg-0.2.0.0
+- dhall-1.17.0
+- process-1.5.0.0
+- serialise-0.2.0.0

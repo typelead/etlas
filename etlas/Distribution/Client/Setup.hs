@@ -901,7 +901,7 @@ genBoundsCommand = CommandUI {
     commandDescription  = Just $ \_ -> wrapText $
          "Generates bounds for all dependencies that do not currently have them. "
       ++ "Generated bounds are printed to stdout.  "
-      ++ "You can then paste them into your .cabal file.\n"
+      ++ "You can then paste them into your .etlas or .cabal file.\n"
       ++ "\n",
     commandNotes        = Nothing,
     commandUsage        = usageFlags "gen-bounds",
@@ -1099,7 +1099,7 @@ checkCommand = CommandUI {
     commandName         = "check",
     commandSynopsis     = "Check the package for common mistakes.",
     commandDescription  = Just $ \_ -> wrapText $
-         "Expects a .cabal package file in the current directory.\n"
+         "Expects a config package file in the current directory.\n"
       ++ "\n"
       ++ "The checks correspond to the requirements to packages on Hackage. "
       ++ "If no errors and warnings are reported, Hackage will accept this "
@@ -1113,7 +1113,7 @@ checkCommand = CommandUI {
 formatCommand  :: CommandUI (Flag Verbosity)
 formatCommand = CommandUI {
     commandName         = "format",
-    commandSynopsis     = "Reformat the .cabal file using the standard style.",
+    commandSynopsis     = "Reformat the .etlas or .cabal file using the standard style.",
     commandDescription  = Nothing,
     commandNotes        = Nothing,
     commandUsage        = usageAlternatives "format" ["[FILE]"],
@@ -1601,8 +1601,8 @@ installCommand = CommandUI {
      ++ "\n"
      ++ "If PACKAGES are specified, downloads and installs those packages."
      ++ " Otherwise, install the package in the current directory (and/or its"
-     ++ " dependencies) (there must be exactly one .cabal file in the current"
-     ++ " directory).\n"
+     ++ " dependencies) (there must be exactly one .cabal or .etlas file"
+     ++ " in the current directory).\n"
      ++ "\n"
      ++ "When using a sandbox, the flags for `install` only affect the"
      ++ " current command and have no effect on future commands. (To achieve"
@@ -1932,7 +1932,7 @@ defaultInitFlags  = emptyInitFlags { IT.initVerbosity = toFlag normal }
 initCommand :: CommandUI IT.InitFlags
 initCommand = CommandUI {
     commandName = "init",
-    commandSynopsis = "Create a new .cabal package file (interactively).",
+    commandSynopsis = "Create a new config package file (interactively).",
     commandDescription = Just $ \_ -> wrapText $
          "Cabalise a project by creating a .cabal, Setup.hs, and "
       ++ "optionally a LICENSE file.\n"
@@ -1959,17 +1959,17 @@ initCommand = CommandUI {
         trueArg
 
       , option [] ["no-comments"]
-        "Do not generate explanatory comments in the .cabal file."
+        "Do not generate explanatory comments in the config file."
         IT.noComments (\v flags -> flags { IT.noComments = v })
         trueArg
 
       , option ['m'] ["minimal"]
-        "Generate a minimal .cabal file, that is, do not include extra empty fields.  Also implies --no-comments."
+        "Generate a minimal config file, that is, do not include extra empty fields.  Also implies --no-comments."
         IT.minimal (\v flags -> flags { IT.minimal = v })
         trueArg
 
       , option [] ["overwrite"]
-        "Overwrite any existing .cabal, LICENSE, or Setup.hs files without warning."
+        "Overwrite any existing config, LICENSE, or Setup.hs files without warning."
         IT.overwrite (\v flags -> flags { IT.overwrite = v })
         trueArg
 

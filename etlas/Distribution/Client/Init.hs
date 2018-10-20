@@ -121,7 +121,7 @@ initCabal verbosity packageDBs repoCtxt binariesPath comp progdb initFlags = do
   writeChangeLog initFlags'
   createSourceDirectories initFlags'
   createMainHs initFlags'
-  success <- writeCabalFile initFlags'
+  success <- writeEtlasFile initFlags'
 
   when success $ generateWarnings initFlags'
 
@@ -684,13 +684,18 @@ writeChangeLog flags = when (any (== defaultChangeLog) $ maybe [] id (extraSrc f
   pver = maybe "" display $ flagToMaybe $ version flags
 
 
+--writeCabalFile :: InitFlags -> IO Bool
+--writeCabalFile =  writeConfigFile ".cabal"
 
-writeCabalFile :: InitFlags -> IO Bool
-writeCabalFile flags@(InitFlags{packageName = NoFlag}) = do
+writeEtlasFile :: InitFlags -> IO Bool
+writeEtlasFile =  writeConfigFile ".etlas"
+
+writeConfigFile :: String -> InitFlags -> IO Bool
+writeConfigFile _ flags@(InitFlags{packageName = NoFlag}) = do
   message flags "Error: no package name provided."
   return False
-writeCabalFile flags@(InitFlags{packageName = Flag p}) = do
-  let cabalFileName = display p ++ ".cabal"
+writeConfigFile ext flags@(InitFlags{packageName = Flag p}) = do
+  let cabalFileName = display p ++ ext
   message flags $ "Generating " ++ cabalFileName ++ "..."
   writeFileSafe flags cabalFileName (generateCabalFile cabalFileName flags)
   return True
@@ -943,9 +948,9 @@ generateWarnings :: InitFlags -> IO ()
 generateWarnings flags = do
   message flags ""
   when (synopsis flags `elem` [NoFlag, Flag ""])
-       (message flags "Warning: no synopsis given. You should edit the .cabal file and add one.")
+       (message flags "Warning: no synopsis given. You should edit the .etlas or .cabal file and add one.")
 
-  message flags "You may want to edit the .cabal file and add a Description field."
+  message flags "You may want to edit the .etlas or .cabal file and add a Description field."
 
 -- | Possibly generate a message to stdout, taking into account the
 --   --quiet flag.

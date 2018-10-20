@@ -215,7 +215,7 @@ renderTargetProblemCommon verb (TargetComponentNotProjectLocal pkgid cname _) =
 renderTargetProblemCommon verb (TargetComponentNotBuildable pkgid cname _) =
     "Cannot " ++ verb ++ " the " ++ showComponentName cname ++ " because it is "
  ++ "marked as 'buildable: False' within the '" ++ display (packageName pkgid)
- ++ ".cabal' file (at least for the current configuration). If you believe it "
+ ++ ".cabal/.etlas' or file (at least for the current configuration). If you believe it "
  ++ "should be buildable then check the .cabal file to see if the buildable "
  ++ "property is conditional on flags. Alternatively you may simply have to "
  ++ "edit the .cabal file to declare it as buildable and fix any resulting "
@@ -347,7 +347,7 @@ renderTargetProblemNoTargets :: String -> TargetSelector -> String
 renderTargetProblemNoTargets verb targetSelector =
     "Cannot " ++ verb ++ " " ++ renderTargetSelector targetSelector
  ++ " because " ++ reason targetSelector ++ ". "
- ++ "Check the .cabal "
+ ++ "Check the .cabal or .etlas "
  ++ plural (targetSelectorPluralPkgs targetSelector)
       "file for the package and make sure that it properly declares "
       "files for the packages and make sure that they properly declare "

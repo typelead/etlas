@@ -529,7 +529,8 @@ tarEntriesList = go 0
 extractPkg :: Verbosity -> Tar.Entry -> BlockNo -> Maybe (IO (Maybe PackageEntry))
 extractPkg verbosity entry blockNo = case Tar.entryContent entry of
   Tar.NormalFile content _
-     | takeExtension fileName == ".cabal" || takeFileName fileName == "etlas.dhall"
+     |  takeExtension fileName `elem` [".etlas",".cabal"]
+     || takeFileName fileName == "etlas.dhall"
     -> case splitDirectories (normalise fileName) of
         [pkgname,vers,_] -> case simpleParse vers of
           Just ver -> Just $ do 
@@ -541,7 +542,7 @@ extractPkg verbosity entry blockNo = case Tar.entryContent entry of
                  parsed' <- parsed
                  case parsed' of
                     Just d  -> return d
-                    Nothing -> error $ "Couldn't read cabal file "
+                    Nothing -> error $ "Couldn't read etlas or cabal file "
                                      ++ show fileName
               parsed = if takeExtension fileName == ".dhall"
                 then fmap Just $ PackageDesc.Parse.parseGenericPackageDescriptionFromDhall fileName
@@ -822,7 +823,7 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
 
     getPackageDesc :: Either FilePath BlockNo -> IO (FilePath, ByteString)
     getPackageDesc (Left relPath)  = do
-      let path = indexDir </> relPath   
+      let path = indexDir </> relPath
       content <- BS.readFile path
       return (path, content)
     getPackageDesc (Right blockNo) = getEntryInfo blockNo

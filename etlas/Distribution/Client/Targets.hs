@@ -500,7 +500,7 @@ readPackageTarget verbosity = traverse modifyLocation
           either (die' verbosity . formatErr) return
         . check
         . accumEntryMap
-        . Tar.filterEntries (\ e -> isDhallFile e || isCabalFile e )
+        . Tar.filterEntries (\ e -> isDhallFile e || isEtlasFile e || isCabalFile e)
         . Tar.read
         . GZipUtils.maybeDecompress
       =<< BS.readFile tarballFile
@@ -512,17 +512,19 @@ readPackageTarget verbosity = traverse modifyLocation
                           Map.empty
 
         check (Left e)  = Left (show e)
-        check (Right m) = case Map.elems m of
-            []     -> Left noCabalFile
-            files | any isDhallFile files || length files == 1 -> 
-                      case Tar.entryContent file of
-                         Tar.NormalFile content _ -> Right (Tar.entryPath file, content)
-                         _                        -> Left noCabalFile
-                      where file = fromMaybe (head files) $ find isDhallFile files
-            _  -> Left multipleCabalFiles
+        check (Right m) = extractFirst [isDhallFile, isEtlasFile, isCabalFile] $ Map.elems m
           where
-            noCabalFile        = "No etlas.dhall or cabal file found"
-            multipleCabalFiles = "Multiple cabal files found"
+            noConfigFile        = "No etlas.dhall, .etlas or .cabal file found"
+            multipleConfigFiles = "Multiple config files found"
+            extractFirst [] _ = Left noConfigFile
+            extractFirst (pred:preds) files =
+              case filter pred files of
+                []     -> extractFirst preds files
+                [file] -> case Tar.entryContent file of
+                            Tar.NormalFile content _ -> Right (Tar.entryPath file, content)
+                            _                        -> Left noConfigFile
+                _      -> Left multipleConfigFiles
+            
 
         isFile pred e = case splitPath (Tar.entryPath e) of
           [     _dir, file] -> pred file
@@ -530,6 +532,7 @@ readPackageTarget verbosity = traverse modifyLocation
           _                 -> False
 
         isCabalFile = isFile ( \f -> takeExtension f == ".cabal" )
+        isEtlasFile = isFile ( \f -> takeExtension f == ".etlas" )
         isDhallFile = isFile ( == "etlas.dhall" )
 
     parsePackageDescription' :: FilePath -> BS.ByteString

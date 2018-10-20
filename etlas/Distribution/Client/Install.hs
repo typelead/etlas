@@ -1361,8 +1361,8 @@ installLocalTarballPackage
   -> Bool
   -> Bool
   -> IO BuildOutcome
-installLocalTarballPackage verbosity pkgid
-                           tarballPath distPref installPkg patchesDir isGit isBinary = do
+installLocalTarballPackage verbosity pkgid tarballPath distPref installPkg
+                           patchesDir isGit isBinary = do
   tmp <- getTemporaryDirectory
   withTempDirectory verbosity tmp "etlas-tmp" $ \tmpDirPath ->
     onFailure UnpackFailed $ do
@@ -1375,11 +1375,13 @@ installLocalTarballPackage verbosity pkgid
       info verbosity $ (if isGit then "Copying " else "Extracting ")
                     ++ tarballPath
                     ++ " to " ++ tmpDirPath ++ "..."
-      patchedExtractTarGzFile verbosity False tmpDirPath relUnpackedPath tarballPath patchesDir isGit isBinary
-      existsAny <- forM [descFilePath "etlas", descFilePath "cabal", dhallFile]
-                   (doesFileExist . descFilePath)
-      when (not $ or existsAny) $
-        die' verbosity $ "Package .etlas or .cabal file not found: " ++ show (descFilePath "")
+      patchedExtractTarGzFile verbosity False tmpDirPath relUnpackedPath
+                              tarballPath patchesDir isGit isBinary
+      cfgFiles <- filterM doesFileExist
+                  [descFilePath "etlas", descFilePath "cabal", dhallFile]
+      when (null cfgFiles) $
+        die' verbosity $ "Package .etlas or .cabal file not found: "
+                       ++ show (descFilePath "")
       maybeRenameDistDir absUnpackedPath
       installPkg (Just absUnpackedPath)
 

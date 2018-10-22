@@ -10,7 +10,6 @@ import qualified Dhall
 import DhallToCabal (dhallToCabal)
 
 import Distribution.Verbosity
--- import Distribution.PackageDescription hiding (buildInfo,targetBuildDepends)
 import Distribution.PackageDescription.PrettyPrint
        (writeGenericPackageDescription)
 #ifdef CABAL_PARSEC

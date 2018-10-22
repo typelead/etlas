@@ -9,7 +9,7 @@ extra-deps:
 - ansi-wl-pprint-0.6.8.2
 - cryptonite-0.24
 - formatting-6.3.2
-- megaparsec-7.0.0
+- megaparsec-7.0.1
 - parser-combinators-1.0.0
 - optparse-generic-1.3.0
 - optparse-applicative-0.14.0.0

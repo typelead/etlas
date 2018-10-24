@@ -84,18 +84,18 @@ import qualified System.Process as Process
 import Distribution.Client.Compat.ExecutablePath  ( getExecutablePath )
 import System.IO
 import Distribution.Simple.PackageIndex
+
 #ifdef mingw32_HOST_OS
 import Distribution.Simple.Utils
          ( withTempDirectory )
-
 import Control.Exception   ( bracket )
-import System.FilePath     ( takeDirectory, (</>), (<.>) )
-import System.Directory    ( doesDirectoryExist, doesFileExist )
 import qualified System.Win32 as Win32
-#else
+import System.FilePath     ( takeDirectory, (<.>) )
+import System.Directory    ( doesDirectoryExist )
+#endif
+
 import System.FilePath     ( (</>) )
 import System.Directory    ( doesFileExist )
-#endif
 
 -- | @Setup@ encapsulates the outcome of configuring a setup method to build a
 -- particular package.

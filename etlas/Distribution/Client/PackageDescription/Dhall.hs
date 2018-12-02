@@ -20,7 +20,7 @@ import qualified Distribution.PackageDescription.Parsec as Cabal.Parse
 import Distribution.PackageDescription.Parse as Cabal.Parse
        (readGenericPackageDescription , parseGenericPackageDescription, ParseResult(..))
 #endif
-import Distribution.Simple.Utils (die', info)
+import Distribution.Simple.Utils (die', info, createDirectoryIfMissingVerbose)
 import Distribution.PackageDescription
 import Distribution.Types.Dependency
 import Distribution.Types.ForeignLib
@@ -89,6 +89,7 @@ writeDerivedCabalFile :: Verbosity -> FilePath
 writeDerivedCabalFile verbosity dir genPkg = do
   let path = dir </> "etlas.dhall.cabal"
   info verbosity $ "Writing derived cabal file from dhall file: " ++ path
+  createDirectoryIfMissingVerbose verbosity True dir
   writeGenericPackageDescription path genPkg
   return path
 

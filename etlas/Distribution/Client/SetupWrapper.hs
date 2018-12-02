@@ -64,7 +64,7 @@ import Distribution.Client.JobControl
 import Distribution.Simple.Utils
          ( die', notice, info, infoNoWrap, cabalVersion, tryFindPackageDesc )
 import Distribution.Client.Utils
-         ( inDir, withExtraPathEnv, withEnv )
+         ( inDir, withExtraPathEnv, withEnv, makeAbsoluteToCwd )
 -- #ifdef mingw32_HOST_OS
 --          , canonicalizePathNoThrow
 -- #endif
@@ -90,7 +90,7 @@ import Distribution.Simple.Utils
          ( withTempDirectory )
 import Control.Exception   ( bracket )
 import qualified System.Win32 as Win32
-import System.FilePath     ( takeDirectory, (<.>) )
+import System.FilePath     ( takeDirectory, (<.>), isAbsolute )
 import System.Directory    ( doesDirectoryExist )
 #endif
 
@@ -388,8 +388,8 @@ setupWrapper :: Verbosity
 setupWrapper verbosity options mgenPkg mpkg cmd flags extraArgs = do
   setup <- getSetup verbosity options mgenPkg mpkg
 
-  existEtlasDhallFile <- doesFileExist $
-                         (fromMaybe "." (useWorkingDir options)) </> "etlas.dhall"
+  let currentDir = fromMaybe "." (useWorkingDir options)
+  existEtlasDhallFile <- doesFileExist $ currentDir </> "etlas.dhall"
   let flags' = flags $ setupVersion setup
       needDerivedCabalFile =  setupMethod setup == SelfExecMethod
                            && commandName cmd == "configure"
@@ -399,10 +399,12 @@ setupWrapper verbosity options mgenPkg mpkg cmd flags extraArgs = do
 
   cabalFileArg <-
     if needDerivedCabalFile then do
-      let dir = useDistPref options
+      let distDir = useDistPref options
+          dir = if isAbsolute distDir then distDir else currentDir </> distDir
           genPkg = setupGenericPackage setup
       cabalFilePath <- writeDerivedCabalFile verbosity dir genPkg
-      return ["--cabal-file", cabalFilePath]
+      absCabalFilePath <- makeAbsoluteToCwd cabalFilePath
+      return ["--cabal-file", absCabalFilePath]
     else return []
 
   let extraArgs' = extraArgs ++ cabalFileArg

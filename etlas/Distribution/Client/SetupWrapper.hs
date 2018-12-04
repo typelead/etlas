@@ -90,11 +90,11 @@ import Distribution.Simple.Utils
          ( withTempDirectory )
 import Control.Exception   ( bracket )
 import qualified System.Win32 as Win32
-import System.FilePath     ( takeDirectory, (<.>), isAbsolute )
+import System.FilePath     ( takeDirectory, (<.>) )
 import System.Directory    ( doesDirectoryExist )
 #endif
 
-import System.FilePath     ( (</>) )
+import System.FilePath     ( (</>), isAbsolute )
 import System.Directory    ( doesFileExist )
 
 -- | @Setup@ encapsulates the outcome of configuring a setup method to build a

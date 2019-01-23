@@ -119,6 +119,7 @@ import Distribution.ParseUtils
 import Control.Monad
 import Control.Monad.Trans (liftIO)
 import Control.Exception
+import qualified Data.Hashable as Hashable
 import Data.Maybe
 import Data.Either
 import qualified Data.Map as Map
@@ -1002,11 +1003,18 @@ readSourcePackage verbosity distDirLayout
   where
     dir = takeDirectory cabalFile
 
-readSourcePackage verbosity _distDirLayout
+readSourcePackage verbosity distDirLayout
   (ProjectPackageLocalDhallDirectory dir dhallFile) = do
-    monitorFiles [monitorFileHashed dhallFile]
     root <- askRoot
-    pkgdesc <- liftIO $ Dhall.readDhallGenericPackageDescription verbosity (root </> dhallFile)
+    let dhallPath = root </> dhallFile
+        fileMonitorDhall = monitorFileHashed dhallPath
+    monitorFiles [ fileMonitorDhall ]
+    pkgdesc <- liftIO $
+                 Dhall.readDhallGenericPackageDescription verbosity ( dhallPath )
+    let cacheDir = distProjectCacheFile distDirLayout
+        cabalFileName = ( show $ Hashable.hash dhallPath ) ++ ".cabal"
+    liftIO $
+      Dhall.writeDerivedCabalFile verbosity ( cacheDir cabalFileName ) pkgdesc
     return $ SpecificSourcePackage SourcePackage {
       packageInfoId        = packageId pkgdesc,
       packageDescription   = pkgdesc,

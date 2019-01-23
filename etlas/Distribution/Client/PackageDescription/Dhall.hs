@@ -32,7 +32,7 @@ import Lens.Micro (Lens')
 import qualified Lens.Micro.Extras as Lens
 
 import System.Directory (doesFileExist)
-import System.FilePath (takeDirectory, takeExtension, (</>))
+import System.FilePath (takeDirectory, takeExtension)
 import System.CPUTime (getCPUTime)
 import Control.Monad    (unless)
 
@@ -83,15 +83,15 @@ parseGenericPackageDescriptionFromDhall dhallFilePath content = do
          & Lens.set Dhall.sourceName dhallFilePath
   fmap fixGPDConstraints $ dhallToCabal settings content
 
+-- writeDerivedCabalFileFromDhallFile :: 
 
 writeDerivedCabalFile :: Verbosity -> FilePath
-                      -> GenericPackageDescription -> IO FilePath
-writeDerivedCabalFile verbosity dir genPkg = do
-  let path = dir </> "etlas.dhall.cabal"
+                      -> GenericPackageDescription -> IO ()
+writeDerivedCabalFile verbosity path genPkg = do
   info verbosity $ "Writing derived cabal file from dhall file: " ++ path
+  let dir = takeDirectory path
   createDirectoryIfMissingVerbose verbosity True dir
   writeGenericPackageDescription path genPkg
-  return path
 
 -- TODO: Pick Lens modules from Cabal if we need them in more places
 condLibrary' :: Lens' GenericPackageDescription (Maybe (CondTree ConfVar [Dependency] Library))

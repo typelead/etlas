@@ -51,8 +51,7 @@ readCachedDhallGenericPackageDescription :: Verbosity -> FilePath
                                          -> IO GenericPackageDescription
 readCachedDhallGenericPackageDescription verbosity dhallFilePath  = do
 
-  let cacheDir = takeDirectory dhallFilePath </> "dist" </> "cache"
-      derivedCabalFilePath = cacheDir </> getDerivedCabalFileName dhallFilePath
+  let derivedCabalFilePath = getDerivedCabalFilePath dhallFilePath
 
   exists <- doesFileExist derivedCabalFilePath
   
@@ -102,6 +101,12 @@ parseGenericPackageDescriptionFromDhall dhallFilePath content = do
          & Lens.set Dhall.rootDirectory ( takeDirectory dhallFilePath )
          & Lens.set Dhall.sourceName dhallFilePath
   fmap fixGPDConstraints $ dhallToCabal settings content
+
+getDerivedCabalFilePath :: FilePath -> FilePath 
+getDerivedCabalFilePath dhallFilePath =
+  cacheDir </> getDerivedCabalFileName dhallFilePath
+  where cacheDir = takeDirectory dhallFilePath </> "dist" </> "cache"
+  
 
 getDerivedCabalFileName :: FilePath -> FilePath
 getDerivedCabalFileName dhallFilePath = hexStr ++ ".cabal"

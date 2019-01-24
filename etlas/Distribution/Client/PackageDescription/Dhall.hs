@@ -32,18 +32,38 @@ import Lens.Micro (Lens')
 import qualified Lens.Micro.Extras as Lens
 
 import System.Directory (doesFileExist)
-import System.FilePath (takeDirectory, takeExtension)
+import System.FilePath (takeDirectory, takeExtension, (</>))
 import System.CPUTime (getCPUTime)
 import Control.Monad    (unless)
-
+import Data.Word (Word64)
+import qualified Data.Hashable as Hashable
+import Numeric (showHex)
+                
 readGenericPackageDescription :: Verbosity -> FilePath
                               -> IO GenericPackageDescription
 readGenericPackageDescription verbosity path =
   if (takeExtension path) == ".dhall" then
-    readDhallGenericPackageDescription verbosity path
+    readCachedDhallGenericPackageDescription verbosity path
   else
     Cabal.Parse.readGenericPackageDescription verbosity path
 
+readCachedDhallGenericPackageDescription :: Verbosity -> FilePath
+                                         -> IO GenericPackageDescription
+readCachedDhallGenericPackageDescription verbosity dhallFilePath  = do
+
+  let cacheDir = takeDirectory dhallFilePath </> "dist" </> "cache"
+      derivedCabalFilePath = cacheDir </> getDerivedCabalFileName dhallFilePath
+
+  exists <- doesFileExist derivedCabalFilePath
+  
+  if exists then do
+    info verbosity
+      $ "Reading package configuration from derived cabal file: "
+      ++ derivedCabalFilePath
+    readGenericPackageDescription verbosity derivedCabalFilePath
+  else
+    readDhallGenericPackageDescription verbosity dhallFilePath
+  
 readDhallGenericPackageDescription :: Verbosity -> FilePath
                                    -> IO GenericPackageDescription
 readDhallGenericPackageDescription verbosity dhallFilePath = do
@@ -83,8 +103,11 @@ parseGenericPackageDescriptionFromDhall dhallFilePath content = do
          & Lens.set Dhall.sourceName dhallFilePath
   fmap fixGPDConstraints $ dhallToCabal settings content
 
--- writeDerivedCabalFileFromDhallFile :: 
-
+getDerivedCabalFileName :: FilePath -> FilePath
+getDerivedCabalFileName dhallFilePath = hexStr ++ ".cabal"
+  where hash = Hashable.hash dhallFilePath
+        hexStr = showHex ( ( fromIntegral hash ) :: Word64 ) ""
+          
 writeDerivedCabalFile :: Verbosity -> FilePath
                       -> GenericPackageDescription -> IO ()
 writeDerivedCabalFile verbosity path genPkg = do

@@ -1008,10 +1008,10 @@ readSourcePackage verbosity _distDirLayout
     let dhallPath = root </> dhallFile
         fileMonitorDhall = monitorFileHashed dhallPath
     monitorFiles [ fileMonitorDhall ]
-    pkgdesc <- liftIO $
-                 Dhall.readDhallGenericPackageDescription verbosity ( dhallPath )
-    let cabalFilePath = Dhall.getDerivedCabalFilePath dhallPath
-    liftIO $
+    pkgdesc <-
+      liftIO $ Dhall.readDhallGenericPackageDescription verbosity ( dhallPath )
+    liftIO $ do
+      cabalFilePath <- Dhall.getDerivedCabalFilePath dhallPath
       Dhall.writeDerivedCabalFile verbosity cabalFilePath  pkgdesc
     return $ SpecificSourcePackage SourcePackage {
       packageInfoId        = packageId pkgdesc,

@@ -31,7 +31,7 @@ import qualified Lens.Micro as Lens
 import Lens.Micro (Lens')
 import qualified Lens.Micro.Extras as Lens
 
-import System.Directory (doesFileExist)
+import System.Directory (doesFileExist, canonicalizePath)
 import System.FilePath (takeDirectory, takeExtension, (</>))
 import System.CPUTime (getCPUTime)
 import Control.Monad    (unless)
@@ -51,8 +51,7 @@ readCachedDhallGenericPackageDescription :: Verbosity -> FilePath
                                          -> IO GenericPackageDescription
 readCachedDhallGenericPackageDescription verbosity dhallFilePath  = do
 
-  let derivedCabalFilePath = getDerivedCabalFilePath dhallFilePath
-
+  derivedCabalFilePath <- getDerivedCabalFilePath dhallFilePath
   exists <- doesFileExist derivedCabalFilePath
   
   if exists then do
@@ -102,16 +101,19 @@ parseGenericPackageDescriptionFromDhall dhallFilePath content = do
          & Lens.set Dhall.sourceName dhallFilePath
   fmap fixGPDConstraints $ dhallToCabal settings content
 
-getDerivedCabalFilePath :: FilePath -> FilePath 
-getDerivedCabalFilePath dhallFilePath =
-  cacheDir </> getDerivedCabalFileName dhallFilePath
+getDerivedCabalFilePath :: FilePath -> IO FilePath 
+getDerivedCabalFilePath dhallFilePath = do
+  cabalFileName <- getDerivedCabalFileName dhallFilePath
+  return $ cacheDir </> cabalFileName
   where cacheDir = takeDirectory dhallFilePath </> "dist" </> "cache"
   
 
-getDerivedCabalFileName :: FilePath -> FilePath
-getDerivedCabalFileName dhallFilePath = hexStr ++ ".cabal"
-  where hash = Hashable.hash dhallFilePath
-        hexStr = showHex ( ( fromIntegral hash ) :: Word64 ) ""
+getDerivedCabalFileName :: FilePath -> IO FilePath
+getDerivedCabalFileName dhallFilePath = do
+  canonPath <- canonicalizePath dhallFilePath
+  let hash = Hashable.hash canonPath
+      hexStr = showHex ( ( fromIntegral hash ) :: Word64 ) ""
+  return $ hexStr ++ ".cabal"
           
 writeDerivedCabalFile :: Verbosity -> FilePath
                       -> GenericPackageDescription -> IO ()

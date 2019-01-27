@@ -1,26 +1,52 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, RecordWildCards, OverloadedStrings #-}
 module Distribution.Client.PackageDescription.Dhall where
 
+import Control.Exception ( SomeException, handle, throwIO )
+import qualified Control.Monad.Trans.State.Strict as State
+
+import qualified Crypto.Hash
+
 import Data.Function ( (&) )
+import qualified Data.Hashable as Hashable
+import Data.Maybe ( fromMaybe )
+import Data.Semigroup ( (<>) )
 
 import qualified Data.Text as StrictText
 import qualified Data.Text.IO as StrictText
 
+import Data.Word ( Word64 )
+
 import qualified Dhall
-import DhallToCabal (dhallToCabal)
+import qualified Dhall.Binary as Dhall
+import qualified Dhall.Core as Dhall
+  hiding ( Type )
+import qualified Dhall.Context
+import qualified Dhall.Import as Dhall
+  hiding ( startingContext, standardVersion )
+import qualified Dhall.Import ( standardVersion )
+import qualified Dhall.Parser as Dhall
+import qualified Dhall.TypeCheck as Dhall
+
+import DhallToCabal ( dhallToCabal, genericPackageDescription  ) 
 
 import Distribution.Verbosity
 import Distribution.PackageDescription.PrettyPrint
-       (writeGenericPackageDescription)
+       ( writeGenericPackageDescription )
 #ifdef CABAL_PARSEC
 import qualified Data.ByteString.Char8 as BS.Char8
 import qualified Distribution.PackageDescription.Parsec as Cabal.Parse
-       (readGenericPackageDescription, parseGenericPackageDescriptionMaybe) 
+       ( readGenericPackageDescription
+       , parseGenericPackageDescriptionMaybe
+       ) 
 #else
 import Distribution.PackageDescription.Parse as Cabal.Parse
-       (readGenericPackageDescription , parseGenericPackageDescription, ParseResult(..))
+       ( readGenericPackageDescription
+       , parseGenericPackageDescription
+       , ParseResult(..)
+       )
 #endif
-import Distribution.Simple.Utils (die', info, createDirectoryIfMissingVerbose)
+import Distribution.Simple.Utils
+       ( info, createDirectoryIfMissingVerbose )
 import Distribution.PackageDescription
 import Distribution.Types.Dependency
 import Distribution.Types.ForeignLib
@@ -28,16 +54,21 @@ import Distribution.Types.UnqualComponentName
 import Distribution.Types.CondTree
 
 import qualified Lens.Micro as Lens
-import Lens.Micro (Lens')
+import Lens.Micro ( Lens' )
 import qualified Lens.Micro.Extras as Lens
 
-import System.Directory (doesFileExist, canonicalizePath)
-import System.FilePath (takeDirectory, takeExtension, (</>))
-import System.CPUTime (getCPUTime)
-import Control.Monad    (unless)
-import Data.Word (Word64)
-import qualified Data.Hashable as Hashable
 import Numeric (showHex)
+
+import System.CPUTime ( getCPUTime )
+import System.Directory
+       ( createDirectoryIfMissing
+       , doesFileExist
+       , canonicalizePath
+       )
+import System.FilePath
+       ( takeDirectory
+       , takeExtension
+       , (</>) )
                 
 readGenericPackageDescription :: Verbosity -> FilePath
                               -> IO GenericPackageDescription
@@ -46,40 +77,6 @@ readGenericPackageDescription verbosity path =
     readCachedDhallGenericPackageDescription verbosity path
   else
     Cabal.Parse.readGenericPackageDescription verbosity path
-
-readCachedDhallGenericPackageDescription :: Verbosity -> FilePath
-                                         -> IO GenericPackageDescription
-readCachedDhallGenericPackageDescription verbosity dhallFilePath  = do
-
-  derivedCabalFilePath <- getDerivedCabalFilePath dhallFilePath
-  exists <- doesFileExist derivedCabalFilePath
-  
-  if exists then do
-    info verbosity
-      $ "Reading package configuration from derived cabal file: "
-      ++ derivedCabalFilePath
-    readGenericPackageDescription verbosity derivedCabalFilePath
-  else
-    readDhallGenericPackageDescription verbosity dhallFilePath
-  
-readDhallGenericPackageDescription :: Verbosity -> FilePath
-                                   -> IO GenericPackageDescription
-readDhallGenericPackageDescription verbosity dhallFilePath = do
-  exists <- doesFileExist dhallFilePath
-  unless exists $
-    die' verbosity $
-      "Error Parsing: file \"" ++ dhallFilePath ++ "\" doesn't exist. Cannot continue."
-  
-  source <- StrictText.readFile dhallFilePath
-  info verbosity $ "Reading package configuration from " ++ dhallFilePath
-  start <- getCPUTime
-  gpd <- explaining $ parseGenericPackageDescriptionFromDhall dhallFilePath source
-  end   <- getCPUTime
-  let diff = (fromIntegral (end - start)) / (10^(12 :: Integer))
-  info verbosity $ "Configuration readed in " ++ show (diff :: Double) ++ " seconds"
-  return gpd
-  
-  where explaining = if verbosity >= verbose then Dhall.detailed else id
 
 parseCabalGenericPackageDescription :: String
                                     -> Maybe GenericPackageDescription
@@ -93,27 +90,115 @@ parseCabalGenericPackageDescription content =
         _             -> Nothing
 #endif
 
+readCachedDhallGenericPackageDescription :: Verbosity -> FilePath
+                                         -> IO GenericPackageDescription
+readCachedDhallGenericPackageDescription verbosity dhallFilePath  = do
+
+  let explaining = if verbosity >= verbose then Dhall.detailed else id
+
+  let readAndCacheGPD = do
+        info verbosity $ "Reading and caching package configuration from dhall file: "
+                       ++ dhallFilePath
+        explaining $ readAndCacheGenericPackageDescriptionFromDhall dhallFilePath
+
+  start <- getCPUTime
+
+  fileWithDhallHashPath <- getFileWithDhallHashFilePath dhallFilePath
+  exists <- doesFileExist fileWithDhallHashPath
+
+  gpd <-
+    if exists then do
+      hash <- StrictText.readFile fileWithDhallHashPath
+
+      info verbosity $ "Reading package configuration from dhall cache using hash: "
+        ++ ( show hash ) ++ " stored in the file: " ++ fileWithDhallHashPath
+      
+      let cacheImport = "missing sha256:" <> hash 
+
+      let handler :: SomeException -> IO GenericPackageDescription
+          handler _ = readAndCacheGPD
+
+      Control.Exception.handle handler
+        ( explaining $
+            parseGenericPackageDescriptionFromDhall dhallFilePath cacheImport )
+    else do
+      info verbosity $ "Missing file with the dhall cache: "
+                     ++ fileWithDhallHashPath   
+      readAndCacheGPD
+
+  end <- getCPUTime
+  let diff = (fromIntegral (end - start)) / (10^(12 :: Integer))
+  info verbosity $ "Configuration readed in " ++ show (diff :: Double) ++ " seconds"
+
+  return gpd
+  
 parseGenericPackageDescriptionFromDhall :: FilePath -> StrictText.Text
                                         -> IO GenericPackageDescription  
-parseGenericPackageDescriptionFromDhall dhallFilePath content = do
+parseGenericPackageDescriptionFromDhall dhallFilePath src = do
   let settings = Dhall.defaultInputSettings
          & Lens.set Dhall.rootDirectory ( takeDirectory dhallFilePath )
          & Lens.set Dhall.sourceName dhallFilePath
-  fmap fixGPDConstraints $ dhallToCabal settings content
+  fmap fixGPDConstraints $ dhallToCabal settings src
 
-getDerivedCabalFilePath :: FilePath -> IO FilePath 
-getDerivedCabalFilePath dhallFilePath = do
-  cabalFileName <- getDerivedCabalFileName dhallFilePath
-  return $ cacheDir </> cabalFileName
-  where cacheDir = takeDirectory dhallFilePath </> "dist" </> "cache"
+readAndCacheGenericPackageDescriptionFromDhall :: FilePath
+                                               -> IO GenericPackageDescription
+readAndCacheGenericPackageDescriptionFromDhall dhallFilePath = do
+  src <- StrictText.readFile dhallFilePath
+  parseAndCacheGenericPackageDescriptionFromDhall dhallFilePath src
+
+parseAndCacheGenericPackageDescriptionFromDhall :: FilePath -> StrictText.Text
+                                               -> IO GenericPackageDescription 
+parseAndCacheGenericPackageDescriptionFromDhall dhallFilePath src = do
+  let Dhall.Type {..} = genericPackageDescription
+      settings = Dhall.defaultInputSettings
+         & Lens.set Dhall.rootDirectory ( takeDirectory dhallFilePath )
+         & Lens.set Dhall.sourceName dhallFilePath
+  expr  <- Dhall.inputExprWithSettings settings src
+  let annot = ( ( Dhall.Annot expr expected )
+                :: Dhall.Expr Dhall.Src Dhall.X )
+  _ <- throws ( Dhall.typeWith Dhall.Context.empty annot )
+  let hash = Dhall.hashExpression Dhall.defaultStandardVersion expr
+  writeDhallToCache hash expr
+  writeFileWithDhallHash hash dhallFilePath 
+  return $ fixGPDConstraints ( fromMaybe
+                               ( error "Empty extracted GenericPackageDescription" )
+                               ( extract expr ) ) 
+  where throws = either Control.Exception.throwIO return 
   
+writeDhallToCache :: Crypto.Hash.Digest Crypto.Hash.SHA256
+                  -> Dhall.Expr Dhall.Src Dhall.X
+                  -> IO ()
+writeDhallToCache hash expr  = do
+  let status = Lens.set Dhall.Import.standardVersion
+                 Dhall.defaultStandardVersion (Dhall.emptyStatus ".")
+      newImportHashed =
+        Dhall.ImportHashed { Dhall.hash = Just hash
+                           , Dhall.importType = Dhall.Missing
+                           }
+      newImport =
+        Dhall.Import { Dhall.importHashed = newImportHashed
+                     , Dhall.importMode = Dhall.Code
+                     }
+  State.evalStateT (Dhall.exprToImport newImport expr) status
 
-getDerivedCabalFileName :: FilePath -> IO FilePath
-getDerivedCabalFileName dhallFilePath = do
+writeFileWithDhallHash :: Crypto.Hash.Digest Crypto.Hash.SHA256
+                       -> FilePath -> IO ()
+writeFileWithDhallHash hash dhallFilePath = do
+  path <- getFileWithDhallHashFilePath dhallFilePath
+  createDirectoryIfMissing True $ takeDirectory path
+  StrictText.writeFile path ( StrictText.pack ( show hash ) )  
+
+getFileWithDhallHashFilePath :: FilePath -> IO FilePath 
+getFileWithDhallHashFilePath dhallFilePath = do
+  let cacheDir = takeDirectory dhallFilePath </> "dist" </> "cache"
+  hashFileName <- getFileWithDhallHashFileName dhallFilePath
+  return $ cacheDir </> hashFileName
+
+getFileWithDhallHashFileName :: FilePath -> IO FilePath
+getFileWithDhallHashFileName dhallFilePath = do
   canonPath <- canonicalizePath dhallFilePath
   let hash = Hashable.hash canonPath
-      hexStr = showHex ( ( fromIntegral hash ) :: Word64 ) ""
-  return $ hexStr ++ ".cabal"
+  return $  showHex ( ( fromIntegral hash ) :: Word64 ) ""
           
 writeDerivedCabalFile :: Verbosity -> FilePath
                       -> GenericPackageDescription -> IO ()

@@ -153,6 +153,20 @@ parseAndCacheGenericPackageDescriptionFromDhall dhallFilePath src = do
                           dhallFilePath src
   cacheAndExtractGenericPackageDescriptionFromDhall hash normExpr dhallFilePath
 
+parseAndHashGenericPackageDescriptionFromDhall :: FilePath -> StrictText.Text
+                                                -> IO ( Crypto.Hash.Digest Crypto.Hash.SHA256
+                                                      , Dhall.Expr Dhall.Src Dhall.X
+                                                      ) 
+parseAndHashGenericPackageDescriptionFromDhall dhallFilePath src = do
+  let  settings = Dhall.defaultInputSettings
+         & Lens.set Dhall.rootDirectory ( takeDirectory dhallFilePath )
+         & Lens.set Dhall.sourceName dhallFilePath
+  expr  <- Dhall.inputExprWithSettings settings src
+  let normExpr = Dhall.alphaNormalize expr
+      hash = Dhall.hashExpression Dhall.defaultStandardVersion normExpr
+  return ( hash, normExpr )
+
+
 cacheAndExtractGenericPackageDescriptionFromDhall :: Crypto.Hash.Digest Crypto.Hash.SHA256
                                                   -> Dhall.Expr Dhall.Src Dhall.X
                                                   -> FilePath
@@ -174,19 +188,7 @@ extractGenericPackageDescriptionFromDhall expr = do
                                ( error "Empty extracted GenericPackageDescription" )
                                ( extract expr ) )
   where throws = either Control.Exception.throwIO return
-  
-parseAndHashGenericPackageDescriptionFromDhall :: FilePath -> StrictText.Text
-                                                -> IO ( Crypto.Hash.Digest Crypto.Hash.SHA256
-                                                      , Dhall.Expr Dhall.Src Dhall.X
-                                                      ) 
-parseAndHashGenericPackageDescriptionFromDhall dhallFilePath src = do
-  let  settings = Dhall.defaultInputSettings
-         & Lens.set Dhall.rootDirectory ( takeDirectory dhallFilePath )
-         & Lens.set Dhall.sourceName dhallFilePath
-  expr  <- Dhall.inputExprWithSettings settings src
-  let normExpr = Dhall.alphaNormalize expr
-      hash = Dhall.hashExpression Dhall.defaultStandardVersion normExpr
-  return ( hash, normExpr )
+
 
 writeDhallToCache :: Crypto.Hash.Digest Crypto.Hash.SHA256
                   -> Dhall.Expr Dhall.Src Dhall.X

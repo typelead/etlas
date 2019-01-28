@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP, RecordWildCards, OverloadedStrings #-}
 module Distribution.Client.PackageDescription.Dhall where
 
-import Control.Exception ( SomeException, handle, throwIO )
+import Control.Exception ( throwIO )
 import qualified Control.Monad.Trans.State.Strict as State
 
 import qualified Crypto.Hash
@@ -90,47 +90,42 @@ parseCabalGenericPackageDescription content =
         _             -> Nothing
 #endif
 
+measuringTime :: Verbosity -> String -> IO a -> IO a
+measuringTime verbosity msg action = do
+  start <- getCPUTime
+  x <- action
+  end <- getCPUTime
+  let diff = (fromIntegral (end - start)) / (10^(12 :: Integer))
+  info verbosity $ msg ++ show (diff :: Double) ++ " seconds"
+  return x
+  
 readCachedDhallGenericPackageDescription :: Verbosity -> FilePath
                                          -> IO GenericPackageDescription
 readCachedDhallGenericPackageDescription verbosity dhallFilePath  = do
-
-  let explaining = if verbosity >= verbose then Dhall.detailed else id
-
-  let readAndCacheGPD = do
-        info verbosity $ "Reading and caching package configuration from dhall file: "
-                       ++ dhallFilePath
-        explaining $ readAndCacheGenericPackageDescriptionFromDhall dhallFilePath
-
-  start <- getCPUTime
 
   fileWithDhallHashPath <- getFileWithDhallHashFilePath dhallFilePath
   exists <- doesFileExist fileWithDhallHashPath
 
   gpd <-
-    if exists then do
-      hash <- StrictText.readFile fileWithDhallHashPath
+    if exists then measuringTime verbosity "Configuration readed in " $ do
+      
+      expectedHash <- StrictText.readFile fileWithDhallHashPath
+      let expectedHashStr = StrictText.unpack expectedHash
 
       info verbosity $ "Reading package configuration from dhall cache using hash: "
-        ++ ( show hash ) ++ " stored in the file: " ++ fileWithDhallHashPath
+        ++ expectedHashStr ++ " stored in file: " ++ fileWithDhallHashPath
       
-      let cacheImport = "missing sha256:" <> hash 
+      let cacheImport = "missing sha256:" <> expectedHash 
+      parseGenericPackageDescriptionFromDhall dhallFilePath cacheImport
 
-      let handler :: SomeException -> IO GenericPackageDescription
-          handler _ = readAndCacheGPD
-
-      Control.Exception.handle handler
-        ( explaining $
-            parseGenericPackageDescriptionFromDhall dhallFilePath cacheImport )
     else do
-      info verbosity $ "Missing file with the dhall cache: "
-                     ++ fileWithDhallHashPath   
-      readAndCacheGPD
+      info verbosity $ "Missing file with dhall cache hash: "
+                     ++ fileWithDhallHashPath
+      readAndCacheGenericPackageDescriptionFromDhall verbosity dhallFilePath
 
-  end <- getCPUTime
-  let diff = (fromIntegral (end - start)) / (10^(12 :: Integer))
-  info verbosity $ "Configuration readed in " ++ show (diff :: Double) ++ " seconds"
+  let explaining = if verbosity >= verbose then Dhall.detailed else id
 
-  return gpd
+  explaining $ return gpd
   
 parseGenericPackageDescriptionFromDhall :: FilePath -> StrictText.Text
                                         -> IO GenericPackageDescription  
@@ -140,31 +135,59 @@ parseGenericPackageDescriptionFromDhall dhallFilePath src = do
          & Lens.set Dhall.sourceName dhallFilePath
   fmap fixGPDConstraints $ dhallToCabal settings src
 
-readAndCacheGenericPackageDescriptionFromDhall :: FilePath
+readAndCacheGenericPackageDescriptionFromDhall :: Verbosity
+                                               -> FilePath
                                                -> IO GenericPackageDescription
-readAndCacheGenericPackageDescriptionFromDhall dhallFilePath = do
-  src <- StrictText.readFile dhallFilePath
-  parseAndCacheGenericPackageDescriptionFromDhall dhallFilePath src
+readAndCacheGenericPackageDescriptionFromDhall verbosity dhallFilePath = do
+  info verbosity $ "Reading and caching package configuration from dhall file: "
+                     ++ dhallFilePath
+  measuringTime verbosity "Configuration readed in " $ do
+    src <- StrictText.readFile dhallFilePath
+    parseAndCacheGenericPackageDescriptionFromDhall dhallFilePath src
 
 parseAndCacheGenericPackageDescriptionFromDhall :: FilePath -> StrictText.Text
-                                               -> IO GenericPackageDescription 
+                                                -> IO GenericPackageDescription 
 parseAndCacheGenericPackageDescriptionFromDhall dhallFilePath src = do
   let Dhall.Type {..} = genericPackageDescription
-      settings = Dhall.defaultInputSettings
+  ( hash, normExpr ) <- parseAndHashGenericPackageDescriptionFromDhall
+                          dhallFilePath src
+  cacheAndExtractGenericPackageDescriptionFromDhall hash normExpr dhallFilePath
+
+cacheAndExtractGenericPackageDescriptionFromDhall :: Crypto.Hash.Digest Crypto.Hash.SHA256
+                                                  -> Dhall.Expr Dhall.Src Dhall.X
+                                                  -> FilePath
+                                                  -> IO GenericPackageDescription
+cacheAndExtractGenericPackageDescriptionFromDhall hash normExpr dhallFilePath = do
+  gpd <- extractGenericPackageDescriptionFromDhall normExpr
+  writeDhallToCache hash normExpr
+  writeFileWithDhallHash hash dhallFilePath 
+  return gpd
+
+extractGenericPackageDescriptionFromDhall :: Dhall.Expr Dhall.Src Dhall.X
+                                          -> IO GenericPackageDescription
+extractGenericPackageDescriptionFromDhall expr = do                                        
+  let Dhall.Type {..} = genericPackageDescription
+      annot = ( ( Dhall.Annot expr expected )
+                :: Dhall.Expr Dhall.Src Dhall.X )
+  _ <- throws ( Dhall.typeWith Dhall.Context.empty annot )
+  return $ fixGPDConstraints ( fromMaybe
+                               ( error "Empty extracted GenericPackageDescription" )
+                               ( extract expr ) )
+  where throws = either Control.Exception.throwIO return
+  
+parseAndHashGenericPackageDescriptionFromDhall :: FilePath -> StrictText.Text
+                                                -> IO ( Crypto.Hash.Digest Crypto.Hash.SHA256
+                                                      , Dhall.Expr Dhall.Src Dhall.X
+                                                      ) 
+parseAndHashGenericPackageDescriptionFromDhall dhallFilePath src = do
+  let  settings = Dhall.defaultInputSettings
          & Lens.set Dhall.rootDirectory ( takeDirectory dhallFilePath )
          & Lens.set Dhall.sourceName dhallFilePath
   expr  <- Dhall.inputExprWithSettings settings src
-  let annot = ( ( Dhall.Annot expr expected )
-                :: Dhall.Expr Dhall.Src Dhall.X )
-  _ <- throws ( Dhall.typeWith Dhall.Context.empty annot )
-  let hash = Dhall.hashExpression Dhall.defaultStandardVersion expr
-  writeDhallToCache hash expr
-  writeFileWithDhallHash hash dhallFilePath 
-  return $ fixGPDConstraints ( fromMaybe
-                               ( error "Empty extracted GenericPackageDescription" )
-                               ( extract expr ) ) 
-  where throws = either Control.Exception.throwIO return 
-  
+  let normExpr = Dhall.alphaNormalize expr
+      hash = Dhall.hashExpression Dhall.defaultStandardVersion normExpr
+  return ( hash, normExpr )
+
 writeDhallToCache :: Crypto.Hash.Digest Crypto.Hash.SHA256
                   -> Dhall.Expr Dhall.Src Dhall.X
                   -> IO ()

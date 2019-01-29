@@ -59,7 +59,7 @@ library
         Distribution.Client.CmdInstall
         Distribution.Client.CmdRepl
         Distribution.Client.CmdRun
-        -- Distribution.Client.CmdSdist
+        Distribution.Client.CmdSdist
         Distribution.Client.CmdTest
         Distribution.Client.CmdErrorMessages
         Distribution.Client.Config

@@ -151,10 +151,7 @@ readAndCache verbosity dhallFilePath = do
 
 parseAndCache :: FilePath -> StrictText.Text -> IO GenericPackageDescription 
 parseAndCache dhallFilePath src = do
-  let Dhall.Type {..} = genericPackageDescription
-
   ( hash, normExpr ) <- parseAndHash dhallFilePath src
-
   cacheAndExtract hash normExpr dhallFilePath
 
 

@@ -37,7 +37,7 @@ import Distribution.Text
 import Distribution.ReadE
     ( succeedReadE )
 import Distribution.Simple.Command
-    ( CommandUI(..), option, choiceOpt, reqArg )
+    ( CommandUI(..), option, reqArg )
 import Distribution.Simple.PreProcess
     ( knownSuffixHandlers )
 import Distribution.Simple.Setup
@@ -61,15 +61,13 @@ import qualified Codec.Compression.GZip  as GZip
 import Control.Exception
     ( throwIO )
 import Control.Monad
-    ( when, forM, forM_ )
+    ( when, forM_ )
 import Control.Monad.Trans
     ( liftIO )
 import Control.Monad.State.Lazy
     ( StateT, modify, gets, evalStateT )
 import Control.Monad.Writer.Lazy
     ( WriterT, tell, execWriterT )
-import Data.Bits
-    ( shiftL )
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Either
     ( partitionEithers )
@@ -147,11 +145,13 @@ sdistAction SdistFlags{..} targetStrings globalFlags = do
         listSources = fromFlagOrDefault False sdistListSources
         nulSeparated = fromFlagOrDefault False sdistNulSeparated
         mOutputPath = flagToMaybe sdistOutputPath
-
+        sendMetrics = toFlag False
+        
     projectRoot <- either throwIO return =<< findProjectRoot Nothing mProjectFile
     let distLayout = defaultDistDirLayout projectRoot mDistDirectory
     dir <- getCurrentDirectory
-    projectConfig <- runRebuild dir $ readProjectConfig verbosity globalConfig distLayout
+    projectConfig <-
+      runRebuild dir $ readProjectConfig verbosity globalConfig sendMetrics distLayout
     baseCtx <- establishProjectBaseContext verbosity projectConfig
     let localPkgs = localPackages baseCtx
 
@@ -221,7 +221,7 @@ packageToSdist verbosity projectRootDir format outputFile pkg = do
             write (BSL.pack . (++ [nulSep]) . intercalate [nulSep] . fmap ((prefix </>) . snd) $ files)
             when (outputFile /= "-") $
                 notice verbosity $ "Wrote source list to " ++ outputFile ++ "\n"
-       TarGzArchive -> do
+        TarGzArchive -> do
             let entriesM :: StateT (Set.Set FilePath) (WriterT [Tar.Entry] IO) ()
                 entriesM = do
                     let prefix = display (packageId pkg)

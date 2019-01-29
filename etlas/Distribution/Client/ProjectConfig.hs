@@ -1005,11 +1005,10 @@ readSourcePackage verbosity distDirLayout
 readSourcePackage verbosity _distDirLayout
   (ProjectPackageLocalDhallDirectory dir dhallFile) = do
     root <- askRoot
-    let dhallPath = dir </> dhallFile
+    let dhallPath = dhallFile
         fileMonitorDhall = monitorFileHashed $ root </> dhallPath
     monitorFiles [ fileMonitorDhall ]
-    pkgdesc <-
-      liftIO $ Dhall.readAndCacheGenericPackageDescriptionFromDhall verbosity dhallPath
+    pkgdesc <- liftIO $ Dhall.readAndCache verbosity dhallPath
     return $ SpecificSourcePackage SourcePackage {
       packageInfoId        = packageId pkgdesc,
       packageDescription   = pkgdesc,

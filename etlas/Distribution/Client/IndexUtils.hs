@@ -80,7 +80,9 @@ import Distribution.Client.Setup
 import Distribution.Simple.Command
 import qualified Distribution.Simple.Eta as Eta
 import qualified Distribution.Client.PackageDescription.Dhall as PackageDesc.Parse
-         ( readGenericPackageDescription, parseGenericPackageDescriptionFromDhall )
+         ( readGenericPackageDescription )
+import qualified Distribution.Client.PackageDescription.Dhall as PackageDescription.Dhall
+         ( parse )
 #ifdef CABAL_PARSEC
 import Distribution.PackageDescription.Parsec
          ( parseGenericPackageDescriptionMaybe, parseGenericPackageDescription, runParseResult  )
@@ -545,7 +547,7 @@ extractPkg verbosity entry blockNo = case Tar.entryContent entry of
                     Nothing -> error $ "Couldn't read etlas or cabal file "
                                      ++ show fileName
               parsed = if takeExtension fileName == ".dhall"
-                then fmap Just $ PackageDesc.Parse.parseGenericPackageDescriptionFromDhall fileName
+                then fmap Just $ PackageDescription.Dhall.parse fileName
                                $ StrictText.decodeUtf8 $ BS.toStrict content
                 else return $
 #ifdef CABAL_PARSEC
@@ -842,8 +844,8 @@ packageListFromCache verbosity mkPkg idxFile hnd Cache{..} mode patchesDir
     parsePackageDescription :: FilePath -> ByteString -> IO GenericPackageDescription
     parsePackageDescription fileName content = do
       if takeExtension fileName == ".dhall"
-        then PackageDesc.Parse.parseGenericPackageDescriptionFromDhall fileName
-                     $ StrictText.decodeUtf8 $ BS.toStrict content
+        then PackageDescription.Dhall.parse fileName
+               $ StrictText.decodeUtf8 $ BS.toStrict content
         else
 #ifdef CABAL_PARSEC
           do

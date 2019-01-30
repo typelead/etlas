@@ -401,8 +401,9 @@ setupWrapper verbosity options mgenPkg mpkg cmd flags extraArgs = do
     if needDerivedCabalFile then do
       let distDir = useDistPref options
           dir = if isAbsolute distDir then distDir else currentDir </> distDir
+          cabalFilePath = dir </> "etlas.dhall.cabal"
           genPkg = setupGenericPackage setup
-      cabalFilePath <- writeDerivedCabalFile verbosity dir genPkg
+      writeDerivedCabalFile verbosity cabalFilePath genPkg
       absCabalFilePath <- makeAbsoluteToCwd cabalFilePath
       return ["--cabal-file", absCabalFilePath]
     else return []

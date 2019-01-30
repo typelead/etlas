@@ -95,8 +95,9 @@ import Distribution.Simple.Utils
 import qualified Data.ByteString.Lazy.Char8 as BS.Char8
 #endif
 import Distribution.Client.PackageDescription.Dhall
-         ( readGenericPackageDescription, parseGenericPackageDescriptionFromDhall )
-
+         ( readGenericPackageDescription )
+import qualified Distribution.Client.PackageDescription.Dhall as PackageDescription.Dhall
+  ( parse )
 -- import Data.List ( find, nub )
 import Data.Either
          ( partitionEithers )
@@ -539,7 +540,7 @@ readPackageTarget verbosity = traverse modifyLocation
                              -> IO (Maybe GenericPackageDescription)
     parsePackageDescription' filePath content =
       if takeExtension filePath == ".dhall" 
-        then fmap Just $ parseGenericPackageDescriptionFromDhall filePath
+        then fmap Just $ PackageDescription.Dhall.parse filePath
                        $ StrictText.decodeUtf8 $ BS.toStrict content
         else return $
 #ifdef CABAL_PARSEC

@@ -844,7 +844,7 @@ generateCabalFile fileName c =
                 (Just "Extra files to be distributed with the package, such as examples or a README.")
                 True
 
-       , field  "cabal-version" (Flag $ orLaterVersion (mkVersion [1,10]))
+       , field  "cabal-version" (Flag $ mkVersion [1,12])
                 (Just "Constraint on the version of Cabal needed to build this package.")
                 False
 

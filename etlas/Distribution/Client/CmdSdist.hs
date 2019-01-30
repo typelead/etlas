@@ -33,12 +33,11 @@ import Distribution.Package
     ( Package(packageId) )
 import Distribution.PackageDescription.Configuration
     ( flattenPackageDescription )
--- import Distribution.Pretty
---     ( prettyShow )
+import Distribution.Text
 import Distribution.ReadE
     ( succeedReadE )
 import Distribution.Simple.Command
-    ( CommandUI(..), option, choiceOpt, reqArg )
+    ( CommandUI(..), option, reqArg )
 import Distribution.Simple.PreProcess
     ( knownSuffixHandlers )
 import Distribution.Simple.Setup
@@ -58,20 +57,17 @@ import Distribution.Verbosity
 
 import qualified Codec.Archive.Tar       as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
-import qualified Codec.Archive.Zip       as Zip
 import qualified Codec.Compression.GZip  as GZip
 import Control.Exception
     ( throwIO )
 import Control.Monad
-    ( when, forM, forM_ )
+    ( when, forM_ )
 import Control.Monad.Trans
     ( liftIO )
 import Control.Monad.State.Lazy
     ( StateT, modify, gets, evalStateT )
 import Control.Monad.Writer.Lazy
     ( WriterT, tell, execWriterT )
-import Data.Bits
-    ( shiftL )
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Either
     ( partitionEithers )
@@ -86,10 +82,10 @@ import System.FilePath
 
 sdistCommand :: CommandUI SdistFlags
 sdistCommand = CommandUI
-    { commandName = "new-sdist"
+    { commandName = "sdist"
     , commandSynopsis = "Generate a source distribution file (.tar.gz)."
     , commandUsage = \pname ->
-        "Usage: " ++ pname ++ " new-sdist [FLAGS] [PACKAGES]\n"
+        "Usage: " ++ pname ++ " sdist [FLAGS] [PACKAGES]\n"
     , commandDescription  = Just $ \_ ->
         "Generates tarballs of project packages suitable for upload to Hackage."
     , commandNotes = Nothing
@@ -112,16 +108,6 @@ sdistCommand = CommandUI
             "Separate the source files with NUL bytes rather than newlines."
             sdistNulSeparated (\v flags -> flags { sdistNulSeparated = v })
             trueArg
-        , option [] ["archive-format"]
-            "Choose what type of archive to create. No effect if given with '--list-only'"
-                sdistArchiveFormat (\v flags -> flags { sdistArchiveFormat = v })
-            (choiceOpt
-                [ (Flag TargzFormat, ([], ["targz"]),
-                        "Produce a '.tar.gz' format archive (default and required for uploading to hackage)")
-                , (Flag ZipFormat,   ([], ["zip"]),
-                        "Produce a '.zip' format archive")
-                ]
-            )
         , option ['o'] ["output-dir"]
             "Choose the output directory of this command. '-' sends all output to stdout"
             sdistOutputPath (\o flags -> flags { sdistOutputPath = o })
@@ -135,7 +121,6 @@ data SdistFlags = SdistFlags
     , sdistProjectFile   :: Flag FilePath
     , sdistListSources   :: Flag Bool
     , sdistNulSeparated  :: Flag Bool
-    , sdistArchiveFormat :: Flag ArchiveFormat
     , sdistOutputPath    :: Flag FilePath
     }
 
@@ -146,7 +131,6 @@ defaultSdistFlags = SdistFlags
     , sdistProjectFile   = mempty
     , sdistListSources   = toFlag False
     , sdistNulSeparated  = toFlag False
-    , sdistArchiveFormat = toFlag TargzFormat
     , sdistOutputPath    = mempty
     }
 
@@ -160,13 +144,14 @@ sdistAction SdistFlags{..} targetStrings globalFlags = do
         globalConfig = globalConfigFile globalFlags
         listSources = fromFlagOrDefault False sdistListSources
         nulSeparated = fromFlagOrDefault False sdistNulSeparated
-        archiveFormat = fromFlagOrDefault TargzFormat sdistArchiveFormat
         mOutputPath = flagToMaybe sdistOutputPath
-
+        sendMetrics = toFlag False
+        
     projectRoot <- either throwIO return =<< findProjectRoot Nothing mProjectFile
     let distLayout = defaultDistDirLayout projectRoot mDistDirectory
     dir <- getCurrentDirectory
-    projectConfig <- runRebuild dir $ readProjectConfig verbosity globalConfig distLayout
+    projectConfig <-
+      runRebuild dir $ readProjectConfig verbosity globalConfig sendMetrics distLayout
     baseCtx <- establishProjectBaseContext verbosity projectConfig
     let localPkgs = localPackages baseCtx
 
@@ -182,20 +167,19 @@ sdistAction SdistFlags{..} targetStrings globalFlags = do
         format =
             if | listSources, nulSeparated -> SourceList '\0'
                | listSources               -> SourceList '\n'
-               | otherwise                 -> Archive archiveFormat
+               | otherwise                 -> TarGzArchive
 
         ext = case format of
                 SourceList _        -> "list"
-                Archive TargzFormat -> "tar.gz"
-                Archive ZipFormat   -> "zip"
+                TarGzArchive        -> "tar.gz"
 
         outputPath pkg = case mOutputPath' of
             Just path
                 | path == "-" -> "-"
-                | otherwise   -> path </> prettyShow (packageId pkg) <.> ext
+                | otherwise   -> path </> display (packageId pkg) <.> ext
             Nothing
                 | listSources -> "-"
-                | otherwise   -> distSdistFile distLayout (packageId pkg) archiveFormat
+                | otherwise   -> distSdistFile distLayout (packageId pkg)
 
     createDirectoryIfMissing True (distSdistDirectory distLayout)
 
@@ -211,7 +195,7 @@ data IsExec = Exec | NoExec
             deriving (Show, Eq)
 
 data OutputFormat = SourceList Char
-                  | Archive ArchiveFormat
+                  | TarGzArchive
                   deriving (Show, Eq)
 
 packageToSdist :: Verbosity -> FilePath -> OutputFormat -> FilePath -> UnresolvedSourcePackage -> IO ()
@@ -237,10 +221,10 @@ packageToSdist verbosity projectRootDir format outputFile pkg = do
             write (BSL.pack . (++ [nulSep]) . intercalate [nulSep] . fmap ((prefix </>) . snd) $ files)
             when (outputFile /= "-") $
                 notice verbosity $ "Wrote source list to " ++ outputFile ++ "\n"
-        Archive TargzFormat -> do
+        TarGzArchive -> do
             let entriesM :: StateT (Set.Set FilePath) (WriterT [Tar.Entry] IO) ()
                 entriesM = do
-                    let prefix = prettyShow (packageId pkg)
+                    let prefix = display (packageId pkg)
                     modify (Set.insert prefix)
                     case Tar.toTarPath True prefix of
                         Left err -> liftIO $ die' verbosity ("Error packing sdist: " ++ err)
@@ -273,20 +257,7 @@ packageToSdist verbosity projectRootDir format outputFile pkg = do
             write . normalize . GZip.compress . Tar.write $ entries
             when (outputFile /= "-") $
                 notice verbosity $ "Wrote tarball sdist to " ++ outputFile ++ "\n"
-        Archive ZipFormat -> do
-            let prefix = prettyShow (packageId pkg)
-            entries <- forM files $ \(perm, file) -> do
-                let perm' = case perm of
-                        -- -rwxr-xr-x
-                        Exec   -> 0o010755 `shiftL` 16
-                        -- -rw-r--r--
-                        NoExec -> 0o010644 `shiftL` 16
-                contents <- BSL.readFile file
-                return $ (Zip.toEntry (prefix </> file) 0 contents) { Zip.eExternalFileAttributes = perm' }
-            let archive = foldr Zip.addEntryToArchive Zip.emptyArchive entries
-            write (Zip.fromArchive archive)
-            when (outputFile /= "-") $
-                notice verbosity $ "Wrote zip sdist to " ++ outputFile ++ "\n"
+        
     setCurrentDirectory oldPwd
 
 --

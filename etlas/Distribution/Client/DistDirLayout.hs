@@ -103,8 +103,12 @@ data DistDirLayout = DistDirLayout {
        --
        distPackageCacheFile         :: DistDirParams -> String -> FilePath,
        distPackageCacheDirectory    :: DistDirParams -> FilePath,
-       -- distSdistFile                :: PackageId -> ArchiveFormat -> FilePath,
-       -- distSdistDirectory           :: FilePath,
+
+       -- | The location for package-specific cache files (e.g. state used in
+       -- incremental rebuilds).
+       --
+       distSdistFile                :: PackageId -> FilePath,
+       distSdistDirectory           :: FilePath,
 
        distTempDirectory            :: FilePath,
        distBinDirectory             :: FilePath,
@@ -212,13 +216,9 @@ defaultDistDirLayout projectRoot mdistDirectory =
     distPackageCacheDirectory params = distBuildDirectory params </> "cache"
     distPackageCacheFile params name = distPackageCacheDirectory params </> name
 
-    -- distSdistFile pid format = distSdistDirectory </> prettyShow pid <.> ext
-    --     where
-    --       ext = case format of
-    --         TargzFormat -> "tar.gz"
-    --         ZipFormat -> "zip"
+    distSdistFile pid = distSdistDirectory </> display pid <.> "tar.gz"
 
-    -- distSdistDirectory = distDirectory </> "sdist"
+    distSdistDirectory = distDirectory </> "sdist"
 
     distTempDirectory = distDirectory </> "tmp"
 

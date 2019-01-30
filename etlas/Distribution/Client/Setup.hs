@@ -2123,6 +2123,9 @@ defaultSDistExFlags = SDistExFlags {
 
 sdistCommand :: CommandUI (SDistFlags, SDistExFlags)
 sdistCommand = Cabal.sdistCommand {
+    commandName = "old-sdist",
+    commandUsage        = \pname ->
+      "Usage: " ++ pname ++ " old-sdist [FLAGS]\n",
     commandDefaultFlags = (commandDefaultFlags Cabal.sdistCommand, defaultSDistExFlags),
     commandOptions      = \showOrParseArgs ->
          liftOptions fst setFst (commandOptions Cabal.sdistCommand showOrParseArgs)

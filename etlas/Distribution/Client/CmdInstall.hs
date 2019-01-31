@@ -31,8 +31,7 @@ import Distribution.Client.Setup
 import Distribution.Solver.Types.ConstraintSource
          ( ConstraintSource(..) )
 import Distribution.Client.Types
-         ( PackageSpecifier(..), PackageLocation(..), UnresolvedSourcePackage
-         , SourcePackageDb(..) )
+         ( PackageSpecifier(..), PackageLocation(..), UnresolvedSourcePackage )
 import qualified Distribution.Client.InstallPlan as InstallPlan
 import Distribution.Package
          ( Package(..), PackageName, mkPackageName )
@@ -92,6 +91,7 @@ import Distribution.Simple.GHC
          , GhcImplInfo(..), getImplInfo
          , GhcEnvironmentFileEntry(..)
          , renderGhcEnvironmentFile, readGhcEnvironmentFile, ParseErrorExc )
+import Distribution.Simple.Utils ( info )
 import Distribution.Types.UnitId
          ( UnitId )
 import Distribution.Types.UnqualComponentName
@@ -233,6 +233,7 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
   -- We never try to build tests/benchmarks for remote packages.
   -- So we set them as disabled by default and error if they are explicitly
   -- enabled.
+  info verbosity $ "installAction: targetStrings" ++ show targetStrings
   when (configTests configFlags' == Flag True) $
     die' verbosity $ "--enable-tests was specified, but tests can't "
                   ++ "be enabled in a remote package"
@@ -265,13 +266,13 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
             | otherwise ->
               NamedPackage pkgName [PackagePropertyVersion (thisVersion pkgVersion)]
         packageTargets = flip TargetPackageNamed Nothing . pkgName <$> packageIds
-
+      info verbosity $ "installAction: targetStrings'" ++ show targetStrings'
       if null targetStrings'
         then return (packageSpecifiers, packageTargets, projectConfig localBaseCtx)
         else do
           targetSelectors <- either (reportTargetSelectorProblems verbosity) return
                         =<< readTargetSelectors (localPackages localBaseCtx) Nothing targetStrings'
-
+          info verbosity $ "installAction: targetSelectors " ++ show targetSelectors
           (specs, selectors) <- withInstallPlan verbosity' localBaseCtx $ \elaboratedPlan _ -> do
             -- Split into known targets and hackage packages.
             (targets, hackageNames) <- case
@@ -310,7 +311,8 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
                     elaboratedPlan
                     Nothing
                     targetSelectors'
-
+                info verbosity $ "installAction: (targets, hackageNames) "
+                              ++ show (targets,hackageNames)
                 return (targets, hackageNames)
 
             let
@@ -321,7 +323,7 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
                 SpecificSourcePackage spkg'
                 where
                   sdistPath = distSdistFile localDistDirLayout packageInfoId
-                  spkg' = spkg { packageSource = LocalTarballPackage sdistPath }
+                  spkg' = spkg { packageSource = LocalTarballPackage sdistPath False}
               sdistize named = named
 
               local = sdistize <$> localPackages localBaseCtx
@@ -350,7 +352,7 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
 
             if null targets
               then return (hackagePkgs, hackageTargets)
-              else return ( -- local ++
+              else return ( local ++
                           hackagePkgs, targets' ++ hackageTargets)
 
           return (specs ++ packageSpecifiers, selectors ++ packageTargets, projectConfig localBaseCtx)

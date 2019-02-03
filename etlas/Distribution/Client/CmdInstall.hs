@@ -37,6 +37,10 @@ import Distribution.Package
          ( Package(..), PackageName, mkPackageName )
 import Distribution.Types.PackageId
          ( PackageIdentifier(..) )
+import Distribution.Client.TargetSelector
+         ( TargetSelectorProblem (..) )
+import Distribution.Client.ProjectConfig
+         ( BadProjectRoot(..) )
 import Distribution.Client.ProjectConfig.Types
          ( ProjectConfig(..), ProjectConfigShared(..)
          , ProjectConfigBuildOnly(..), PackageConfig(..)
@@ -107,7 +111,7 @@ import Distribution.Text
          ( simpleParse )
 
 import Control.Exception
-         ( catch )
+         ( catch, throwIO )
 import Control.Monad
          ( mapM, mapM_ )
 import qualified Data.ByteString.Lazy.Char8 as BS
@@ -267,7 +271,14 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
       if null targetStrings'
         then return (packageSpecifiers, packageTargets, projectConfig localBaseCtx)
         else do
-          targetSelectors <- either (reportTargetSelectorProblems verbosity) return
+          -- This is to trigger the install without project context cause we
+          -- don't have required packages and `establishProjectBaseContext`
+          -- doesn't throw any BadPackageLocations outside a project
+          let rethrowOrReportTargetSelectorProblems problems =
+                if (TargetSelectorNoTargetsInProject `elem` problems)
+                  then throwIO $ BadProjectRootExplicitFile ""
+                  else reportTargetSelectorProblems verbosity problems
+          targetSelectors <- either rethrowOrReportTargetSelectorProblems return
                         =<< readTargetSelectors (localPackages localBaseCtx) Nothing targetStrings'
           (specs, selectors) <- withInstallPlan verbosity' localBaseCtx $ \elaboratedPlan _ -> do
             -- Split into known targets and hackage packages.

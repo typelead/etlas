@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, RecordWildCards, OverloadedStrings, LambdaCase #-}
+{-# LANGUAGE CPP, RecordWildCards, OverloadedStrings #-}
 module Distribution.Client.PackageDescription.Dhall where
 
 import Control.Exception ( throwIO, catch, SomeException )

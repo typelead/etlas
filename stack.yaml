@@ -4,7 +4,7 @@ extra-deps:
 - ed25519-0.0.5.0
 - mintty-0.1.1
 - parsec-3.1.13.0
-- dhall-1.19.1
+- dhall-1.20.1
 - ansi-terminal-0.7.1.1
 - ansi-wl-pprint-0.6.8.2
 - cryptonite-0.24
@@ -29,7 +29,10 @@ extra-deps:
 - Diff-0.3.4
 - cborg-0.2.0.0
 - serialise-0.2.0.0
+- shell-escape-0.2.0
+- cborg-json-0.2.1.0
 - dotgen-0.4.2
+- aeson-pretty-0.8.7
 resolver: lts-6.27
 flags:
   etlas-cabal:

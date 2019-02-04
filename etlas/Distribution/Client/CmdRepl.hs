@@ -16,7 +16,8 @@ module Distribution.Client.CmdRepl (
 import Distribution.Client.ProjectOrchestration
 import Distribution.Client.CmdErrorMessages
 import Distribution.Client.RebuildMonad
-
+import Distribution.Client.TargetSelector
+         ( TargetSelectorProblem (..) )
 import Distribution.Client.ProjectConfig
 import Distribution.Client.Setup
          ( GlobalFlags, ConfigFlags(..), ConfigExFlags(..), InstallFlags )
@@ -159,7 +160,15 @@ replAction (configFlags, configExFlags, installFlags, haddockFlags)
     maybeGlobalEnvironment tmpDir = do
       catch (do baseCtx <- establishProjectBaseContext verbosity' cliConfig
                 eSelectors <- readTargetSelectors (localPackages baseCtx) (Just LibKind) targetStrings
-                either (reportTargetSelectorProblems verbosity')
+                -- This is to return a global context cause we
+                -- don't have required packages locations (only optional)
+                -- and `establishProjectBaseContext` doesn't throw
+                -- any BadPackageLocations outside a project
+                let returnGlobalOrReportTargetSelectorProblem problems =
+                      if (TargetSelectorNoTargetsInProject `elem` problems)
+                        then tryEstablishGlobal tmpDir
+                        else reportTargetSelectorProblems verbosity' problems
+                either returnGlobalOrReportTargetSelectorProblem
                        (\selectors -> return (baseCtx, selectors, verbosity'))
                        eSelectors)
             (\e@(BadPackageLocations provenance locations) -> do

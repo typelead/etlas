@@ -232,6 +232,7 @@ readUserTarget targetstr =
             = Just (Right (UserTargetLocalTarball path False))
 
             | isFile && ( takeExtension path == ".cabal" ||
+                          takeExtension path == ".etlas" ||
                           takeFileName path == "etlas.dhall" )
             = Just (Right (UserTargetLocalPkgConfigFile path))
 

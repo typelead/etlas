@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP, RecordWildCards, OverloadedStrings #-}
 module Distribution.Client.PackageDescription.Dhall where
 
-import Control.Exception ( throwIO )
+import Control.Exception ( throwIO, catch, SomeException )
 import qualified Control.Monad.Trans.State.Strict as State
 
 import qualified Crypto.Hash
@@ -109,8 +109,10 @@ readFromCache verbosity dhallFilePath  = do
   fileWithDhallHashPath <- getFileWithDhallHashFilePath dhallFilePath
   exists <- doesFileExist fileWithDhallHashPath
 
+  let timing = measuringTime verbosity "Configuration readed in "
+  
   gpd <-
-    if exists then measuringTime verbosity "Configuration readed in " $ do
+    if exists then do
       expectedHash <- StrictText.readFile fileWithDhallHashPath
 
       let expectedHashStr = StrictText.unpack expectedHash
@@ -120,7 +122,12 @@ readFromCache verbosity dhallFilePath  = do
       
       let cacheImport = "missing sha256:" <> expectedHash 
 
-      parse dhallFilePath cacheImport
+      let handler :: SomeException -> IO GenericPackageDescription
+          handler ex = do
+            info verbosity $ "Error while reading cache: " ++ show ex
+            readAndCache verbosity dhallFilePath
+      
+      catch ( timing $ parse dhallFilePath cacheImport ) handler
 
     else do
       info verbosity $ "Missing file with dhall cache hash: "
@@ -129,7 +136,7 @@ readFromCache verbosity dhallFilePath  = do
 
   let explaining = if verbosity >= verbose then Dhall.detailed else id
 
-  explaining $ return gpd
+  explaining ( return gpd )
   
 
 parse :: FilePath -> StrictText.Text -> IO GenericPackageDescription  
@@ -143,7 +150,6 @@ readAndCache :: Verbosity -> FilePath -> IO GenericPackageDescription
 readAndCache verbosity dhallFilePath = do
   info verbosity $ "Reading and caching package configuration from dhall file: "
                 ++ dhallFilePath
-
   measuringTime verbosity "Configuration readed in " $ do
     src <- StrictText.readFile dhallFilePath
     parseAndCache dhallFilePath src

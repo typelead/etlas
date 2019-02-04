@@ -23,7 +23,7 @@ import Distribution.Client.Compat.Prelude
 
 import Distribution.Client.ProjectOrchestration
 import Distribution.Client.CmdErrorMessages
--- import Distribution.Client.CmdSdist
+import Distribution.Client.CmdSdist
 
 import Distribution.Client.Setup
          ( GlobalFlags(..), ConfigFlags(..), ConfigExFlags, InstallFlags
@@ -31,12 +31,16 @@ import Distribution.Client.Setup
 import Distribution.Solver.Types.ConstraintSource
          ( ConstraintSource(..) )
 import Distribution.Client.Types
-         ( PackageSpecifier(..), UnresolvedSourcePackage )
+         ( PackageSpecifier(..), PackageLocation(..), UnresolvedSourcePackage )
 import qualified Distribution.Client.InstallPlan as InstallPlan
 import Distribution.Package
          ( Package(..), PackageName, mkPackageName )
 import Distribution.Types.PackageId
          ( PackageIdentifier(..) )
+import Distribution.Client.TargetSelector
+         ( TargetSelectorProblem (..) )
+import Distribution.Client.ProjectConfig
+         ( BadProjectRoot(..) )
 import Distribution.Client.ProjectConfig.Types
          ( ProjectConfig(..), ProjectConfigShared(..)
          , ProjectConfigBuildOnly(..), PackageConfig(..)
@@ -75,6 +79,8 @@ import Distribution.Client.InstallSymlink
 import Distribution.Simple.Setup
          ( Flag(Flag), HaddockFlags, fromFlagOrDefault, flagToMaybe, toFlag
          , trueArg, configureOptions, haddockOptions, flagToList, fromFlag )
+import Distribution.Solver.Types.SourcePackage
+         ( SourcePackage(..) )
 import Distribution.ReadE
          ( succeedReadE )
 import Distribution.Simple.Command
@@ -105,9 +111,9 @@ import Distribution.Text
          ( simpleParse )
 
 import Control.Exception
-         ( catch )
+         ( catch, throwIO )
 import Control.Monad
-         ( mapM )
+         ( mapM, mapM_ )
 import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Either
          ( partitionEithers )
@@ -244,7 +250,7 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
       -- First, we need to learn about what's available to be installed.
       localBaseCtx <- establishProjectBaseContext verbosity' cliConfig
       let
-          -- localDistDirLayout = distDirLayout localBaseCtx
+          localDistDirLayout = distDirLayout localBaseCtx
           binariesPath = fromFlag $ projectConfigBinariesDir $ projectConfigBuildOnly
                                   $ projectConfig localBaseCtx
       pkgDb <- projectConfigWithBuilderRepoContext verbosity'
@@ -262,13 +268,18 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
             | otherwise ->
               NamedPackage pkgName [PackagePropertyVersion (thisVersion pkgVersion)]
         packageTargets = flip TargetPackageNamed Nothing . pkgName <$> packageIds
-
       if null targetStrings'
         then return (packageSpecifiers, packageTargets, projectConfig localBaseCtx)
         else do
-          targetSelectors <- either (reportTargetSelectorProblems verbosity) return
+          -- This is to trigger the install without project context cause we
+          -- don't have required packages and `establishProjectBaseContext`
+          -- doesn't throw any BadPackageLocations outside a project
+          let rethrowOrReportTargetSelectorProblems problems =
+                if (TargetSelectorNoTargetsInProject `elem` problems)
+                  then throwIO $ BadProjectRootExplicitFile ""
+                  else reportTargetSelectorProblems verbosity problems
+          targetSelectors <- either rethrowOrReportTargetSelectorProblems return
                         =<< readTargetSelectors (localPackages localBaseCtx) Nothing targetStrings'
-
           (specs, selectors) <- withInstallPlan verbosity' localBaseCtx $ \elaboratedPlan _ -> do
             -- Split into known targets and hackage packages.
             (targets, hackageNames) <- case
@@ -307,20 +318,20 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
                     elaboratedPlan
                     Nothing
                     targetSelectors'
-
                 return (targets, hackageNames)
 
             let
               planMap = InstallPlan.toMap elaboratedPlan
               targetIds = Map.keys targets
 
-              -- sdistize (SpecificSourcePackage spkg@SourcePackage{..}) = SpecificSourcePackage spkg'
-              --   where
-              --     sdistPath = distSdistFile localDistDirLayout packageInfoId TargzFormat
-              --     spkg' = spkg { packageSource = LocalTarballPackage sdistPath }
-              -- sdistize named = named
+              sdistize (SpecificSourcePackage spkg@SourcePackage{..}) =
+                SpecificSourcePackage spkg'
+                where
+                  sdistPath = distSdistFile localDistDirLayout packageInfoId
+                  spkg' = spkg { packageSource = LocalTarballPackage sdistPath False}
+              sdistize named = named
 
-              -- local = sdistize <$> localPackages localBaseCtx
+              local = sdistize <$> localPackages localBaseCtx
 
               gatherTargets :: UnitId -> TargetSelector
               gatherTargets targetId = TargetPackageNamed pkgName Nothing
@@ -335,18 +346,18 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
               hackageTargets :: [TargetSelector]
               hackageTargets = flip TargetPackageNamed Nothing <$> hackageNames
 
-            -- createDirectoryIfMissing True (distSdistDirectory localDistDirLayout)
+            createDirectoryIfMissing True (distSdistDirectory localDistDirLayout)
 
-            -- unless (Map.null targets) $
-            --   mapM_
-            --     (\(SpecificSourcePackage pkg) -> packageToSdist verbosity
-            --       (distProjectRootDirectory localDistDirLayout) (Archive TargzFormat)
-            --       (distSdistFile localDistDirLayout (packageId pkg) TargzFormat) pkg
-            --     ) (localPackages localBaseCtx)
+            unless (Map.null targets) $
+              mapM_
+                (\(SpecificSourcePackage pkg) -> packageToSdist verbosity
+                  (distProjectRootDirectory localDistDirLayout) TarGzArchive
+                  (distSdistFile localDistDirLayout (packageId pkg)) pkg
+                ) (localPackages localBaseCtx)
 
             if null targets
               then return (hackagePkgs, hackageTargets)
-              else return ( -- local ++
+              else return ( local ++
                           hackagePkgs, targets' ++ hackageTargets)
 
           return (specs ++ packageSpecifiers, selectors ++ packageTargets, projectConfig localBaseCtx)

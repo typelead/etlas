@@ -52,6 +52,7 @@ library
         Distribution.Client.Check
         Distribution.Client.CmdBench
         Distribution.Client.CmdBuild
+        Distribution.Client.CmdClean            
         Distribution.Client.CmdConfigure
         Distribution.Client.CmdDeps
         Distribution.Client.CmdFreeze

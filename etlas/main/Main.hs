@@ -47,6 +47,7 @@ import Distribution.Client.Setup
          , UserConfigFlags(..), userConfigCommand
          , reportCommand
          , manpageCommand
+         , cleanCommand
          , SelectFlags(..), selectCommand
          )
 import Distribution.Simple.Setup
@@ -56,7 +57,7 @@ import Distribution.Simple.Setup
          , ReplFlags(..)
          , CopyFlags(..), copyCommand
          , RegisterFlags(..), registerCommand
-         , CleanFlags(..), cleanCommand
+         , CleanFlags(..)
          , TestFlags(..), BenchmarkFlags(..)
          , Flag(..), fromFlag, fromFlagOrDefault, flagToMaybe, toFlag
          , configAbsolutePaths
@@ -87,6 +88,7 @@ import qualified Distribution.Client.CmdRun       as CmdRun
 import qualified Distribution.Client.CmdInstall   as CmdInstall
 import qualified Distribution.Client.CmdTest      as CmdTest
 import qualified Distribution.Client.CmdBench     as CmdBench
+import qualified Distribution.Client.CmdClean     as CmdClean
 import qualified Distribution.Client.CmdSdist     as CmdSdist
 
 import Distribution.Client.Install            (install)
@@ -324,6 +326,7 @@ mainWorker args = topHandler $
       , regularCmd  CmdRun.runCommand             CmdRun.runAction
       , regularCmd  CmdTest.testCommand           CmdTest.testAction
       , regularCmd  CmdBench.benchCommand         CmdBench.benchAction
+      , regularCmd  CmdClean.cleanCommand         CmdClean.cleanAction
       , regularCmd  CmdSdist.sdistCommand         CmdSdist.sdistAction
       ]
 

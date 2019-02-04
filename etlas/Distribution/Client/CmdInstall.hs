@@ -272,8 +272,9 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
         then return (packageSpecifiers, packageTargets, projectConfig localBaseCtx)
         else do
           -- This is to trigger the install without project context cause we
-          -- don't have required packages and `establishProjectBaseContext`
-          -- doesn't throw any BadPackageLocations outside a project
+          -- don't have required packages locations (only optional)
+          -- and `establishProjectBaseContext` doesn't throw
+          -- any BadPackageLocations outside a project
           let rethrowOrReportTargetSelectorProblems problems =
                 if (TargetSelectorNoTargetsInProject `elem` problems)
                   then throwIO $ BadProjectRootExplicitFile ""

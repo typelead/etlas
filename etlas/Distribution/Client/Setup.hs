@@ -158,6 +158,7 @@ globalCommand commands = CommandUI {
           , "fetch"
           , "list"
           , "info"
+          , "select"
           , "user-config"
           , "get"
           , "init"
@@ -190,7 +191,12 @@ globalCommand commands = CommandUI {
           , "old-docs"
           , "old-test"
           , "old-install"
-          , "new-bench"
+          , "old-sdist"
+          , "old-deps"
+          , "old-clean"
+          , "old-reconfigure"
+          , "old-bench"
+          , "deps"
           ]
         maxlen    = maximum $ [length name | (name, _) <- cmdDescs]
         align str = str ++ replicate (maxlen - length str) ' '
@@ -214,29 +220,31 @@ globalCommand commands = CommandUI {
         , addCmd "info"
         , addCmd "list"
         , addCmd "fetch"
+        , addCmd "select"
         , addCmd "user-config"
         , par
         , startGroup "package"
         , addCmd "get"
         , addCmd "init"
         , par
-        , addCmd "configure"
         , addCmd "build"
-        , addCmd "docs"
-        , addCmd "deps"
-        , addCmd "clean"
-        , par
-        , addCmd "run"
+        , addCmd "configure"
         , addCmd "repl"
+        , addCmd "run"
         , addCmd "test"
         , addCmd "bench"
+        , addCmd "freeze"
+        , addCmd "docs"
+        , addCmd "exec"
+        , addCmd "install"
+        , addCmd "clean"
+        , addCmd "sdist"
         , par
         , addCmd "check"
-        , addCmd "sdist"
         , addCmd "upload"
         , addCmd "report"
         , par
-        , addCmd "freeze"
+        , addCmd "deps"
         , addCmd "gen-bounds"
         , addCmd "outdated"
         , addCmd "hscolour"
@@ -247,14 +255,18 @@ globalCommand commands = CommandUI {
         , startGroup "old-style command (deprecated)"
         , addCmd "old-build"
         , addCmd "old-configure"
-        , addCmd "old-deps"
-        , addCmd "old-docs"
         , addCmd "old-repl"
         , addCmd "old-run"
-        , addCmd "old-install"
         , addCmd "old-test"
-        -- , addCmd "new-bench"
+        , addCmd "old-bench"
         , addCmd "old-freeze"
+        , addCmd "old-docs"
+        , addCmd "old-install"
+        , addCmd "old-clean"
+        , addCmd "old-sdist"
+        , addCmd "old-deps"
+        , addCmd "old-reconfigure"
+
         ] ++ if null otherCmds then [] else par
                                            :startGroup "other"
                                            :[addCmd n | n <- otherCmds])
@@ -590,22 +602,22 @@ instance Semigroup ConfigExFlags where
 reconfigureCommand :: CommandUI (ConfigFlags, ConfigExFlags)
 reconfigureCommand
   = configureExCommand
-    { commandName         = "reconfigure"
+    { commandName         = "old-reconfigure"
     , commandSynopsis     = "Reconfigure the package if necessary."
     , commandDescription  = Just $ \pname -> wrapText $
-         "Run `configure` with the most recently used flags, or append FLAGS "
+         "Run `old-configure` with the most recently used flags, or append FLAGS "
          ++ "to the most recently used configuration. "
-         ++ "Accepts the same flags as `" ++ pname ++ " configure'. "
+         ++ "Accepts the same flags as `" ++ pname ++ " old-configure'. "
          ++ "If the package has never been configured, the default flags are "
          ++ "used."
     , commandNotes        = Just $ \pname ->
         "Examples:\n"
-        ++ "  " ++ pname ++ " reconfigure\n"
+        ++ "  " ++ pname ++ " old-reconfigure\n"
         ++ "    Configure with the most recently used flags.\n"
-        ++ "  " ++ pname ++ " reconfigure -w PATH\n"
+        ++ "  " ++ pname ++ " old-reconfigure -w PATH\n"
         ++ "    Reconfigure with the most recently used flags,\n"
         ++ "    but use the compiler at PATH.\n\n"
-    , commandUsage        = usageAlternatives "reconfigure" [ "[FLAGS]" ]
+    , commandUsage        = usageAlternatives "old-reconfigure" [ "[FLAGS]" ]
     , commandDefaultFlags = mempty
     }
 

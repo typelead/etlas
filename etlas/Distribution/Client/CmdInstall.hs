@@ -451,8 +451,8 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags, newInstal
     else return []
 
   cabalDir <- defaultCabalDir
+  mstoreDir <- sequenceA $ makeAbsolute <$> flagToMaybe (globalStoreDir globalFlags)
   let
-    mstoreDir   = flagToMaybe (globalStoreDir globalFlags)
     mlogsDir    = flagToMaybe (globalLogsDir globalFlags)
     cabalLayout = mkCabalDirLayout cabalDir mstoreDir mlogsDir
     packageDbs  = storePackageDBStack (cabalStoreDirLayout cabalLayout) compilerId

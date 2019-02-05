@@ -61,7 +61,7 @@ import qualified Distribution.Types.Dependency as P
 import Language.Haskell.Extension ( Language(..) )
 
 import Distribution.Client.Init.Types
-  ( InitFlags(..), PackageType(..), Category(..) )
+  ( InitFlags(..), PackageType(..), Category(..), ConfigFileFormat(..) )
 import Distribution.Client.Init.Licenses
   ( bsd2, bsd3, gplv2, gplv3, lgpl21, lgpl3, agplv3, apache20, mit, mpl20, isc )
 import Distribution.Client.Init.Heuristics
@@ -487,8 +487,15 @@ incVersion n = alterVersion (incVersion' n)
     incVersion' m (v:vs) = v : incVersion' (m-1) vs
 
 getConfigFileFormat :: InitFlags -> IO InitFlags
-getConfigFileFormat = undefined
-
+getConfigFileFormat flags = do
+  format <-     return (flagToMaybe $ configFileFormat flags)
+            ?>> maybePrompt flags
+                   (either CfgFileDhall `fmap`
+                      promptList "What config file format do you want to use?"
+                      [CfgFileCabal, CfgFileEtlas, CfgFileDhall]
+                      (Just CfgFileDhall) display True)
+            ?>> return (Just CfgFileDhall)
+  return $ flags { configFileFormat = maybeToFlag format }
 ---------------------------------------------------------------------------
 --  Prompting/user interaction  -------------------------------------------
 ---------------------------------------------------------------------------

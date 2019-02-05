@@ -156,9 +156,12 @@ getInstalledPackages' :: Verbosity -> [PackageDB] -> ProgramDb
                       -> IO [(PackageDB, [InstalledPackageInfo])]
 getInstalledPackages' verbosity packagedbs progdb =
   sequence
-    [ do pkgs <- HcPkg.dump (hcPkgInfo progdb) verbosity packagedb
+    [ do createDir packagedb
+         pkgs <- HcPkg.dump (hcPkgInfo progdb) verbosity packagedb
          return (packagedb, pkgs)
     | packagedb <- packagedbs ]
+  where createDir (SpecificPackageDB path) = createDirectoryIfMissing True path
+        createDir _ = return ()
 
 trimEnd :: String -> String
 trimEnd = reverse . dropWhile isSpace . reverse

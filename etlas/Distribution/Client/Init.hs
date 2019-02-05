@@ -146,6 +146,7 @@ extendFlags pkgIx sourcePkgDb =
   >=> getLanguage
   >=> getGenComments
   >=> getModulesBuildToolsAndDeps pkgIx
+  >=> getConfigFileFormat
 
 -- | Combine two actions which may return a value, preferring the first. That
 --   is, run the second action only if the first doesn't return a value.
@@ -484,6 +485,9 @@ incVersion n = alterVersion (incVersion' n)
     incVersion' 0 (v:_)  = [v+1]
     incVersion' m []     = replicate m 0 ++ [1]
     incVersion' m (v:vs) = v : incVersion' (m-1) vs
+
+getConfigFileFormat :: InitFlags -> IO InitFlags
+getConfigFileFormat = undefined
 
 ---------------------------------------------------------------------------
 --  Prompting/user interaction  -------------------------------------------

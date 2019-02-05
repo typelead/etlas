@@ -50,7 +50,7 @@ module Distribution.Client.Setup
     , userConfigCommand, UserConfigFlags(..)
     , manpageCommand
     , selectCommand, SelectFlags(..)
-
+    , cleanCommand
     , parsePackageArgs
     , liftOptions
     --TODO: stop exporting these:
@@ -91,6 +91,7 @@ import Distribution.Simple.Setup
          ( ConfigFlags(..), BuildFlags(..), ReplFlags
          , TestFlags(..), BenchmarkFlags(..)
          , SDistFlags(..), BDistFlags(..), HaddockFlags(..)
+         , CleanFlags(..)
          , readPackageDbList, showPackageDbList
          , Flag(..), toFlag, flagToMaybe, flagToList
          , BooleanFlag(..), optionVerbosity
@@ -1083,16 +1084,12 @@ upgradeCommand = configureCommand {
     commandOptions      = commandOptions installCommand
   }
 
-{-
-cleanCommand  :: CommandUI ()
-cleanCommand = makeCommand name shortDesc longDesc emptyFlags options
-  where
-    name       = "clean"
-    shortDesc  = "Removes downloaded files"
-    longDesc   = Nothing
-    emptyFlags = ()
-    options _  = []
--}
+cleanCommand :: CommandUI CleanFlags
+cleanCommand = Cabal.cleanCommand {
+    commandName = "old-clean",
+    commandUsage = \pname ->
+    "Usage: " ++ pname ++ " old-clean [FLAGS]\n"
+  }
 
 checkCommand  :: CommandUI (Flag Verbosity)
 checkCommand = CommandUI {

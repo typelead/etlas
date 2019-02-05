@@ -64,7 +64,7 @@ import Control.Monad
 depsCommand :: CommandUI (ConfigFlags, ConfigExFlags, InstallFlags, HaddockFlags)
 depsCommand = Client.installCommand {
   commandName         = "deps",
-  commandSynopsis     = "Return the list of all dependency jars and Maven dependencies for the specified targets.",
+  commandSynopsis     = "List all dependencies (jars and maven ones) of targets.",
   commandUsage        = usageAlternatives "deps"
                           [ "[TARGET] [FLAGS] [-- EXECUTABLE_FLAGS]" ],
   commandDescription  = Just $ \pname -> wrapText $

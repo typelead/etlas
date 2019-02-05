@@ -2123,7 +2123,7 @@ defaultBenchmarkFlags  = BenchmarkFlags {
 
 benchmarkCommand :: CommandUI BenchmarkFlags
 benchmarkCommand = CommandUI
-  { commandName         = "bench"
+  { commandName         = "old-bench"
   , commandSynopsis     =
       "Run all/specific benchmarks."
   , commandDescription  = Just $ \pname -> wrapText $
@@ -2138,7 +2138,7 @@ benchmarkCommand = CommandUI
       ++ " define actions to be executed before and after running"
       ++ " benchmarks.\n"
   , commandNotes        = Nothing
-  , commandUsage        = usageAlternatives "bench"
+  , commandUsage        = usageAlternatives "old-bench"
       [ "[FLAGS]"
       , "BENCHCOMPONENTS [FLAGS]"
       ]

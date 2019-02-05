@@ -286,7 +286,7 @@ mainWorker args = topHandler $
       , hiddenCmd  unpackCommand unpackAction
       , regularCmd checkCommand checkAction
       , regularCmd sdistCommand sdistAction
-      , regularCmd bdistCommand bdistAction
+      , hiddenCmd bdistCommand bdistAction
       , regularCmd uploadCommand uploadAction
       , regularCmd reportCommand reportAction
       , regularCmd runCommand runAction

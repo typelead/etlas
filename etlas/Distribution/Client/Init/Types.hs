@@ -69,9 +69,9 @@ data InitFlags =
               , sourceDirs   :: Maybe [String]
               , buildTools   :: Maybe [String]
 
-              , initVerbosity    :: Flag Verbosity
-              , overwrite        :: Flag Bool
-              , configFileFormat :: Flag ConfigFileFormat
+              , initVerbosity :: Flag Verbosity
+              , overwrite     :: Flag Bool
+              , configFile    :: Flag ConfigFile
               }
   deriving (Show, Generic)
 
@@ -86,19 +86,19 @@ instance Text PackageType where
   disp = Disp.text . show
   parse = Parse.choice $ map (fmap read . Parse.string . show) [Library, Executable] -- TODO: eradicateNoParse
 
-data ConfigFileFormat = CfgFileCabal | CfgFileEtlas | CfgFileDhall
+data ConfigFile = Cabal | Etlas | Dhall
   deriving (Show, Read, Eq)
 
-instance Text ConfigFileFormat where
+instance Text ConfigFile where
   disp = Disp.text . show
   parse = Parse.choice
           $ map (fmap read . Parse.string . show)
-              [CfgFileCabal, CfgFileEtlas, CfgFileDhall]
+              [Cabal, Etlas, Dhall]
 
-getConfigFileName :: ConfigFileFormat -> String -> String
-getConfigFileName CfgFileCabal pkgName = pkgName ++ ".cabal" 
-getConfigFileName CfgFileEtlas pkgName = pkgName ++ ".etlas" 
-getConfigFileName CfgFileDhall _ = "etlas.dhall"
+getConfigFileName :: ConfigFile -> String -> String
+getConfigFileName Cabal pkgName = pkgName ++ ".cabal" 
+getConfigFileName Etlas pkgName = pkgName ++ ".etlas" 
+getConfigFileName Dhall _ = "etlas.dhall"
 
 instance Monoid InitFlags where
   mempty = gmempty

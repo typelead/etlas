@@ -267,10 +267,10 @@ writeDerivedCabalFile verbosity path genPkg = do
   createDirectoryIfMissingVerbose verbosity True dir
   writeGenericPackageDescription path genPkg
 
-writeAndFreezeCabalToDhall :: Verbosity -> String -> FilePath -> IO ()
-writeAndFreezeCabalToDhall verbosity cabal path = do
+writeAndFreezeCabalToDhall :: Verbosity -> FilePath -> String -> IO ()
+writeAndFreezeCabalToDhall verbosity path cabal = do
   info verbosity $ "Writing dhall file: " ++ path
-  StrictText.writeFile path (  cabalToDhall cabal )
+  StrictText.writeFile path ( cabalToDhall cabal )
   info verbosity $ "Formatting dhall file: " ++ path
   Dhall.format Dhall.Unicode ( Just path )
   info verbosity $ "Freezing dhall file: " ++ path

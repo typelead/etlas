@@ -51,7 +51,7 @@ import Distribution.Version
   ( Version, mkVersion, alterVersion
   , orLaterVersion, earlierVersion, intersectVersionRanges, VersionRange )
 import Distribution.Verbosity
-  ( Verbosity )
+  ( Verbosity, verbose, silent )
 import Distribution.ModuleName
   ( ModuleName )  -- And for the Text instance
 import Distribution.InstalledPackageInfo
@@ -61,7 +61,8 @@ import qualified Distribution.Types.Dependency as P
 import Language.Haskell.Extension ( Language(..) )
 
 import Distribution.Client.Init.Types
-  ( InitFlags(..), PackageType(..), Category(..) )
+  ( InitFlags(..), PackageType(..), Category(..), ConfigFile(..),
+    getConfigFileName)
 import Distribution.Client.Init.Licenses
   ( bsd2, bsd3, gplv2, gplv3, lgpl21, lgpl3, agplv3, apache20, mit, mpl20, isc )
 import Distribution.Client.Init.Heuristics
@@ -96,7 +97,9 @@ import Distribution.Client.Types
   ( SourcePackageDb(..) )
 import Distribution.Client.Setup
   ( RepoContext(..) )
-
+import Distribution.Client.PackageDescription.Dhall
+  ( writeAndFreezeCabalToDhall )
+  
 initCabal :: Verbosity
           -> PackageDBStack
           -> RepoContext
@@ -121,7 +124,7 @@ initCabal verbosity packageDBs repoCtxt binariesPath comp progdb initFlags = do
   writeChangeLog initFlags'
   createSourceDirectories initFlags'
   createMainHs initFlags'
-  success <- writeEtlasFile initFlags'
+  success <- writeConfigFile initFlags'
 
   when success $ generateWarnings initFlags'
 
@@ -146,6 +149,7 @@ extendFlags pkgIx sourcePkgDb =
   >=> getLanguage
   >=> getGenComments
   >=> getModulesBuildToolsAndDeps pkgIx
+  >=> getConfigFile
 
 -- | Combine two actions which may return a value, preferring the first. That
 --   is, run the second action only if the first doesn't return a value.
@@ -485,6 +489,16 @@ incVersion n = alterVersion (incVersion' n)
     incVersion' m []     = replicate m 0 ++ [1]
     incVersion' m (v:vs) = v : incVersion' (m-1) vs
 
+getConfigFile :: InitFlags -> IO InitFlags
+getConfigFile flags = do
+  cfgFile <-    return (flagToMaybe $ configFile flags)
+            ?>> maybePrompt flags
+                   (either (const Dhall) id  `fmap`
+                      promptList "What config file type do you want to use?"
+                      [Cabal, Etlas, Dhall]
+                      (Just Dhall) display True)
+            ?>> return (Just Dhall)
+  return $ flags { configFile = maybeToFlag cfgFile }
 ---------------------------------------------------------------------------
 --  Prompting/user interaction  -------------------------------------------
 ---------------------------------------------------------------------------
@@ -683,21 +697,23 @@ writeChangeLog flags = when (any (== defaultChangeLog) $ maybe [] id (extraSrc f
   pname = maybe "" display $ flagToMaybe $ packageName flags
   pver = maybe "" display $ flagToMaybe $ version flags
 
-
---writeCabalFile :: InitFlags -> IO Bool
---writeCabalFile =  writeConfigFile ".cabal"
-
-writeEtlasFile :: InitFlags -> IO Bool
-writeEtlasFile =  writeConfigFile ".etlas"
-
-writeConfigFile :: String -> InitFlags -> IO Bool
-writeConfigFile _ flags@(InitFlags{packageName = NoFlag}) = do
+writeConfigFile :: InitFlags -> IO Bool
+writeConfigFile flags@(InitFlags{packageName = NoFlag}) = do
   message flags "Error: no package name provided."
   return False
-writeConfigFile ext flags@(InitFlags{packageName = Flag p}) = do
-  let cabalFileName = display p ++ ext
-  message flags $ "Generating " ++ cabalFileName ++ "..."
-  writeFileSafe flags cabalFileName (generateCabalFile cabalFileName flags)
+writeConfigFile flags@(InitFlags{configFile = NoFlag}) = do
+  message flags "Error: no config file type provided."
+  return False
+writeConfigFile flags@(InitFlags{packageName = Flag p, configFile = Flag cfgFile}) = do
+  let configFileName = getConfigFileName cfgFile $ display p
+  message flags $ "Generating " ++ configFileName ++ "..."
+  let cabalStr = generateCabalFile configFileName flags
+  message flags $ "Writing " ++ configFileName ++ "..."
+  moveExistingFile flags configFileName
+  let verb = if minimal flags == Flag True then silent else verbose 
+  case cfgFile of
+    Dhall -> writeAndFreezeCabalToDhall verb configFileName cabalStr
+    _ -> writeFile configFileName cabalStr
   return True
 
 -- | Write a file \"safely\", backing up any existing version (unless

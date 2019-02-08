@@ -26,9 +26,13 @@ import qualified Dhall.Import as Dhall
 import qualified Dhall.Import ( standardVersion )
 import qualified Dhall.Parser as Dhall
 import qualified Dhall.TypeCheck as Dhall
+import qualified Dhall.Format as Dhall
+import qualified Dhall.Freeze as Dhall
+import qualified Dhall.Pretty  as Dhall ( CharacterSet(..) )
 
 import DhallToCabal ( genericPackageDescription  ) 
-
+import qualified CabalToDhall as Dhall ( cabalToDhall )
+import DhallLocation ( dhallFromGitHub )
 import Distribution.Verbosity
 import Distribution.PackageDescription.PrettyPrint
        ( writeGenericPackageDescription )
@@ -262,6 +266,22 @@ writeDerivedCabalFile verbosity path genPkg = do
 
   createDirectoryIfMissingVerbose verbosity True dir
   writeGenericPackageDescription path genPkg
+
+writeAndFreezeCabalToDhall :: Verbosity -> FilePath -> String -> IO ()
+writeAndFreezeCabalToDhall verbosity path cabal = do
+  info verbosity $ "Writing dhall file: " ++ path
+  StrictText.writeFile path ( cabalToDhall cabal )
+  info verbosity $ "Formatting dhall file..."
+  Dhall.format Dhall.Unicode ( Just path )
+  info verbosity $ "Freezing dhall file..."
+  Dhall.freeze ( Just path ) Dhall.defaultStandardVersion 
+  
+cabalToDhall :: String -> Dhall.Text
+cabalToDhall cabal = Dhall.pretty dhallExpr
+  where gpd = fromMaybe
+                ( error "Unable to parse cabal content" ) 
+                ( parseCabalGenericPackageDescription cabal )
+        dhallExpr = Dhall.cabalToDhall dhallFromGitHub  gpd
 
 
 -- TODO: Pick Lens modules from Cabal if we need them in more places

@@ -2107,6 +2107,14 @@ initCommand = CommandUI {
         (reqArg' "TOOL" (Just . (:[]))
                         (fromMaybe []))
 
+      , option [] ["config-file-type"]
+        "Specify the default config file type (Cabal, Etlas or Dhall)."
+        IT.configFile
+        (\v flags -> flags { IT.configFile = v })
+        (reqArg "FILE" (readP_to_E ("Cannot parse config file type: "++)
+                                       (toFlag `fmap` parse))
+                          (flagToList . fmap display))
+      
       , optionVerbosity IT.initVerbosity (\v flags -> flags { IT.initVerbosity = v })
       ]
   }

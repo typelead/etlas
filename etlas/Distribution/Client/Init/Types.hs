@@ -71,6 +71,7 @@ data InitFlags =
 
               , initVerbosity :: Flag Verbosity
               , overwrite     :: Flag Bool
+              , configFile    :: Flag ConfigFile
               }
   deriving (Show, Generic)
 
@@ -84,6 +85,20 @@ data PackageType = Library | Executable
 instance Text PackageType where
   disp = Disp.text . show
   parse = Parse.choice $ map (fmap read . Parse.string . show) [Library, Executable] -- TODO: eradicateNoParse
+
+data ConfigFile = Cabal | Etlas | Dhall
+  deriving (Show, Read, Eq)
+
+instance Text ConfigFile where
+  disp = Disp.text . show
+  parse = Parse.choice
+          $ map (fmap read . Parse.string . show)
+              [Cabal, Etlas, Dhall]
+
+getConfigFileName :: ConfigFile -> String -> String
+getConfigFileName Cabal pkgName = pkgName ++ ".cabal" 
+getConfigFileName Etlas pkgName = pkgName ++ ".etlas" 
+getConfigFileName Dhall _ = "etlas.dhall"
 
 instance Monoid InitFlags where
   mempty = gmempty

@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
-
+{-# LANGUAGE FlexibleInstances #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Distribution.Version
@@ -1051,6 +1051,41 @@ instance Text VersionRange where
                      (">=", orLaterVersion),
                      ("^>=", MajorBoundVersion),
                      ("==", ThisVersion) ]
+
+
+instance Text (LowerBound, UpperBound) where
+  disp (low, up) = dispLow low <<>> Disp.comma <<>> dispUp up
+    where dispLow (LowerBound v ExclusiveBound) = Disp.lbrack <<>> disp v
+          dispLow (LowerBound v InclusiveBound) = Disp.lparen <<>> disp v
+
+          dispUp NoUpperBound = Disp.rparen
+          dispUp (UpperBound v ExclusiveBound) = disp v <<>> Disp.rbrack 
+          dispUp (UpperBound v InclusiveBound) = disp v <<>> Disp.rparen
+          
+  parse = expr
+    where expr = do
+            l <- lower
+            _ <- Parse.char ','
+            u <- upper
+            return (l,u)
+
+          lower = Parse.choice $ [lowerIn, lowerEx]
+            where lowerIn = do
+                    _ <- Parse.char '['
+                    v <- parseVersion
+                    return ( LowerBound v InclusiveBound )
+                  lowerEx = do
+                    _ <- Parse.char '('
+                    v <- parseVersion
+                    return ( LowerBound v ExclusiveBound )
+
+          upper = Parse.choice $ [upperIn, upperEx, noBound]
+             where upperIn = undefined
+                   upperEx = undefined
+                   noBound = undefined
+
+          parseVersion = ( parse :: ReadP r Version ) 
+          
 
 -- | Does the version range have an upper bound?
 --

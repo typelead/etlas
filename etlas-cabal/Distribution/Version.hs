@@ -1018,10 +1018,18 @@ instance Text VersionRange where
         factor = Parse.choice $ parens expr
                               : parseAnyVersion
                               : parseNoVersion
+                              : parseVersionInterval
                               : parseWildcardRange
                               : map parseRangeOp rangeOps
         parseAnyVersion    = Parse.string "-any" >> return AnyVersion
         parseNoVersion     = Parse.string "-none" >> return noVersion
+        parseVersionInterval = do
+          _ <- Parse.string "-i"
+          Parse.skipSpaces
+          vis <- ( parse :: ReadP r VersionInterval )
+          return $ fromVersionIntervals
+                 $ fromMaybe (error "Bad version interval")
+                 $ mkVersionIntervals [vis]
 
         parseWildcardRange = do
           _ <- Parse.string "=="
@@ -1055,34 +1063,49 @@ instance Text VersionRange where
 
 instance Text (LowerBound, UpperBound) where
   disp (low, up) = dispLow low <<>> Disp.comma <<>> dispUp up
-    where dispLow (LowerBound v ExclusiveBound) = Disp.lbrack <<>> disp v
-          dispLow (LowerBound v InclusiveBound) = Disp.lparen <<>> disp v
+    where dispLow (LowerBound v InclusiveBound) = Disp.lbrack <<>> disp v
+          dispLow (LowerBound v ExclusiveBound) = Disp.lparen <<>> disp v
 
           dispUp NoUpperBound = Disp.rparen
-          dispUp (UpperBound v ExclusiveBound) = disp v <<>> Disp.rbrack 
-          dispUp (UpperBound v InclusiveBound) = disp v <<>> Disp.rparen
+          dispUp (UpperBound v InclusiveBound) = disp v <<>> Disp.rbrack 
+          dispUp (UpperBound v ExclusiveBound) = disp v <<>> Disp.rparen
           
   parse = expr
     where expr = do
+            Parse.skipSpaces
             l <- lower
+            Parse.skipSpaces
             _ <- Parse.char ','
+            Parse.skipSpaces
             u <- upper
             return (l,u)
 
           lower = Parse.choice $ [lowerIn, lowerEx]
             where lowerIn = do
                     _ <- Parse.char '['
+                    Parse.skipSpaces
                     v <- parseVersion
                     return ( LowerBound v InclusiveBound )
                   lowerEx = do
                     _ <- Parse.char '('
+                    Parse.skipSpaces
                     v <- parseVersion
                     return ( LowerBound v ExclusiveBound )
 
-          upper = Parse.choice $ [upperIn, upperEx, noBound]
-             where upperIn = undefined
-                   upperEx = undefined
-                   noBound = undefined
+          upper = Parse.choice $ [upperEx, upperIn, noBound]
+             where upperIn = do
+                     v <- parseVersion
+                     Parse.skipSpaces
+                     _ <- Parse.char ']'
+                     return ( UpperBound v InclusiveBound )
+                   upperEx = do
+                     v <- parseVersion
+                     Parse.skipSpaces
+                     _ <- Parse.char ')'
+                     return ( UpperBound v ExclusiveBound )
+                   noBound = do
+                     _ <- Parse.char ')'
+                     return NoUpperBound
 
           parseVersion = ( parse :: ReadP r Version ) 
           

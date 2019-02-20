@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Distribution.Parsec.Class (
     Parsec(..),
     -- * Warnings
@@ -65,7 +66,9 @@ import           Distribution.Version
                  (Version, VersionRange (..), anyVersion, earlierVersion,
                  intersectVersionRanges, laterVersion, majorBoundVersion,
                  mkVersion, noVersion, orEarlierVersion, orLaterVersion,
-                 thisVersion, unionVersionRanges, withinVersion)
+                 thisVersion, unionVersionRanges, withinVersion,
+                 LowerBound (..), UpperBound(..), mkVersionIntervals,
+                 fromVersionIntervals)
 import           Language.Haskell.Extension
                  (Extension, Language, classifyExtension, classifyLanguage)
 
@@ -230,6 +233,11 @@ instance Parsec VersionRange where
                      (">=", orLaterVersion),
                      ("^>=", majorBoundVersion),
                      ("==", thisVersion) ]
+
+instance Parsec (LowerBound, UpperBound) where
+    parsec = expr
+      where
+        expr = undefined
 
 instance Parsec LibVersionInfo where
     parsec = do

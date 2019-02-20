@@ -1023,13 +1023,11 @@ instance Text VersionRange where
                               : map parseRangeOp rangeOps
         parseAnyVersion    = Parse.string "-any" >> return AnyVersion
         parseNoVersion     = Parse.string "-none" >> return noVersion
+
         parseVersionInterval = do
-          _ <- Parse.string "-i"
           Parse.skipSpaces
-          vis <- ( parse :: ReadP r VersionInterval )
-          return $ fromVersionIntervals
-                 $ fromMaybe (error "Bad version interval")
-                 $ mkVersionIntervals [vis]
+          vis <- ( parse :: ReadP r VersionIntervals )
+          return $ fromVersionIntervals vis
 
         parseWildcardRange = do
           _ <- Parse.string "=="
@@ -1059,6 +1057,16 @@ instance Text VersionRange where
                      (">=", orLaterVersion),
                      ("^>=", MajorBoundVersion),
                      ("==", ThisVersion) ]
+
+
+instance Text VersionIntervals where
+  disp = Disp.hsep . map disp . versionIntervals
+
+  parse = do
+    vis <- Parse.many1 $ do vi <- (parse :: ReadP r VersionInterval)
+                            Parse.skipSpaces
+                            return vi
+    maybe pfail return $ mkVersionIntervals vis
 
 
 instance Text (LowerBound, UpperBound) where

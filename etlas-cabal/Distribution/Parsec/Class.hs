@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Distribution.Parsec.Class (
     Parsec(..),
     -- * Warnings
@@ -65,7 +66,9 @@ import           Distribution.Version
                  (Version, VersionRange (..), anyVersion, earlierVersion,
                  intersectVersionRanges, laterVersion, majorBoundVersion,
                  mkVersion, noVersion, orEarlierVersion, orLaterVersion,
-                 thisVersion, unionVersionRanges, withinVersion)
+                 thisVersion, unionVersionRanges, withinVersion,
+                 VersionIntervals, LowerBound (..), UpperBound(..),
+                 Bound(..), mkVersionIntervals, fromVersionIntervals)
 import           Language.Haskell.Extension
                  (Extension, Language, classifyExtension, classifyLanguage)
 
@@ -203,10 +206,17 @@ instance Parsec VersionRange where
             $ parens expr
             : parseAnyVersion
             : parseNoVersion
+            : parseVersionInterval
             : parseWildcardRange
             : map parseRangeOp rangeOps
+
         parseAnyVersion    = P.string "-any" >> return anyVersion
         parseNoVersion     = P.string "-none" >> return noVersion
+
+        parseVersionInterval = do
+          P.spaces
+          vis <- parsec
+          return $ fromVersionIntervals vis
 
         parseWildcardRange = P.try $ do
           _ <- P.string "=="
@@ -230,6 +240,57 @@ instance Parsec VersionRange where
                      (">=", orLaterVersion),
                      ("^>=", majorBoundVersion),
                      ("==", thisVersion) ]
+
+
+instance Parsec VersionIntervals where
+    parsec = do
+      vis <- Parsec.many1 $ do vi <- parsec
+                               P.spaces
+                               return vi
+      maybe
+        ( Parsec.unexpected
+          ( "Bad version intervals: " ++ show vis ) ) 
+        return
+        ( mkVersionIntervals vis )
+
+instance Parsec (LowerBound, UpperBound) where
+    parsec = expr
+      where expr = do
+              P.spaces
+              l <- lower
+              P.spaces
+              _ <- P.char ','
+              P.spaces
+              u <- upper
+              return (l,u)
+
+            lower = P.choice $ [lowerIn, lowerEx]
+              where lowerIn = do
+                      _ <- P.char '['
+                      P.spaces
+                      v <- parsec
+                      return ( LowerBound v InclusiveBound )
+                    lowerEx = do
+                      _ <- P.char '('
+                      P.spaces
+                      v <- parsec
+                      return ( LowerBound v ExclusiveBound )
+
+            upper = P.choice $ [upperEx, upperIn, noBound]
+              where upperIn = do
+                      v <- parsec
+                      P.spaces
+                      _ <- P.char ']'
+                      return ( UpperBound v InclusiveBound )
+                    upperEx = do
+                      v <- parsec
+                      P.spaces
+                      _ <- P.char ')'
+                      return ( UpperBound v ExclusiveBound )
+                    noBound = do
+                      _ <- P.char ')'
+                      return NoUpperBound
+                
 
 instance Parsec LibVersionInfo where
     parsec = do

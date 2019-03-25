@@ -484,7 +484,8 @@ generateExeLauncherJar verbosity lbi exeName classPaths targetDir = do
                                 | otherwise      = path
         (_, dirEnvVarRef) = dirEnvVarAndRef $ isWindows lbi
         replaceEnvVar = replacePrefix dirEnvVarRef "."
-        classPaths' = map (addStartingPathSep . replaceEnvVar) classPaths
+        uriEncodeSpaces = foldl' (\acc c -> acc ++ if c == ' ' then "%20" else [c]) ""
+        classPaths' = map (uriEncodeSpaces . addStartingPathSep . replaceEnvVar) classPaths
         targetManifest = targetDir </> "MANIFEST.MF"
         launcherJar = targetDir </> (exeName ++ ".launcher.jar")
 

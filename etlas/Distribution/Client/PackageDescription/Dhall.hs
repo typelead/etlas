@@ -272,9 +272,9 @@ writeAndFreezeCabalToDhall verbosity path cabal = do
   info verbosity $ "Writing dhall file: " ++ path
   StrictText.writeFile path ( cabalToDhall cabal )
   info verbosity $ "Formatting dhall file..."
-  Dhall.format Dhall.Unicode ( Just path )
+  Dhall.format (Dhall.Format Dhall.Unicode ( Dhall.Modify ( Just path ) ))
   info verbosity $ "Freezing dhall file..."
-  Dhall.freeze ( Just path ) Dhall.defaultStandardVersion 
+  Dhall.freeze ( Just path ) True Dhall.Unicode Dhall.defaultStandardVersion 
   
 cabalToDhall :: String -> Dhall.Text
 cabalToDhall cabal = Dhall.pretty dhallExpr

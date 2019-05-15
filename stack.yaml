@@ -3,8 +3,8 @@ extra-deps:
 - echo-0.1.3
 - ed25519-0.0.5.0
 - mintty-0.1.1
-- parsec-3.1.13.0
-- dhall-1.20.1
+# dhall-to-etlas
+- dhall-1.23.0
 - ansi-terminal-0.7.1.1
 - ansi-wl-pprint-0.6.8.2
 - cryptonite-0.24
@@ -12,7 +12,7 @@ extra-deps:
 - megaparsec-7.0.4
 - parser-combinators-1.0.0
 - optparse-generic-1.3.0
-- optparse-applicative-0.14.0.0
+- optparse-applicative-0.14.3.0
 - Only-0.1
 - memory-0.14.14
 - basement-0.0.6
@@ -21,18 +21,19 @@ extra-deps:
 - directory-1.2.7.1
 - foundation-0.0.19
 - process-1.2.3.0
-- repline-0.2.0.0
+- repline-0.2.1.0
 - haskeline-0.7.4.2
 - aeson-1.2.3.0
 - th-abstraction-0.2.6.0
-- hashable-1.2.7.0
-- Diff-0.3.4
-- cborg-0.2.0.0
-- serialise-0.2.0.0
+- cborg-0.2.1.0
+- serialise-0.2.1.0
 - shell-escape-0.2.0
 - cborg-json-0.2.1.0
 - dotgen-0.4.2
 - aeson-pretty-0.8.7
+- transformers-compat-0.6.4
+- exceptions-0.10.1
+- parsec-3.1.13.0
 resolver: lts-6.27
 flags:
   etlas-cabal:
@@ -41,6 +42,8 @@ flags:
     parsec: true
   mintty:
     win32-2-5: false
+  transformers-compat:
+    four: true
 packages:
 - etlas-cabal/
 - dhall-to-etlas/

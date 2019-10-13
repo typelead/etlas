@@ -186,7 +186,7 @@ installCommand = CommandUI
         -- hide "constraint", "dependency", and
         -- "exact-configuration" from the configure options.
         (filter ((`notElem` ["constraint", "dependency"
-                            , "exact-configuration"])
+                            , "exact-configuration", "builddir"])
                  . optionName) $ configureOptions showOrParseArgs)
      ++ liftOptions get2 set2 (configureExOptions showOrParseArgs ConstraintSourceCommandlineFlag)
      ++ liftOptions get3 set3

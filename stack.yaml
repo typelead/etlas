@@ -4,7 +4,7 @@ extra-deps:
 - ed25519-0.0.5.0
 - mintty-0.1.1
 # dhall-to-etlas
-- dhall-1.25.0
+- dhall-1.26.1
 - ansi-terminal-0.7.1.1
 - either-5
 - ansi-wl-pprint-0.6.8.2
@@ -45,6 +45,7 @@ extra-deps:
 - text-1.2.3.1
 - th-lift-instances-0.1.13
 - th-lift-0.8.0.1
+- data-fix-0.2.0
 resolver: lts-6.27
 flags:
   etlas-cabal:

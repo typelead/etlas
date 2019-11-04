@@ -22,14 +22,13 @@ import qualified Dhall.Core as Dhall
   hiding ( Type )
 import qualified Dhall.Context
 import qualified Dhall.Import as Dhall
-  hiding ( startingContext, standardVersion )
-import qualified Dhall.Import ( standardVersion )
+  hiding ( startingContext )
 import qualified Dhall.Parser as Dhall
 import qualified Dhall.TypeCheck as Dhall
 import qualified Dhall.Format as Dhall
 import qualified Dhall.Freeze as Dhall
-import qualified Dhall.Pretty  as Dhall ( CharacterSet(..) )
-
+import qualified Dhall.Pretty as Dhall ( CharacterSet(..) )
+import qualified Dhall.Util as Dhall  ( Censor(..) )
 import DhallToCabal ( genericPackageDescription  ) 
 import qualified CabalToDhall as Dhall ( cabalToDhall )
 import DhallLocation ( dhallFromGitHub )
@@ -177,7 +176,7 @@ parseAndHash dhallFilePath src = do
   expr  <- Dhall.inputExprWithSettings settings src
 
   let normExpr = Dhall.alphaNormalize expr
-      hash = Dhall.hashExpression Dhall.defaultStandardVersion normExpr
+      hash = Dhall.hashExpression normExpr
 
   return ( hash, normExpr )
 
@@ -274,7 +273,7 @@ writeAndFreezeCabalToDhall verbosity path cabal = do
   info verbosity $ "Formatting dhall file..."
   Dhall.format (Dhall.Format Dhall.Unicode ( Dhall.Modify ( Just path ) ))
   info verbosity $ "Freezing dhall file..."
-  Dhall.freeze ( Just path ) True Dhall.Unicode Dhall.defaultStandardVersion 
+  Dhall.freeze ( Dhall.File path ) Dhall.AllImports Dhall.Secure Dhall.Unicode Dhall.NoCensor 
   
 cabalToDhall :: String -> Dhall.Text
 cabalToDhall cabal = Dhall.pretty dhallExpr

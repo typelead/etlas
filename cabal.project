@@ -1,0 +1,3 @@
+packages: ./etlas-cabal/ ./dhall-to-etlas/ ./etlas/ ./hackage-security/hackage-security
+
+with-compiler: ghc-7.10.3

@@ -9,7 +9,8 @@ jobs:
       - checkout
       - run: mkdir -p ~/.local/bin
       - run: git submodule sync
-      - run: git submodule update --init --recursive
+      - run: git submodule update --init --recursive --remote dhall-to-etlas
+      - run: git submodule update --init --recursive hackage-security
       - run: grep '^resolver:' stack.yaml > resolver.txt
 
       - restore_cache:

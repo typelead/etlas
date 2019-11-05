@@ -2,10 +2,8 @@
 module Distribution.Client.PackageDescription.Dhall where
 
 import Control.Exception ( throwIO, catch, SomeException )
-import qualified Control.Monad.Trans.State.Strict as State
 
-import qualified Crypto.Hash
-
+import Data.Either.Validation ( Validation(..) )
 import Data.Function ( (&) )
 import qualified Data.Hashable as Hashable
 import Data.Maybe ( fromMaybe )
@@ -17,19 +15,18 @@ import qualified Data.Text.IO as StrictText
 import Data.Word ( Word64 )
 
 import qualified Dhall
-import qualified Dhall.Binary as Dhall
 import qualified Dhall.Core as Dhall
-  hiding ( Type )
+  hiding ( Type, File )
+import qualified Dhall.Crypto
 import qualified Dhall.Context
 import qualified Dhall.Import as Dhall
-  hiding ( startingContext, standardVersion )
-import qualified Dhall.Import ( standardVersion )
+  hiding ( startingContext )
 import qualified Dhall.Parser as Dhall
 import qualified Dhall.TypeCheck as Dhall
 import qualified Dhall.Format as Dhall
 import qualified Dhall.Freeze as Dhall
-import qualified Dhall.Pretty  as Dhall ( CharacterSet(..) )
-
+import qualified Dhall.Pretty as Dhall ( CharacterSet(..) )
+import qualified Dhall.Util as Dhall  ( Censor(..), Input(..) )
 import DhallToCabal ( genericPackageDescription  ) 
 import qualified CabalToDhall as Dhall ( cabalToDhall )
 import DhallLocation ( dhallFromGitHub )
@@ -166,7 +163,7 @@ parseAndCache dhallFilePath src = do
 
 
 parseAndHash :: FilePath -> StrictText.Text
-             -> IO ( Crypto.Hash.Digest Crypto.Hash.SHA256
+             -> IO ( Dhall.Crypto.SHA256Digest
                    , Dhall.Expr Dhall.Src Dhall.X
                    ) 
 parseAndHash dhallFilePath src = do
@@ -177,12 +174,12 @@ parseAndHash dhallFilePath src = do
   expr  <- Dhall.inputExprWithSettings settings src
 
   let normExpr = Dhall.alphaNormalize expr
-      hash = Dhall.hashExpression Dhall.defaultStandardVersion normExpr
+      hash = Dhall.hashExpression normExpr
 
   return ( hash, normExpr )
 
 
-cacheAndExtract :: Crypto.Hash.Digest Crypto.Hash.SHA256
+cacheAndExtract :: Dhall.Crypto.SHA256Digest
                 -> Dhall.Expr Dhall.Src Dhall.X
                 -> FilePath
                 -> IO GenericPackageDescription
@@ -202,36 +199,22 @@ extract expr = do
 
   _ <- throws ( Dhall.typeWith Dhall.Context.empty annot )
 
-  return $ fixGPDConstraints ( fromMaybe
-                               ( error "Empty extracted GenericPackageDescription" )
-                               ( extract expr ) )
+  case extract expr of
+    Success x -> return ( fixGPDConstraints x ) 
+    Failure e -> Control.Exception.throwIO e
 
   where throws = either Control.Exception.throwIO return
 
 
-writeDhallToCache :: Crypto.Hash.Digest Crypto.Hash.SHA256
+-- TODO: Try to not recompute hash
+writeDhallToCache :: Dhall.Crypto.SHA256Digest
                   -> Dhall.Expr Dhall.Src Dhall.X
                   -> IO ()
-writeDhallToCache hash expr  = do
-  let status =
-        Lens.set
-          Dhall.Import.standardVersion
-          Dhall.defaultStandardVersion (Dhall.emptyStatus ".")
-      newImportHashed =
-        Dhall.ImportHashed
-          { Dhall.hash = Just hash
-          , Dhall.importType = Dhall.Missing
-          }
-      newImport =
-        Dhall.Import
-          { Dhall.importHashed = newImportHashed
-          , Dhall.importMode = Dhall.Code
-          }
-
-  State.evalStateT (Dhall.exprToImport newImport expr) status
+writeDhallToCache _hash expr  = do
+  Dhall.writeExpressionToSemanticCache expr
 
 
-writeFileWithDhallHash :: Crypto.Hash.Digest Crypto.Hash.SHA256
+writeFileWithDhallHash :: Dhall.Crypto.SHA256Digest
                        -> FilePath -> IO ()
 writeFileWithDhallHash hash dhallFilePath = do
   path <- getFileWithDhallHashFilePath dhallFilePath
@@ -272,9 +255,9 @@ writeAndFreezeCabalToDhall verbosity path cabal = do
   info verbosity $ "Writing dhall file: " ++ path
   StrictText.writeFile path ( cabalToDhall cabal )
   info verbosity $ "Formatting dhall file..."
-  Dhall.format (Dhall.Format Dhall.Unicode ( Dhall.Modify ( Just path ) ))
+  Dhall.format (Dhall.Format Dhall.Unicode Dhall.NoCensor ( Dhall.Modify ( Dhall.File  path ) ) )
   info verbosity $ "Freezing dhall file..."
-  Dhall.freeze ( Just path ) True Dhall.Unicode Dhall.defaultStandardVersion 
+  Dhall.freeze ( Dhall.File path ) Dhall.AllImports Dhall.Secure Dhall.Unicode Dhall.NoCensor 
   
 cabalToDhall :: String -> Dhall.Text
 cabalToDhall cabal = Dhall.pretty dhallExpr
